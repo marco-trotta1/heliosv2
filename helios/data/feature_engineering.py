@@ -1,0 +1,72 @@
+from __future__ import annotations
+
+from typing import Iterable
+
+import pandas as pd
+
+from helios.utils.evapotranspiration import estimate_reference_et_mm
+
+
+TARGET_COLUMNS = [
+    "target_moisture_24h",
+    "target_moisture_48h",
+    "target_moisture_72h",
+]
+
+CATEGORICAL_COLUMNS = [
+    "soil_texture",
+    "drainage_class",
+    "irrigation_type",
+    "growth_stage",
+    "crop_type",
+]
+
+
+def _one_hot_encode(df: pd.DataFrame) -> pd.DataFrame:
+    encoded = pd.get_dummies(df, columns=[col for col in CATEGORICAL_COLUMNS if col in df.columns], dtype=float)
+    return encoded
+
+
+def _ensure_reference_et(df: pd.DataFrame) -> pd.DataFrame:
+    enriched = df.copy()
+    if "reference_et_mm" not in enriched.columns:
+        enriched["reference_et_mm"] = enriched.apply(
+            lambda row: estimate_reference_et_mm(
+                temperature_c=float(row["rolling_temp_mean"]),
+                humidity_pct=float(row["rolling_humidity_mean"]),
+                wind_mps=float(row["wind_mps"]),
+                solar_radiation_mj_m2=float(row["rolling_solar_mean"]),
+            ),
+            axis=1,
+        )
+    return enriched
+
+
+def _drop_non_feature_columns(df: pd.DataFrame) -> pd.DataFrame:
+    return df.drop(columns=[col for col in ["field_id"] if col in df.columns], errors="ignore")
+
+
+def build_training_features(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    working = _drop_non_feature_columns(df.copy())
+    working = _ensure_reference_et(working)
+    targets = working[TARGET_COLUMNS].copy()
+    features = working.drop(columns=TARGET_COLUMNS, errors="ignore")
+    features = _one_hot_encode(features)
+    return features, targets
+
+
+def build_inference_features(raw_df: pd.DataFrame) -> pd.DataFrame:
+    working = _drop_non_feature_columns(raw_df.copy())
+    working = _ensure_reference_et(working)
+    return _one_hot_encode(working)
+
+
+def prepare_feature_matrix(df: pd.DataFrame, feature_columns: Iterable[str] | None = None) -> pd.DataFrame:
+    matrix = df.copy()
+    if feature_columns is None:
+        return matrix
+
+    ordered = pd.DataFrame(index=matrix.index)
+    for column in feature_columns:
+        ordered[column] = matrix[column] if column in matrix.columns else 0.0
+    return ordered.fillna(0.0)

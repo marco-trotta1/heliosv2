@@ -1,0 +1,245 @@
+:root {
+  --bg: #f3efe3;
+  --bg-accent: #d7e6cf;
+  --ink: #162114;
+  --muted: #4a5c45;
+  --panel: rgba(255, 252, 245, 0.88);
+  --line: rgba(22, 33, 20, 0.12);
+  --highlight: #294f2d;
+  --highlight-soft: #dfead8;
+  --shadow: 0 24px 60px rgba(22, 33, 20, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.7), transparent 28%),
+    linear-gradient(135deg, var(--bg) 0%, #e3dfd1 44%, var(--bg-accent) 100%);
+  font-family: "Avenir Next", "Trebuchet MS", sans-serif;
+}
+
+.page-shell {
+  width: min(1400px, calc(100vw - 32px));
+  margin: 24px auto 32px;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: 1.4fr 0.8fr;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.hero-copy,
+.hero-card,
+.sidebar,
+.viewer-panel {
+  border: 1px solid var(--line);
+  border-radius: 28px;
+  background: var(--panel);
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow);
+}
+
+.hero-copy {
+  padding: 32px;
+}
+
+.eyebrow,
+.card-label {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.hero-copy h1,
+.viewer-toolbar h2,
+.sidebar-header h2 {
+  margin: 0;
+  font-family: "Iowan Old Style", "Palatino Linotype", serif;
+}
+
+.hero-copy h1 {
+  font-size: clamp(2.4rem, 4vw, 4.2rem);
+  line-height: 0.95;
+  max-width: 10ch;
+}
+
+.lede {
+  max-width: 62ch;
+  margin: 16px 0 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.hero-meta span,
+#copy-button,
+.file-button {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.hero-meta span {
+  padding: 8px 12px;
+  font-size: 0.9rem;
+}
+
+.hero-card {
+  padding: 28px;
+  background:
+    linear-gradient(180deg, rgba(41, 79, 45, 0.12), rgba(255, 255, 255, 0.74)),
+    var(--panel);
+}
+
+.hero-card pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font: 600 1rem/1.55 "SFMono-Regular", "Menlo", monospace;
+  color: var(--highlight);
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 24px;
+}
+
+.sidebar {
+  padding: 18px;
+  min-height: 70vh;
+}
+
+.sidebar-header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+#file-search {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--ink);
+  font: inherit;
+}
+
+.file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: calc(70vh - 80px);
+  overflow: auto;
+  padding-right: 6px;
+}
+
+.file-button {
+  width: 100%;
+  padding: 12px 14px;
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+  font: 500 0.94rem/1.35 "SFMono-Regular", "Menlo", monospace;
+}
+
+.file-button:hover,
+.file-button:focus-visible {
+  transform: translateX(4px);
+  background: var(--highlight-soft);
+  border-color: rgba(41, 79, 45, 0.35);
+  outline: none;
+}
+
+.file-button.active {
+  background: var(--highlight);
+  color: #f5f1e6;
+  border-color: transparent;
+}
+
+.viewer-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 70vh;
+  overflow: hidden;
+}
+
+.viewer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 24px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.viewer-toolbar h2 {
+  font-size: clamp(1.2rem, 2vw, 2rem);
+}
+
+#copy-button {
+  padding: 10px 16px;
+  color: var(--ink);
+  cursor: pointer;
+  font: 600 0.92rem/1 "Avenir Next", "Trebuchet MS", sans-serif;
+}
+
+.code-frame {
+  margin: 0;
+  padding: 24px;
+  overflow: auto;
+  font: 0.94rem/1.65 "SFMono-Regular", "Menlo", monospace;
+  color: #f7f5ef;
+  background:
+    linear-gradient(180deg, rgba(8, 18, 13, 0.94), rgba(25, 45, 31, 0.98));
+  min-height: 0;
+  flex: 1;
+}
+
+#code-content {
+  white-space: pre;
+}
+
+@media (max-width: 960px) {
+  .hero,
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .page-shell {
+    width: min(100vw - 20px, 1400px);
+    margin: 10px auto 20px;
+  }
+
+  .sidebar,
+  .viewer-panel {
+    min-height: auto;
+  }
+
+  .file-list {
+    max-height: 280px;
+  }
+
+  .viewer-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

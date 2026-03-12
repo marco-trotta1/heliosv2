@@ -1,0 +1,32 @@
+{
+  "files": [
+    ".gitignore",
+    "README.md",
+    "requirements.txt",
+    "helios/__init__.py",
+    "helios/api/__init__.py",
+    "helios/api/main.py",
+    "helios/api/routes.py",
+    "helios/data/__init__.py",
+    "helios/data/feature_engineering.py",
+    "helios/data/ingestion.py",
+    "helios/database/__init__.py",
+    "helios/database/db.py",
+    "helios/models/__init__.py",
+    "helios/models/moisture_model.py",
+    "helios/models/train_model.py",
+    "helios/optimizer/__init__.py",
+    "helios/optimizer/irrigation_optimizer.py",
+    "helios/schemas/__init__.py",
+    "helios/schemas/inputs.py",
+    "helios/schemas/outputs.py",
+    "helios/scripts/__init__.py",
+    "helios/scripts/generate_sample_data.py",
+    "helios/services/__init__.py",
+    "helios/services/recommendation_service.py",
+    "helios/utils/__init__.py",
+    "helios/utils/evapotranspiration.py",
+    "helios/utils/weather_api.py",
+    "notebooks/helios_demo.ipynb"
+  ]
+}

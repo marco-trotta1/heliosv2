@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Helios Repository Viewer</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Irrigant Platform</p>
+          <h1>Helios GitHub Repository</h1>
+          <p class="lede">
+            This Pages view reads the actual repository files and lets you inspect the
+            prototype codebase in-browser.
+          </p>
+          <div class="hero-meta">
+            <span>FastAPI</span>
+            <span>LightGBM</span>
+            <span>SQLite</span>
+            <span>Python 3.11</span>
+          </div>
+        </div>
+        <div class="hero-card">
+          <p class="card-label">Repository Layout</p>
+          <pre>helios/
+api/
+data/
+database/
+models/
+optimizer/
+schemas/
+scripts/
+services/
+utils/</pre>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <aside class="sidebar">
+          <div class="sidebar-header">
+            <h2>Files</h2>
+            <input id="file-search" type="search" placeholder="Filter files" />
+          </div>
+          <nav id="file-list" class="file-list" aria-label="Repository files"></nav>
+        </aside>
+
+        <section class="viewer-panel">
+          <div class="viewer-toolbar">
+            <div>
+              <p class="card-label">Current File</p>
+              <h2 id="active-file">Loading…</h2>
+            </div>
+            <button id="copy-button" type="button">Copy File</button>
+          </div>
+          <pre class="code-frame"><code id="code-content">Loading repository contents…</code></pre>
+        </section>
+      </main>
+    </div>
+
+    <script src="viewer.js" type="module"></script>
+  </body>
+</html>

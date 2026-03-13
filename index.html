@@ -3,59 +3,313 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Helios Repository Viewer</title>
+    <title>Helios Irrigation Copilot</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <div class="page-shell">
       <header class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">Irrigant Platform</p>
-          <h1>Helios GitHub Repository</h1>
+          <p class="eyebrow">Irrigant Platform • GitHub Pages MVP</p>
+          <h1>Helios Irrigation Copilot</h1>
           <p class="lede">
-            This Pages view reads the actual repository files and lets you inspect the
-            prototype codebase in-browser.
+            Predict the next 72 hours of field moisture, score crop stress risk, and get a
+            direct irrigation recommendation instantly in the browser.
           </p>
           <div class="hero-meta">
-            <span>FastAPI</span>
-            <span>LightGBM</span>
-            <span>SQLite</span>
-            <span>Python 3.11</span>
+            <span>72h forecast</span>
+            <span>stress scoring</span>
+            <span>timing optimizer</span>
+            <span>works on Pages</span>
+          </div>
+          <div class="hero-actions">
+            <button class="hero-button primary" data-preset="heatwave" type="button">Load Heat Wave</button>
+            <button class="hero-button" data-preset="balanced" type="button">Load Balanced Day</button>
+            <button class="hero-button" data-preset="rain" type="button">Load Rain Coming</button>
           </div>
         </div>
-        <div class="hero-card">
-          <p class="card-label">Repository Layout</p>
-          <pre>helios/
-api/
-data/
-database/
-models/
-optimizer/
-schemas/
-scripts/
-services/
-utils/</pre>
-        </div>
+        <aside class="hero-card">
+          <p class="card-label">Live Recommendation</p>
+          <div class="headline-decision" id="hero-decision">Calculating</div>
+          <div class="hero-kpis">
+            <div>
+              <span>Amount</span>
+              <strong id="hero-amount">--</strong>
+            </div>
+            <div>
+              <span>Window</span>
+              <strong id="hero-window">--</strong>
+            </div>
+            <div>
+              <span>Confidence</span>
+              <strong id="hero-confidence">--</strong>
+            </div>
+          </div>
+          <p class="hero-summary" id="hero-summary">
+            Enter field conditions to generate a recommendation.
+          </p>
+        </aside>
       </header>
 
       <main class="workspace">
-        <aside class="sidebar">
-          <div class="sidebar-header">
-            <h2>Files</h2>
-            <input id="file-search" type="search" placeholder="Filter files" />
-          </div>
-          <nav id="file-list" class="file-list" aria-label="Repository files"></nav>
-        </aside>
-
-        <section class="viewer-panel">
-          <div class="viewer-toolbar">
-            <div>
-              <p class="card-label">Current File</p>
-              <h2 id="active-file">Loading…</h2>
+        <form id="helios-form" class="control-panel">
+          <section class="panel-card">
+            <div class="section-header">
+              <p class="card-label">Field Profile</p>
+              <h2>Crop and Soil</h2>
             </div>
-            <button id="copy-button" type="button">Copy File</button>
-          </div>
-          <pre class="code-frame"><code id="code-content">Loading repository contents…</code></pre>
+            <div class="form-grid">
+              <label>
+                Field name
+                <input name="fieldName" type="text" value="North Pivot 7" />
+              </label>
+              <label>
+                Field area (ha)
+                <input name="fieldAreaHa" type="number" min="1" step="0.1" value="24" />
+              </label>
+              <label>
+                Crop type
+                <select name="cropType">
+                  <option value="corn">Corn</option>
+                  <option value="soybean">Soybean</option>
+                  <option value="potato">Potato</option>
+                  <option value="alfalfa">Alfalfa</option>
+                  <option value="wheat">Wheat</option>
+                </select>
+              </label>
+              <label>
+                Growth stage
+                <select name="growthStage">
+                  <option value="emergence">Emergence</option>
+                  <option value="vegetative">Vegetative</option>
+                  <option value="flowering" selected>Flowering</option>
+                  <option value="grain_fill">Grain fill</option>
+                  <option value="maturity">Maturity</option>
+                </select>
+              </label>
+              <label>
+                Soil texture
+                <select name="soilTexture">
+                  <option value="sand">Sand</option>
+                  <option value="loam" selected>Loam</option>
+                  <option value="clay">Clay</option>
+                </select>
+              </label>
+              <label>
+                Drainage
+                <select name="drainageClass">
+                  <option value="poor">Poor</option>
+                  <option value="moderate" selected>Moderate</option>
+                  <option value="well">Well drained</option>
+                </select>
+              </label>
+              <label>
+                Infiltration rate (mm/hr)
+                <input name="infiltrationRate" type="number" min="1" step="0.1" value="12" />
+              </label>
+              <label>
+                Slope (%)
+                <input name="slopePct" type="number" min="0" step="0.1" value="2.5" />
+              </label>
+            </div>
+          </section>
+
+          <section class="panel-card">
+            <div class="section-header">
+              <p class="card-label">Sensor Feed</p>
+              <h2>Moisture and Weather</h2>
+            </div>
+            <div class="form-grid">
+              <label>
+                Current soil moisture
+                <input name="currentMoisture" type="number" min="0.05" max="0.6" step="0.01" value="0.2" />
+              </label>
+              <label>
+                6h ago moisture
+                <input name="lagOneMoisture" type="number" min="0.05" max="0.6" step="0.01" value="0.21" />
+              </label>
+              <label>
+                12h ago moisture
+                <input name="lagTwoMoisture" type="number" min="0.05" max="0.6" step="0.01" value="0.22" />
+              </label>
+              <label>
+                Temperature (C)
+                <input name="temperatureC" type="number" step="0.1" value="31" />
+              </label>
+              <label>
+                Humidity (%)
+                <input name="humidityPct" type="number" min="0" max="100" step="1" value="38" />
+              </label>
+              <label>
+                Wind (m/s)
+                <input name="windMps" type="number" min="0" step="0.1" value="3.8" />
+              </label>
+              <label>
+                Forecast precipitation (mm)
+                <input name="precipitationMm" type="number" min="0" step="0.1" value="0" />
+              </label>
+              <label>
+                Solar radiation (MJ/m2)
+                <input name="solarRadiationMjM2" type="number" min="0" step="0.1" value="24" />
+              </label>
+            </div>
+          </section>
+
+          <section class="panel-card">
+            <div class="section-header">
+              <p class="card-label">Operations</p>
+              <h2>Irrigation Constraints</h2>
+            </div>
+            <div class="form-grid">
+              <label>
+                Irrigation type
+                <select name="irrigationType">
+                  <option value="pivot" selected>Pivot</option>
+                  <option value="drip">Drip</option>
+                  <option value="flood">Flood</option>
+                </select>
+              </label>
+              <label>
+                Pump capacity (mm/hr)
+                <input name="pumpCapacity" type="number" min="0.5" step="0.1" value="6" />
+              </label>
+              <label>
+                Max irrigation volume (mm)
+                <input name="maxIrrigationVolume" type="number" min="0" step="0.1" value="18" />
+              </label>
+              <label>
+                Available budget ($)
+                <input name="budgetDollars" type="number" min="0" step="1" value="2800" />
+              </label>
+              <label>
+                Irrigation applied in last 24h (mm)
+                <input name="recentIrrigation24h" type="number" min="0" step="0.1" value="8" />
+              </label>
+              <label>
+                Irrigation applied in last 72h (mm)
+                <input name="recentIrrigation72h" type="number" min="0" step="0.1" value="12" />
+              </label>
+            </div>
+            <div class="window-grid">
+              <fieldset class="toggle-group">
+                <legend>Water rights schedule</legend>
+                <label><input type="checkbox" name="waterWindow" value="tonight" checked />Tonight</label>
+                <label><input type="checkbox" name="waterWindow" value="tomorrow_morning" checked />Tomorrow morning</label>
+                <label><input type="checkbox" name="waterWindow" value="tomorrow_afternoon" />Tomorrow afternoon</label>
+                <label><input type="checkbox" name="waterWindow" value="tomorrow_night" />Tomorrow night</label>
+              </fieldset>
+              <fieldset class="toggle-group">
+                <legend>Lower-cost energy windows</legend>
+                <label><input type="checkbox" name="energyWindow" value="tonight" checked />Tonight</label>
+                <label><input type="checkbox" name="energyWindow" value="tomorrow_morning" />Tomorrow morning</label>
+                <label><input type="checkbox" name="energyWindow" value="tomorrow_afternoon" />Tomorrow afternoon</label>
+                <label><input type="checkbox" name="energyWindow" value="tomorrow_night" checked />Tomorrow night</label>
+              </fieldset>
+            </div>
+            <div class="form-actions">
+              <button class="action-button primary" type="submit">Generate Recommendation</button>
+              <button class="action-button" id="save-scenario" type="button">Save Scenario</button>
+            </div>
+          </section>
+        </form>
+
+        <section class="insights-panel">
+          <section class="metrics-grid">
+            <article class="metric-card">
+              <p class="card-label">Decision</p>
+              <h2 id="decision-output">--</h2>
+              <p id="decision-detail" class="metric-detail">Waiting for a field scenario.</p>
+            </article>
+            <article class="metric-card">
+              <p class="card-label">Recommended amount</p>
+              <h2 id="amount-output">--</h2>
+              <p class="metric-detail">Application depth in millimeters.</p>
+            </article>
+            <article class="metric-card">
+              <p class="card-label">Best timing window</p>
+              <h2 id="window-output">--</h2>
+              <p class="metric-detail">Best overlap between availability and energy cost.</p>
+            </article>
+            <article class="metric-card">
+              <p class="card-label">Confidence</p>
+              <h2 id="confidence-output">--</h2>
+              <p class="metric-detail">Forecast + rule confidence heuristic.</p>
+            </article>
+          </section>
+
+          <section class="insight-row">
+            <article class="panel-card chart-card">
+              <div class="section-header">
+                <p class="card-label">Trajectory</p>
+                <h2>Soil Moisture Forecast</h2>
+              </div>
+              <div class="chart-wrapper">
+                <svg id="forecast-chart" viewBox="0 0 640 280" role="img" aria-label="Forecast soil moisture chart"></svg>
+              </div>
+            </article>
+
+            <article class="panel-card explanation-card">
+              <div class="section-header">
+                <p class="card-label">Risk Readout</p>
+                <h2>Why Helios Chose This</h2>
+              </div>
+              <div class="risk-stack">
+                <div class="risk-meter">
+                  <div class="meter-header">
+                    <span>Stress probability</span>
+                    <strong id="stress-output">--</strong>
+                  </div>
+                  <div class="meter-track"><span id="stress-fill"></span></div>
+                </div>
+                <div class="risk-meter">
+                  <div class="meter-header">
+                    <span>Reference ET</span>
+                    <strong id="et-output">--</strong>
+                  </div>
+                  <div class="meter-track muted"><span id="et-fill"></span></div>
+                </div>
+              </div>
+              <div class="forecast-grid">
+                <div><span>24h</span><strong id="forecast-24">--</strong></div>
+                <div><span>48h</span><strong id="forecast-48">--</strong></div>
+                <div><span>72h</span><strong id="forecast-72">--</strong></div>
+              </div>
+              <ul id="drivers-list" class="drivers-list"></ul>
+              <p id="recommendation-summary" class="summary-block"></p>
+            </article>
+          </section>
+
+          <section class="insight-row">
+            <article class="panel-card">
+              <div class="section-header">
+                <p class="card-label">Recent Saves</p>
+                <h2>Scenario History</h2>
+              </div>
+              <div id="history-list" class="history-list"></div>
+            </article>
+
+            <article class="panel-card">
+              <div class="section-header">
+                <p class="card-label">Deployment</p>
+                <h2>How This MVP Works</h2>
+              </div>
+              <div class="stack-copy">
+                <p>
+                  This GitHub Pages app runs a browser-based version of the Helios
+                  recommendation engine. It mirrors the prototype’s evapotranspiration,
+                  stress scoring, and irrigation optimization logic so growers can use it
+                  instantly without a backend.
+                </p>
+                <p>
+                  For production, this frontend can connect to the FastAPI backend and the
+                  trained LightGBM model already included in the repository.
+                </p>
+                <a class="repo-link" href="https://github.com/marco-trotta1/heliosv2" target="_blank" rel="noreferrer">
+                  Open GitHub repository
+                </a>
+              </div>
+            </article>
+          </section>
         </section>
       </main>
     </div>

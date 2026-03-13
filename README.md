@@ -163,16 +163,16 @@ The notebook visualizes:
 - `helios/database/db.py` can be swapped for a managed database later.
 - FastAPI routes are ready for cloud deployment once infrastructure is added.
 
-## GitHub Pages Repo View
+## GitHub Pages MVP
 
-This repository includes a root `index.html` viewer so GitHub Pages can render the codebase directly from the repository.
+This repository includes a root `index.html` application so GitHub Pages can serve a browser-based Helios irrigation decision tool.
 
 To publish it:
 
 1. Push the repository to GitHub.
 2. In the GitHub repo settings, enable GitHub Pages.
 3. Set the source to the `main` branch and the `/ (root)` folder.
-4. Open the published Pages URL to browse the repository files in the built-in viewer.
+4. Open the published Pages URL to use the interactive MVP.
 
 ## Limitations
 

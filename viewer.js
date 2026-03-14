@@ -36,42 +36,88 @@ const DRAINAGE_FACTOR = {
   well: 1.12,
 };
 
+const PAGE_TITLES = {
+  dashboard: "Dashboard",
+  "run-analysis": "Run Analysis",
+  history: "History",
+  saved: "Saved Runs",
+  settings: "Settings",
+};
+
+const NAV_ITEMS = [
+  { id: "dashboard", label: "Dashboard", icon: "layout" },
+  { id: "run-analysis", label: "Run Analysis", icon: "sparkles" },
+  { id: "history", label: "History", icon: "history" },
+  { id: "saved", label: "Saved Runs", icon: "bookmark" },
+  { id: "settings", label: "Settings", icon: "settings" },
+];
+
+const RUN_HISTORY_KEY = "helios-pages-history";
+const SAVED_RUNS_KEY = "helios-pages-saved-runs";
+const THEME_KEY = "helios-dashboard-theme";
+
+const DEFAULT_FORM = {
+  analysisPrompt:
+    "Review the next 72 hours of moisture risk and recommend whether this field should be irrigated now or held.",
+  model: "Helios Core",
+  autoSave: false,
+  includeNotes: true,
+  fieldName: "North Pivot 7",
+  fieldAreaHa: 24,
+  cropType: "corn",
+  growthStage: "flowering",
+  soilTexture: "loam",
+  drainageClass: "moderate",
+  infiltrationRate: 12,
+  slopePct: 2.5,
+  currentMoisture: 0.2,
+  lagOneMoisture: 0.21,
+  lagTwoMoisture: 0.22,
+  temperatureC: 31,
+  humidityPct: 38,
+  windMps: 3.8,
+  precipitationMm: 0,
+  solarRadiationMjM2: 24,
+  irrigationType: "pivot",
+  pumpCapacity: 6,
+  maxIrrigationVolume: 18,
+  budgetDollars: 2800,
+  recentIrrigation24h: 8,
+  recentIrrigation72h: 12,
+  waterWindow: ["tonight", "tomorrow_morning"],
+  energyWindow: ["tonight", "tomorrow_night"],
+};
+
 const PRESETS = {
   heatwave: {
+    ...DEFAULT_FORM,
+    analysisPrompt:
+      "Assess a heat-wave scenario. Prioritize yield protection and the cheapest feasible irrigation window.",
     fieldName: "North Pivot 7",
-    fieldAreaHa: 24,
-    cropType: "corn",
-    growthStage: "flowering",
-    soilTexture: "loam",
-    drainageClass: "moderate",
-    infiltrationRate: 12,
-    slopePct: 2.5,
-    currentMoisture: 0.2,
-    lagOneMoisture: 0.21,
-    lagTwoMoisture: 0.22,
     temperatureC: 34,
     humidityPct: 26,
     windMps: 4.6,
     precipitationMm: 0,
     solarRadiationMjM2: 28,
-    irrigationType: "pivot",
-    pumpCapacity: 6,
-    maxIrrigationVolume: 18,
-    budgetDollars: 3000,
+    currentMoisture: 0.2,
+    lagOneMoisture: 0.21,
+    lagTwoMoisture: 0.22,
     recentIrrigation24h: 6,
     recentIrrigation72h: 10,
+    budgetDollars: 3000,
     waterWindow: ["tonight", "tomorrow_morning"],
     energyWindow: ["tonight"],
   },
   balanced: {
+    ...DEFAULT_FORM,
+    analysisPrompt:
+      "Check whether the field can safely wait through a mild day while preserving water and energy budget.",
+    model: "Helios Balanced",
     fieldName: "South Bench 2",
     fieldAreaHa: 18,
     cropType: "soybean",
     growthStage: "vegetative",
-    soilTexture: "loam",
-    drainageClass: "moderate",
-    infiltrationRate: 11,
-    slopePct: 1.7,
+    irrigationType: "drip",
     currentMoisture: 0.27,
     lagOneMoisture: 0.275,
     lagTwoMoisture: 0.278,
@@ -80,7 +126,6 @@ const PRESETS = {
     windMps: 2.8,
     precipitationMm: 2.8,
     solarRadiationMjM2: 21,
-    irrigationType: "drip",
     pumpCapacity: 4.5,
     maxIrrigationVolume: 12,
     budgetDollars: 2200,
@@ -90,6 +135,10 @@ const PRESETS = {
     energyWindow: ["tomorrow_morning"],
   },
   rain: {
+    ...DEFAULT_FORM,
+    analysisPrompt:
+      "Forecast whether incoming rain and higher retained soil water are enough to skip the next irrigation cycle.",
+    model: "Helios Conservative",
     fieldName: "Creek Flat 3",
     fieldAreaHa: 31,
     cropType: "potato",
@@ -106,7 +155,6 @@ const PRESETS = {
     windMps: 2.2,
     precipitationMm: 11,
     solarRadiationMjM2: 16,
-    irrigationType: "pivot",
     pumpCapacity: 5.8,
     maxIrrigationVolume: 16,
     budgetDollars: 3200,
@@ -117,32 +165,74 @@ const PRESETS = {
   },
 };
 
-const HISTORY_KEY = "helios-pages-history";
+const app = document.querySelector("#app");
 
-const form = document.querySelector("#helios-form");
-const presetButtons = document.querySelectorAll("[data-preset]");
-const heroDecision = document.querySelector("#hero-decision");
-const heroAmount = document.querySelector("#hero-amount");
-const heroWindow = document.querySelector("#hero-window");
-const heroConfidence = document.querySelector("#hero-confidence");
-const heroSummary = document.querySelector("#hero-summary");
-const decisionOutput = document.querySelector("#decision-output");
-const decisionDetail = document.querySelector("#decision-detail");
-const amountOutput = document.querySelector("#amount-output");
-const windowOutput = document.querySelector("#window-output");
-const confidenceOutput = document.querySelector("#confidence-output");
-const stressOutput = document.querySelector("#stress-output");
-const etOutput = document.querySelector("#et-output");
-const forecast24 = document.querySelector("#forecast-24");
-const forecast48 = document.querySelector("#forecast-48");
-const forecast72 = document.querySelector("#forecast-72");
-const stressFill = document.querySelector("#stress-fill");
-const etFill = document.querySelector("#et-fill");
-const driversList = document.querySelector("#drivers-list");
-const recommendationSummaryNode = document.querySelector("#recommendation-summary");
-const chart = document.querySelector("#forecast-chart");
-const historyList = document.querySelector("#history-list");
-const saveScenarioButton = document.querySelector("#save-scenario");
+const state = {
+  activePage: "run-analysis",
+  theme: localStorage.getItem(THEME_KEY) || "dark",
+  form: { ...DEFAULT_FORM },
+  runHistory: loadStoredArray(RUN_HISTORY_KEY),
+  savedRuns: loadStoredArray(SAVED_RUNS_KEY),
+  latestRun: null,
+};
+
+if (state.runHistory.length > 0) {
+  state.latestRun = state.runHistory[0];
+}
+
+applyTheme();
+renderApp();
+
+function loadStoredArray(key) {
+  try {
+    const value = window.localStorage.getItem(key);
+    return value ? JSON.parse(value).map(normalizeRun).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+function normalizeRun(run) {
+  if (!run || typeof run !== "object") {
+    return null;
+  }
+  const inputSnapshot = run.inputSnapshot || {
+    fieldName: run.fieldName || "Untitled field",
+  };
+  const predicted = run.predicted || {
+    moisture24h: 0,
+    moisture48h: 0,
+    moisture72h: 0,
+  };
+  const normalized = {
+    id: run.id || `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    title: run.title || `${inputSnapshot.fieldName} • Run Analysis`,
+    timestamp: run.timestamp || new Date().toISOString(),
+    prompt: run.prompt || "",
+    decision: run.decision || "wait",
+    recommendedAmountMm: Number(run.recommendedAmountMm || 0),
+    timingWindow: run.timingWindow || "monitor next forecast cycle",
+    confidenceScore: Number(run.confidenceScore || 0),
+    stressProbability: Number(run.stressProbability || 0),
+    estimatedEtMm: Number(run.estimatedEtMm || 0),
+    predicted,
+    drivers: Array.isArray(run.drivers) ? run.drivers : [],
+    summary: run.summary || "",
+    inputSnapshot,
+  };
+  normalized.copyText = run.copyText || serializeRunForCopy(normalized);
+  return normalized;
+}
+
+function persistState() {
+  window.localStorage.setItem(RUN_HISTORY_KEY, JSON.stringify(state.runHistory));
+  window.localStorage.setItem(SAVED_RUNS_KEY, JSON.stringify(state.savedRuns));
+  window.localStorage.setItem(THEME_KEY, state.theme);
+}
+
+function applyTheme() {
+  document.body.classList.toggle("theme-light", state.theme === "light");
+}
 
 function round(value, decimals = 1) {
   return Number(value.toFixed(decimals));
@@ -152,46 +242,72 @@ function clip(value, minimum, maximum) {
   return Math.min(maximum, Math.max(minimum, value));
 }
 
+function formatPercent(value) {
+  return `${Math.round(value * 100)}%`;
+}
+
+function formatWindow(value) {
+  return value.replaceAll("_", " ");
+}
+
+function formatTimestamp(value) {
+  return new Date(value).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function icon(name, className = "h-5 w-5") {
+  const icons = {
+    layout:
+      `<svg class="${className}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>`,
+    sparkles:
+      `<svg class="${className}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8L12 3z"/><path d="M19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9L19 14z"/><path d="M5 14l.7 1.6L7.3 16l-1.6.7L5 18.3l-.7-1.6L2.7 16l1.6-.4L5 14z"/></svg>`,
+    history:
+      `<svg class="${className}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg>`,
+    bookmark:
+      `<svg class="${className}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 4h12a1 1 0 0 1 1 1v15l-7-4-7 4V5a1 1 0 0 1 1-1z"/></svg>`,
+    settings:
+      `<svg class="${className}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7z"/><path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.06.06a2 2 0 1 1-2.82 2.82l-.06-.06a1.8 1.8 0 0 0-1.98-.36 1.8 1.8 0 0 0-1.1 1.64V21a2 2 0 1 1-4 0v-.09a1.8 1.8 0 0 0-1.1-1.64 1.8 1.8 0 0 0-1.98.36l-.06.06a2 2 0 1 1-2.82-2.82l.06-.06A1.8 1.8 0 0 0 4.6 15a1.8 1.8 0 0 0-1.64-1.1H2.9a2 2 0 1 1 0-4h.09a1.8 1.8 0 0 0 1.64-1.1 1.8 1.8 0 0 0-.36-1.98l-.06-.06A2 2 0 1 1 7.03 4l.06.06a1.8 1.8 0 0 0 1.98.36h.01A1.8 1.8 0 0 0 10.18 2.8V2.7a2 2 0 1 1 4 0v.09a1.8 1.8 0 0 0 1.1 1.64 1.8 1.8 0 0 0 1.98-.36l.06-.06A2 2 0 1 1 20.14 7l-.06.06a1.8 1.8 0 0 0-.36 1.98v.01a1.8 1.8 0 0 0 1.64 1.1h.09a2 2 0 1 1 0 4h-.09a1.8 1.8 0 0 0-1.64 1.1z"/></svg>`,
+    github:
+      `<svg class="${className}" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.65.5.5 5.65.5 12A11.5 11.5 0 0 0 8.36 22.94c.58.11.79-.25.79-.56v-2.02c-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.29-1.69-1.29-1.69-1.05-.72.08-.71.08-.71 1.17.08 1.78 1.2 1.78 1.2 1.03 1.78 2.71 1.27 3.37.97.1-.75.4-1.27.73-1.57-2.55-.29-5.23-1.27-5.23-5.67 0-1.25.45-2.27 1.19-3.07-.12-.29-.52-1.46.11-3.04 0 0 .97-.31 3.18 1.18a10.92 10.92 0 0 1 5.8 0c2.21-1.5 3.18-1.18 3.18-1.18.63 1.58.23 2.75.11 3.04.74.8 1.19 1.82 1.19 3.07 0 4.41-2.69 5.37-5.25 5.66.41.36.77 1.06.77 2.14v3.18c0 .31.21.68.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>`,
+    sun:
+      `<svg class="${className}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 2v2.5M12 19.5V22M4.93 4.93l1.77 1.77M17.3 17.3l1.77 1.77M2 12h2.5M19.5 12H22M4.93 19.07l1.77-1.77M17.3 6.7l1.77-1.77"/></svg>`,
+    moon:
+      `<svg class="${className}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.79A9 9 0 0 1 11.21 3a7 7 0 1 0 9.79 9.79z"/></svg>`,
+    copy:
+      `<svg class="${className}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
+    check:
+      `<svg class="${className}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m5 13 4 4L19 7"/></svg>`,
+    user:
+      `<svg class="${className}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="4"/></svg>`,
+    chart:
+      `<svg class="${className}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg>`,
+  };
+  return icons[name] || "";
+}
+
+function classNames(...items) {
+  return items.filter(Boolean).join(" ");
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
 function estimateReferenceEtMm({ temperatureC, humidityPct, windMps, solarRadiationMjM2 }) {
   const humidityFactor = Math.max(0.1, 1 - (humidityPct / 100) * 0.65);
   const temperatureFactor = Math.max(0, (temperatureC + 5) / 25);
   const windFactor = 1 + Math.min(windMps, 12) * 0.08;
   const solarFactor = solarRadiationMjM2 * 0.11;
   return round(Math.max(0, solarFactor * humidityFactor * windFactor * temperatureFactor), 3);
-}
-
-function readCheckedValues(name) {
-  return [...form.querySelectorAll(`input[name="${name}"]:checked`)].map((input) => input.value);
-}
-
-function getInputs() {
-  const data = new FormData(form);
-  return {
-    fieldName: String(data.get("fieldName")),
-    fieldAreaHa: Number(data.get("fieldAreaHa")),
-    cropType: String(data.get("cropType")),
-    growthStage: String(data.get("growthStage")),
-    soilTexture: String(data.get("soilTexture")),
-    drainageClass: String(data.get("drainageClass")),
-    infiltrationRate: Number(data.get("infiltrationRate")),
-    slopePct: Number(data.get("slopePct")),
-    currentMoisture: Number(data.get("currentMoisture")),
-    lagOneMoisture: Number(data.get("lagOneMoisture")),
-    lagTwoMoisture: Number(data.get("lagTwoMoisture")),
-    temperatureC: Number(data.get("temperatureC")),
-    humidityPct: Number(data.get("humidityPct")),
-    windMps: Number(data.get("windMps")),
-    precipitationMm: Number(data.get("precipitationMm")),
-    solarRadiationMjM2: Number(data.get("solarRadiationMjM2")),
-    irrigationType: String(data.get("irrigationType")),
-    pumpCapacity: Number(data.get("pumpCapacity")),
-    maxIrrigationVolume: Number(data.get("maxIrrigationVolume")),
-    budgetDollars: Number(data.get("budgetDollars")),
-    recentIrrigation24h: Number(data.get("recentIrrigation24h")),
-    recentIrrigation72h: Number(data.get("recentIrrigation72h")),
-    waterWindow: readCheckedValues("waterWindow"),
-    energyWindow: readCheckedValues("energyWindow"),
-  };
 }
 
 function predictMoistureTrajectory(inputs, etMm) {
@@ -324,15 +440,9 @@ function buildDrivers(inputs, predicted, stressProbability, estimatedEtMm) {
   if (stressProbability > 0.8 && predicted.moisture72h < predicted.moisture24h) {
     drivers.push("The full 72-hour trend keeps moving drier.");
   }
-  return drivers.slice(0, 3).length > 0 ? drivers.slice(0, 3) : ["Conditions are stable enough to keep watching instead of watering now."];
-}
-
-function formatPercent(value) {
-  return `${Math.round(value * 100)}%`;
-}
-
-function formatWindow(value) {
-  return value.replaceAll("_", " ");
+  return drivers.slice(0, 3).length > 0
+    ? drivers.slice(0, 3)
+    : ["Conditions are stable enough to keep watching instead of watering now."];
 }
 
 function buildSummary(inputs, predicted, plan) {
@@ -343,78 +453,30 @@ function buildSummary(inputs, predicted, plan) {
   return `${inputs.fieldName} is forecast to move from ${inputs.currentMoisture.toFixed(2)} now to ${predicted.moisture48h.toFixed(2)} in 48 hours. ${action}`;
 }
 
-function renderChart(currentMoisture, predicted, thresholds) {
-  const points = [
-    { label: "Now", value: currentMoisture },
-    { label: "24h", value: predicted.moisture24h },
-    { label: "48h", value: predicted.moisture48h },
-    { label: "72h", value: predicted.moisture72h },
-  ];
-  const width = 640;
-  const height = 280;
-  const margin = { top: 24, right: 26, bottom: 48, left: 42 };
-  const innerWidth = width - margin.left - margin.right;
-  const innerHeight = height - margin.top - margin.bottom;
-  const minValue = 0.05;
-  const maxValue = 0.45;
-
-  const x = (index) => margin.left + (innerWidth / (points.length - 1)) * index;
-  const y = (value) => margin.top + (1 - (value - minValue) / (maxValue - minValue)) * innerHeight;
-  const linePoints = points.map((point, index) => `${x(index)},${y(point.value)}`).join(" ");
-  const areaPath = `${linePoints} ${x(points.length - 1)},${height - margin.bottom} ${x(0)},${height - margin.bottom}`;
-  const dryY = y(thresholds.dry);
-
-  chart.innerHTML = `
-    <line class="chart-grid-line" x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${height - margin.bottom}" />
-    <line class="chart-grid-line" x1="${margin.left}" y1="${height - margin.bottom}" x2="${width - margin.right}" y2="${height - margin.bottom}" />
-    <line class="chart-threshold" x1="${margin.left}" y1="${dryY}" x2="${width - margin.right}" y2="${dryY}" />
-    <text class="chart-axis-label" x="${width - margin.right - 82}" y="${dryY - 10}">Dry threshold</text>
-    <polygon class="chart-area" points="${areaPath}" />
-    <polyline class="chart-line" points="${linePoints}" />
-    ${points
-      .map(
-        (point, index) => `
-          <circle class="chart-point ${index === 0 ? "current" : ""}" cx="${x(index)}" cy="${y(point.value)}" r="7" />
-          <text class="chart-point-label" x="${x(index) - 10}" y="${height - 18}">${point.label}</text>
-          <text class="chart-point-label" x="${x(index) - 14}" y="${y(point.value) - 14}">${point.value.toFixed(2)}</text>
-        `,
-      )
-      .join("")}
-  `;
-}
-
-function updateOutputs(inputs, predicted, plan, estimatedEtMm, drivers) {
-  const summary = buildSummary(inputs, predicted, plan);
-  const decisionText = plan.decision === "water" ? "Water" : "Wait";
-  const decisionClass = plan.decision === "water" ? "alert" : "success";
-
-  heroDecision.textContent = decisionText;
-  heroDecision.className = `headline-decision ${decisionClass}`;
-  heroAmount.textContent = `${plan.recommendedAmountMm.toFixed(1)} mm`;
-  heroWindow.textContent = formatWindow(plan.timingWindow);
-  heroConfidence.textContent = formatPercent(plan.confidenceScore);
-  heroSummary.textContent = summary;
-
-  decisionOutput.textContent = decisionText;
-  decisionOutput.className = decisionClass;
-  decisionDetail.textContent = summary;
-  amountOutput.textContent = `${plan.recommendedAmountMm.toFixed(1)} mm`;
-  windowOutput.textContent = formatWindow(plan.timingWindow);
-  confidenceOutput.textContent = formatPercent(plan.confidenceScore);
-  stressOutput.textContent = formatPercent(plan.stressProbability);
-  etOutput.textContent = `${estimatedEtMm.toFixed(1)} mm/day`;
-  forecast24.textContent = predicted.moisture24h.toFixed(2);
-  forecast48.textContent = predicted.moisture48h.toFixed(2);
-  forecast72.textContent = predicted.moisture72h.toFixed(2);
-  stressFill.style.width = `${Math.round(plan.stressProbability * 100)}%`;
-  etFill.style.width = `${Math.min(100, Math.round((estimatedEtMm / 8) * 100))}%`;
-  driversList.innerHTML = drivers.map((driver) => `<li>${driver}</li>`).join("");
-  recommendationSummaryNode.textContent = summary;
-  renderChart(inputs.currentMoisture, predicted, plan.thresholds);
+function serializeRunForCopy(run) {
+  return [
+    `Run: ${run.title}`,
+    `Timestamp: ${formatTimestamp(run.timestamp)}`,
+    `Decision: ${run.decision.toUpperCase()}`,
+    `Recommended amount: ${run.recommendedAmountMm.toFixed(1)} mm`,
+    `Timing window: ${formatWindow(run.timingWindow)}`,
+    `Confidence: ${formatPercent(run.confidenceScore)}`,
+    `Stress probability: ${formatPercent(run.stressProbability)}`,
+    `Reference ET: ${run.estimatedEtMm.toFixed(1)} mm/day`,
+    `Forecast 24h: ${run.predicted.moisture24h.toFixed(2)}`,
+    `Forecast 48h: ${run.predicted.moisture48h.toFixed(2)}`,
+    `Forecast 72h: ${run.predicted.moisture72h.toFixed(2)}`,
+    "",
+    "Drivers:",
+    ...run.drivers.map((driver) => `- ${driver}`),
+    "",
+    "Prompt:",
+    run.prompt,
+  ].join("\n");
 }
 
 function evaluateScenario() {
-  const inputs = getInputs();
+  const inputs = { ...state.form };
   const estimatedEtMm = estimateReferenceEtMm(inputs);
   const predicted = predictMoistureTrajectory(inputs, estimatedEtMm);
   const thresholds = SOIL_THRESHOLDS[inputs.soilTexture] ?? SOIL_THRESHOLDS.loam;
@@ -427,97 +489,819 @@ function evaluateScenario() {
   });
   const plan = generateIrrigationPlan(inputs, predicted, stressProbability, estimatedEtMm);
   const drivers = buildDrivers(inputs, predicted, stressProbability, estimatedEtMm);
-  updateOutputs(inputs, predicted, plan, estimatedEtMm, drivers);
-  return {
-    timestamp: new Date().toLocaleString(),
-    fieldName: inputs.fieldName,
+  const run = {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    title: `${inputs.fieldName} • ${PAGE_TITLES["run-analysis"]}`,
+    timestamp: new Date().toISOString(),
+    prompt: inputs.analysisPrompt,
     decision: plan.decision,
     recommendedAmountMm: plan.recommendedAmountMm,
     timingWindow: plan.timingWindow,
     confidenceScore: plan.confidenceScore,
+    stressProbability: plan.stressProbability,
+    estimatedEtMm,
+    predicted,
+    drivers,
+    summary: buildSummary(inputs, predicted, plan),
+    inputSnapshot: inputs,
+    copyText: "",
   };
-}
-
-function readHistory() {
-  try {
-    const raw = window.localStorage.getItem(HISTORY_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
+  run.copyText = serializeRunForCopy(run);
+  state.latestRun = run;
+  state.runHistory.unshift(run);
+  state.runHistory = state.runHistory.slice(0, 50);
+  if (state.form.autoSave) {
+    state.savedRuns.unshift(run);
+    state.savedRuns = dedupeRuns(state.savedRuns).slice(0, 50);
   }
+  persistState();
+  renderApp();
 }
 
-function writeHistory(history) {
-  window.localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 6)));
+function dedupeRuns(runs) {
+  const seen = new Set();
+  return runs.filter((run) => {
+    if (seen.has(run.id)) {
+      return false;
+    }
+    seen.add(run.id);
+    return true;
+  });
 }
 
-function renderHistory() {
-  const history = readHistory();
-  if (history.length === 0) {
-    historyList.innerHTML = `<div class="history-item"><strong>No saved scenarios yet</strong><span>Generate a recommendation, then click Save Scenario.</span></div>`;
+function saveLatestRun() {
+  if (!state.latestRun) {
     return;
   }
+  state.savedRuns.unshift(state.latestRun);
+  state.savedRuns = dedupeRuns(state.savedRuns).slice(0, 50);
+  persistState();
+  renderApp();
+}
 
-  historyList.innerHTML = history
-    .map(
-      (entry) => `
-        <article class="history-item">
-          <strong>${entry.fieldName} • ${entry.decision.toUpperCase()}</strong>
-          <span>${entry.timestamp}</span>
-          <span>${entry.recommendedAmountMm.toFixed(1)} mm • ${formatWindow(entry.timingWindow)} • ${formatPercent(entry.confidenceScore)}</span>
-        </article>
-      `,
-    )
-    .join("");
+function setPage(pageId) {
+  state.activePage = pageId;
+  renderApp();
+}
+
+function toggleTheme() {
+  state.theme = state.theme === "dark" ? "light" : "dark";
+  applyTheme();
+  persistState();
+  renderApp();
 }
 
 function applyPreset(name) {
-  const preset = PRESETS[name];
-  if (!preset) {
+  if (!PRESETS[name]) {
     return;
   }
+  state.form = { ...PRESETS[name] };
+  state.activePage = "run-analysis";
+  renderApp();
+}
 
-  for (const [key, value] of Object.entries(preset)) {
-    if (Array.isArray(value)) {
+function updateFormField(name, value) {
+  state.form[name] = value;
+}
+
+function updateArrayField(name, nextValue, checked) {
+  const current = new Set(state.form[name]);
+  if (checked) {
+    current.add(nextValue);
+  } else {
+    current.delete(nextValue);
+  }
+  state.form[name] = [...current];
+}
+
+function copyText(value, trigger) {
+  navigator.clipboard.writeText(value).then(() => {
+    if (!trigger) {
+      return;
+    }
+    trigger.innerHTML = `${icon("check", "h-4 w-4")} <span>Copied</span>`;
+    window.setTimeout(() => {
+      trigger.innerHTML = `${icon("copy", "h-4 w-4")} <span>Copy</span>`;
+    }, 1200);
+  }).catch(() => {
+    if (!trigger) {
+      return;
+    }
+    trigger.innerHTML = `${icon("copy", "h-4 w-4")} <span>Copy failed</span>`;
+  });
+}
+
+function renderApp() {
+  app.innerHTML = `
+    <div class="min-h-screen bg-[var(--bg)] text-[var(--text)]">
+      <div class="grid min-h-screen grid-cols-[78px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)_420px]">
+        ${Sidebar()}
+        <div class="min-w-0">
+          ${TopBar()}
+          <main class="glass-grid min-h-[calc(100vh-65px)] px-4 py-4 sm:px-6 sm:py-6">
+            ${renderPage()}
+          </main>
+        </div>
+        ${ResultsPanel()}
+      </div>
+    </div>
+  `;
+  window.tailwind?.refresh?.();
+  bindAppEvents();
+  resizePromptInput();
+}
+
+function Sidebar() {
+  return `
+    <aside class="sticky top-0 flex h-screen flex-col border-r border-[var(--border)] bg-[var(--bg)]">
+      <div class="flex h-16 items-center gap-3 border-b border-[var(--border)] px-4">
+        <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)] shadow-[var(--shadow)]">
+          ${icon("sparkles")}
+        </div>
+        <div class="hidden xl:block">
+          <p class="text-sm font-semibold text-[var(--text)]">Helios</p>
+          <p class="text-xs text-[var(--text-muted)]">Irrigation AI</p>
+        </div>
+      </div>
+      <nav class="flex-1 px-3 py-5">
+        <ul class="space-y-1">
+          ${NAV_ITEMS.map(
+            (item) => `
+              <li>
+                <button
+                  type="button"
+                  data-nav="${item.id}"
+                  class="${classNames(
+                    "group flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-medium transition-all duration-200",
+                    state.activePage === item.id
+                      ? "bg-[var(--accent-soft)] text-[var(--text)]"
+                      : "text-[var(--text-muted)] hover:bg-[var(--panel-hover)] hover:text-[var(--text)]",
+                  )}"
+                >
+                  <span class="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--panel)]">
+                    ${icon(item.icon)}
+                  </span>
+                  <span class="hidden xl:block">${item.label}</span>
+                </button>
+              </li>
+            `,
+          ).join("")}
+        </ul>
+      </nav>
+      <div class="border-t border-[var(--border)] px-3 py-4">
+        <div class="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--panel)] px-3 py-3">
+          <div class="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent)]">
+            ${icon("user")}
+          </div>
+          <div class="hidden xl:block">
+            <p class="text-sm font-medium">Field Ops</p>
+            <p class="text-xs text-[var(--text-muted)]">Prototype tenant</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+  `;
+}
+
+function TopBar() {
+  return `
+    <header class="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-[var(--border)] bg-[var(--bg)] px-4 backdrop-blur sm:px-6">
+      <div>
+        <h1 class="text-[22px] font-semibold tracking-tight">${PAGE_TITLES[state.activePage]}</h1>
+      </div>
+      <div class="flex items-center gap-2 sm:gap-3">
+        <button
+          type="button"
+          id="theme-toggle"
+          class="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--panel)] text-[var(--text-muted)] transition-all duration-200 hover:border-[var(--accent)] hover:text-[var(--text)]"
+          aria-label="Toggle theme"
+        >
+          ${icon(state.theme === "dark" ? "sun" : "moon")}
+        </button>
+        <a
+          href="https://github.com/marco-trotta1/heliosv2"
+          target="_blank"
+          rel="noreferrer"
+          class="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--panel)] text-[var(--text-muted)] transition-all duration-200 hover:border-[var(--accent)] hover:text-[var(--text)]"
+          aria-label="Open GitHub"
+        >
+          ${icon("github")}
+        </a>
+        <div class="flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--panel)] text-[var(--text-muted)]">
+          ${icon("user")}
+        </div>
+      </div>
+    </header>
+  `;
+}
+
+function renderPage() {
+  if (state.activePage === "dashboard") {
+    return DashboardPage();
+  }
+  if (state.activePage === "history") {
+    return HistoryPage(state.runHistory, "All analysis runs");
+  }
+  if (state.activePage === "saved") {
+    return HistoryPage(state.savedRuns, "Pinned runs and reusable scenarios");
+  }
+  if (state.activePage === "settings") {
+    return SettingsPage();
+  }
+  return AnalysisWorkspace();
+}
+
+function statCard(title, value, hint, iconName) {
+  return `
+    <div class="rounded-3xl border border-[var(--border)] bg-[var(--panel)] p-5 shadow-[var(--shadow)] transition-all duration-200 hover:border-[var(--accent)]">
+      <div class="mb-4 flex items-start justify-between">
+        <div>
+          <p class="text-sm font-medium text-[var(--text-muted)]">${title}</p>
+          <p class="mt-3 text-3xl font-semibold tracking-tight text-[var(--text)]">${value}</p>
+        </div>
+        <span class="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)]">
+          ${icon(iconName)}
+        </span>
+      </div>
+      <p class="text-sm text-[var(--text-muted)]">${hint}</p>
+    </div>
+  `;
+}
+
+function DashboardPage() {
+  const totalRuns = state.runHistory.length;
+  const savedRuns = state.savedRuns.length;
+  const recentRuns = Math.min(5, totalRuns);
+  const latestSummary = state.latestRun ? state.latestRun.summary : "No recent analyses yet.";
+  return `
+    <section class="space-y-6">
+      <div class="rounded-[28px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
+        <p class="text-sm font-medium uppercase tracking-[0.2em] text-[var(--text-muted)]">Overview</p>
+        <div class="mt-4 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div class="max-w-3xl">
+            <h2 class="text-2xl font-semibold tracking-tight text-[var(--text)]">Field operations cockpit</h2>
+            <p class="mt-3 text-sm leading-7 text-[var(--text-muted)]">
+              Helios combines soil signals, weather pressure, and farm constraints into a single operator dashboard.
+              Review recent runs, jump into analysis mode, and reuse saved scenarios without changing the underlying irrigation logic.
+            </p>
+          </div>
+          <div class="rounded-3xl border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-3 text-sm text-[var(--text-muted)]">
+            Latest note: <span class="text-[var(--text)]">${escapeHtml(latestSummary)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        ${statCard("Recent Runs", recentRuns, "Analyses captured in the most recent working set.", "history")}
+        ${statCard("Saved Analyses", savedRuns, "Pinned scenarios ready for repeat review.", "bookmark")}
+        ${statCard("Total Runs", totalRuns, "Cumulative analyses stored in local browser history.", "chart")}
+      </div>
+
+      <div class="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+        <div class="rounded-[28px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
+          <div class="mb-4 flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">Recent Activity</p>
+              <h3 class="mt-2 text-lg font-medium text-[var(--text)]">Last analyses</h3>
+            </div>
+            <button
+              type="button"
+              data-nav="run-analysis"
+              class="inline-flex items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-2 text-sm font-medium text-[var(--text)] transition-all duration-200 hover:border-[var(--accent)] hover:text-[var(--accent)]"
+            >
+              ${icon("sparkles", "h-4 w-4")}
+              <span>New analysis</span>
+            </button>
+          </div>
+          <div class="space-y-3">
+            ${state.runHistory.slice(0, 4).map((run) => dashboardRunItem(run)).join("") || emptyBlock("No runs yet", "Start with Run Analysis to populate the dashboard feed.")}
+          </div>
+        </div>
+        <div class="rounded-[28px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
+          <p class="text-sm font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">Saved Templates</p>
+          <h3 class="mt-2 text-lg font-medium text-[var(--text)]">Quick launch presets</h3>
+          <div class="mt-5 space-y-3">
+            ${Object.entries(PRESETS)
+              .map(
+                ([key, preset]) => `
+                  <button
+                    type="button"
+                    data-preset="${key}"
+                    class="flex w-full items-start justify-between rounded-3xl border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-4 text-left transition-all duration-200 hover:border-[var(--accent)] hover:bg-[var(--panel-hover)]"
+                  >
+                    <div>
+                      <p class="text-sm font-medium text-[var(--text)]">${escapeHtml(preset.fieldName)}</p>
+                      <p class="mt-1 text-sm text-[var(--text-muted)]">${escapeHtml(preset.analysisPrompt)}</p>
+                    </div>
+                    <span class="mt-1 inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)]">
+                      ${icon("sparkles", "h-4 w-4")}
+                    </span>
+                  </button>
+                `,
+              )
+              .join("")}
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function dashboardRunItem(run) {
+  return `
+    <article class="fade-in rounded-3xl border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-4">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <p class="text-sm font-medium text-[var(--text)]">${escapeHtml(run.inputSnapshot.fieldName)}</p>
+          <p class="mt-1 text-sm text-[var(--text-muted)]">${escapeHtml(run.summary)}</p>
+        </div>
+        <div class="text-right">
+          <p class="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">${formatTimestamp(run.timestamp)}</p>
+          <p class="mt-2 text-sm font-medium ${run.decision === "water" ? "text-[var(--warning)]" : "text-[var(--success)]"}">${run.decision.toUpperCase()}</p>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function emptyBlock(title, body) {
+  return `
+    <div class="rounded-3xl border border-dashed border-[var(--border)] bg-[var(--panel-muted)] px-5 py-10 text-center">
+      <p class="text-sm font-medium text-[var(--text)]">${title}</p>
+      <p class="mt-2 text-sm text-[var(--text-muted)]">${body}</p>
+    </div>
+  `;
+}
+
+function PrimaryButton({ id = "", label, iconName = "", variant = "primary", extraClass = "", type = "button" }) {
+  const palette =
+    variant === "primary"
+      ? "bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]"
+      : "border border-[var(--border)] bg-[var(--panel-muted)] text-[var(--text)] hover:border-[var(--accent)] hover:text-[var(--accent)]";
+  return `
+    <button
+      ${id ? `id="${id}"` : ""}
+      type="${type}"
+      class="${classNames(
+        "inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
+        palette,
+        extraClass,
+      )}"
+    >
+      ${iconName ? icon(iconName, "h-4 w-4") : ""}
+      <span>${label}</span>
+    </button>
+  `;
+}
+
+function PromptInput() {
+  return `
+    <section class="rounded-[28px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
+      <div class="mb-4 flex items-start justify-between gap-4">
+        <div>
+          <p class="text-sm font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">Analysis Prompt</p>
+          <h2 class="mt-2 text-base font-medium text-[var(--text)]">Operator instructions</h2>
+        </div>
+        <div class="hidden rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2 text-xs text-[var(--text-muted)] sm:block">
+          Helios will keep the recommendation logic unchanged.
+        </div>
+      </div>
+      <textarea
+        id="analysis-prompt"
+        name="analysisPrompt"
+        rows="4"
+        class="w-full rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-4 text-sm leading-7 text-[var(--text)] outline-none transition-all duration-200 placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]"
+        placeholder="Describe the field context, operator goal, or specific irrigation concern..."
+      >${escapeHtml(state.form.analysisPrompt)}</textarea>
+      <div class="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div class="flex flex-1 flex-col gap-3 xl:flex-row xl:items-center">
+          <label class="text-sm text-[var(--text-muted)]">
+            <span class="mb-2 block text-sm font-medium text-[var(--text-muted)]">Model</span>
+            <select
+              name="model"
+              class="min-w-[180px] rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2.5 text-sm text-[var(--text)] outline-none transition-all duration-200 focus:border-[var(--accent)]"
+            >
+              ${["Helios Core", "Helios Balanced", "Helios Conservative"]
+                .map((option) => `<option value="${option}" ${state.form.model === option ? "selected" : ""}>${option}</option>`)
+                .join("")}
+            </select>
+          </label>
+          <div class="flex flex-wrap items-center gap-3 pt-1">
+            ${toggleControl("autoSave", "Auto-save run", state.form.autoSave)}
+            ${toggleControl("includeNotes", "Detailed notes", state.form.includeNotes)}
+          </div>
+        </div>
+        ${PrimaryButton({ id: "run-analysis-button", label: "Run analysis", iconName: "sparkles", variant: "primary", type: "submit", extraClass: "min-w-[148px]" })}
+      </div>
+    </section>
+  `;
+}
+
+function toggleControl(name, label, checked) {
+  return `
+    <label class="inline-flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2 text-sm text-[var(--text)]">
+      <input
+        type="checkbox"
+        name="${name}"
+        ${checked ? "checked" : ""}
+        class="h-4 w-4 rounded border-[var(--border)] bg-transparent text-[var(--accent)] focus:ring-[var(--accent)]"
+      />
+      <span>${label}</span>
+    </label>
+  `;
+}
+
+function fieldCard(title, description, content) {
+  return `
+    <section class="rounded-[28px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
+      <div class="mb-5">
+        <p class="text-sm font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">${title}</p>
+        <h3 class="mt-2 text-base font-medium text-[var(--text)]">${description}</h3>
+      </div>
+      ${content}
+    </section>
+  `;
+}
+
+function inputGroup(label, control) {
+  return `
+    <label class="block">
+      <span class="mb-2 block text-sm font-medium text-[var(--text-muted)]">${label}</span>
+      ${control}
+    </label>
+  `;
+}
+
+function numericInput(name, value, min, step = "0.1", max = "") {
+  return `
+    <input
+      name="${name}"
+      type="number"
+      value="${value}"
+      min="${min}"
+      ${max !== "" ? `max="${max}"` : ""}
+      step="${step}"
+      class="w-full rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2.5 text-sm text-[var(--text)] outline-none transition-all duration-200 focus:border-[var(--accent)]"
+    />
+  `;
+}
+
+function textInput(name, value) {
+  return `
+    <input
+      name="${name}"
+      type="text"
+      value="${escapeHtml(value)}"
+      class="w-full rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2.5 text-sm text-[var(--text)] outline-none transition-all duration-200 focus:border-[var(--accent)]"
+    />
+  `;
+}
+
+function selectInput(name, value, options) {
+  return `
+    <select
+      name="${name}"
+      class="w-full rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2.5 text-sm text-[var(--text)] outline-none transition-all duration-200 focus:border-[var(--accent)]"
+    >
+      ${options
+        .map((option) => `<option value="${option.value}" ${value === option.value ? "selected" : ""}>${option.label}</option>`)
+        .join("")}
+    </select>
+  `;
+}
+
+function checkboxGroup(title, name, options, selected) {
+  return `
+    <fieldset class="rounded-3xl border border-[var(--border)] bg-[var(--panel-muted)] p-4">
+      <legend class="px-1 text-sm font-medium text-[var(--text-muted)]">${title}</legend>
+      <div class="mt-3 grid gap-3">
+        ${options
+          .map(
+            (option) => `
+              <label class="inline-flex items-center gap-3 text-sm text-[var(--text)]">
+                <input
+                  type="checkbox"
+                  name="${name}"
+                  value="${option.value}"
+                  ${selected.includes(option.value) ? "checked" : ""}
+                  class="h-4 w-4 rounded border-[var(--border)] bg-transparent text-[var(--accent)] focus:ring-[var(--accent)]"
+                />
+                <span>${option.label}</span>
+              </label>
+            `,
+          )
+          .join("")}
+      </div>
+    </fieldset>
+  `;
+}
+
+function AnalysisWorkspace() {
+  return `
+    <section class="space-y-6">
+      <div class="rounded-[28px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
+        <p class="text-sm font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">Run Analysis</p>
+        <div class="mt-3 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+          <div class="max-w-3xl">
+            <h2 class="text-2xl font-semibold tracking-tight text-[var(--text)]">Forecast moisture and plan irrigation</h2>
+            <p class="mt-2 text-sm leading-7 text-[var(--text-muted)]">
+              This workspace keeps Helios’s agronomy logic intact and wraps it in a cleaner operator flow.
+              Enter field context, review the latest conditions, and run a recommendation without leaving the dashboard.
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            ${Object.keys(PRESETS)
+              .map((key) => PrimaryButton({ label: key === "heatwave" ? "Heat wave" : key === "balanced" ? "Balanced day" : "Rain incoming", iconName: "sparkles", variant: "secondary", extraClass: "preset-trigger", id: "", type: "button" }).replace("<button", `<button data-preset="${key}"`))
+              .join("")}
+          </div>
+        </div>
+      </div>
+
+      <form id="analysis-form" class="space-y-6">
+        ${PromptInput()}
+        <div class="grid gap-6 2xl:grid-cols-3">
+          ${fieldCard(
+            "Field profile",
+            "Crop, soil, and terrain descriptors",
+            `<div class="grid gap-4 sm:grid-cols-2">
+              ${inputGroup("Field name", textInput("fieldName", state.form.fieldName))}
+              ${inputGroup("Field area (ha)", numericInput("fieldAreaHa", state.form.fieldAreaHa, "1"))}
+              ${inputGroup("Crop type", selectInput("cropType", state.form.cropType, [
+                { value: "corn", label: "Corn" },
+                { value: "soybean", label: "Soybean" },
+                { value: "potato", label: "Potato" },
+                { value: "alfalfa", label: "Alfalfa" },
+                { value: "wheat", label: "Wheat" },
+              ]))}
+              ${inputGroup("Growth stage", selectInput("growthStage", state.form.growthStage, [
+                { value: "emergence", label: "Emergence" },
+                { value: "vegetative", label: "Vegetative" },
+                { value: "flowering", label: "Flowering" },
+                { value: "grain_fill", label: "Grain fill" },
+                { value: "maturity", label: "Maturity" },
+              ]))}
+              ${inputGroup("Soil texture", selectInput("soilTexture", state.form.soilTexture, [
+                { value: "sand", label: "Sand" },
+                { value: "loam", label: "Loam" },
+                { value: "clay", label: "Clay" },
+              ]))}
+              ${inputGroup("Drainage", selectInput("drainageClass", state.form.drainageClass, [
+                { value: "poor", label: "Poor" },
+                { value: "moderate", label: "Moderate" },
+                { value: "well", label: "Well drained" },
+              ]))}
+              ${inputGroup("Infiltration rate (mm/hr)", numericInput("infiltrationRate", state.form.infiltrationRate, "1"))}
+              ${inputGroup("Slope (%)", numericInput("slopePct", state.form.slopePct, "0"))}
+            </div>`,
+          )}
+          ${fieldCard(
+            "Sensor feed",
+            "Soil moisture and weather inputs",
+            `<div class="grid gap-4 sm:grid-cols-2">
+              ${inputGroup("Current soil moisture", numericInput("currentMoisture", state.form.currentMoisture, "0.05", "0.01", "0.6"))}
+              ${inputGroup("6h ago moisture", numericInput("lagOneMoisture", state.form.lagOneMoisture, "0.05", "0.01", "0.6"))}
+              ${inputGroup("12h ago moisture", numericInput("lagTwoMoisture", state.form.lagTwoMoisture, "0.05", "0.01", "0.6"))}
+              ${inputGroup("Temperature (C)", numericInput("temperatureC", state.form.temperatureC, "-5"))}
+              ${inputGroup("Humidity (%)", numericInput("humidityPct", state.form.humidityPct, "0", "1", "100"))}
+              ${inputGroup("Wind (m/s)", numericInput("windMps", state.form.windMps, "0"))}
+              ${inputGroup("Forecast precipitation (mm)", numericInput("precipitationMm", state.form.precipitationMm, "0"))}
+              ${inputGroup("Solar radiation (MJ/m²)", numericInput("solarRadiationMjM2", state.form.solarRadiationMjM2, "0"))}
+            </div>`,
+          )}
+          ${fieldCard(
+            "Operations",
+            "System constraints and scheduling rules",
+            `<div class="grid gap-4 sm:grid-cols-2">
+              ${inputGroup("Irrigation type", selectInput("irrigationType", state.form.irrigationType, [
+                { value: "pivot", label: "Pivot" },
+                { value: "drip", label: "Drip" },
+                { value: "flood", label: "Flood" },
+              ]))}
+              ${inputGroup("Pump capacity (mm/hr)", numericInput("pumpCapacity", state.form.pumpCapacity, "0.5"))}
+              ${inputGroup("Max irrigation volume (mm)", numericInput("maxIrrigationVolume", state.form.maxIrrigationVolume, "0"))}
+              ${inputGroup("Budget ($)", numericInput("budgetDollars", state.form.budgetDollars, "0", "1"))}
+              ${inputGroup("Irrigation last 24h (mm)", numericInput("recentIrrigation24h", state.form.recentIrrigation24h, "0"))}
+              ${inputGroup("Irrigation last 72h (mm)", numericInput("recentIrrigation72h", state.form.recentIrrigation72h, "0"))}
+            </div>
+            <div class="mt-5 grid gap-4 xl:grid-cols-2">
+              ${checkboxGroup("Water rights schedule", "waterWindow", [
+                { value: "tonight", label: "Tonight" },
+                { value: "tomorrow_morning", label: "Tomorrow morning" },
+                { value: "tomorrow_afternoon", label: "Tomorrow afternoon" },
+                { value: "tomorrow_night", label: "Tomorrow night" },
+              ], state.form.waterWindow)}
+              ${checkboxGroup("Lower-cost energy windows", "energyWindow", [
+                { value: "tonight", label: "Tonight" },
+                { value: "tomorrow_morning", label: "Tomorrow morning" },
+                { value: "tomorrow_afternoon", label: "Tomorrow afternoon" },
+                { value: "tomorrow_night", label: "Tomorrow night" },
+              ], state.form.energyWindow)}
+            </div>`,
+          )}
+        </div>
+      </form>
+    </section>
+  `;
+}
+
+function HistoryPage(items, subtitle) {
+  return `
+    <section class="space-y-6">
+      <div class="rounded-[28px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
+        <p class="text-sm font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">${PAGE_TITLES[state.activePage]}</p>
+        <h2 class="mt-3 text-2xl font-semibold tracking-tight text-[var(--text)]">${subtitle}</h2>
+      </div>
+      <div class="space-y-3">
+        ${items.length > 0 ? items.map((run) => ResultCard(run)).join("") : emptyBlock("No records yet", "Run an analysis to populate this page.")}
+      </div>
+    </section>
+  `;
+}
+
+function SettingsPage() {
+  return `
+    <section class="space-y-6">
+      <div class="rounded-[28px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
+        <p class="text-sm font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">Settings</p>
+        <h2 class="mt-3 text-2xl font-semibold tracking-tight text-[var(--text)]">Workspace preferences</h2>
+      </div>
+      <div class="grid gap-6 xl:grid-cols-2">
+        <div class="rounded-[28px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
+          <p class="text-sm font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">Theme</p>
+          <h3 class="mt-2 text-lg font-medium text-[var(--text)]">Current theme</h3>
+          <p class="mt-3 text-sm text-[var(--text-muted)]">
+            Switch between the default dark operating mode and a light workspace for review sessions.
+          </p>
+          <div class="mt-5">
+            ${PrimaryButton({ id: "theme-toggle-inline", label: state.theme === "dark" ? "Switch to light" : "Switch to dark", iconName: state.theme === "dark" ? "sun" : "moon", variant: "secondary" })}
+          </div>
+        </div>
+        <div class="rounded-[28px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
+          <p class="text-sm font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">Deployment</p>
+          <h3 class="mt-2 text-lg font-medium text-[var(--text)]">Static MVP status</h3>
+          <ul class="mt-4 space-y-3 text-sm text-[var(--text-muted)]">
+            <li class="rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-3">Tailwind dashboard shell is active on GitHub Pages.</li>
+            <li class="rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-3">Core irrigation recommendation logic remains browser-side and unchanged.</li>
+            <li class="rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-3">FastAPI + LightGBM backend can still be attached later without rewriting the UI system.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function ResultsPanel() {
+  return `
+    <aside class="col-span-2 border-t border-[var(--border)] bg-[var(--bg)] xl:col-span-1 xl:border-l xl:border-t-0">
+      <div class="sticky top-0 flex h-full max-h-screen flex-col">
+        <div class="flex h-16 items-center justify-between border-b border-[var(--border)] px-4">
+          <div>
+            <p class="text-sm font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">Results</p>
+            <h2 class="mt-1 text-base font-medium text-[var(--text)]">Analysis console</h2>
+          </div>
+          <div class="flex items-center gap-2">
+            ${state.latestRun ? PrimaryButton({ id: "save-latest-run", label: "Save", iconName: "bookmark", variant: "secondary", extraClass: "px-3 py-2 text-xs" }) : ""}
+            <div class="rounded-2xl border border-[var(--border)] bg-[var(--panel)] px-3 py-2 text-xs text-[var(--text-muted)]">
+              ${state.runHistory.length} total
+            </div>
+          </div>
+        </div>
+        <div class="min-h-0 flex-1 overflow-y-auto p-4">
+          <div class="space-y-3">
+            ${state.runHistory.length > 0
+              ? state.runHistory.slice(0, 8).map((run) => ResultCard(run, true)).join("")
+              : emptyInspectorState()}
+          </div>
+        </div>
+      </div>
+    </aside>
+  `;
+}
+
+function emptyInspectorState() {
+  return `
+    <div class="rounded-[28px] border border-dashed border-[var(--border)] bg-[var(--panel)] px-6 py-12 text-center">
+      <p class="text-sm font-medium text-[var(--text)]">No analysis yet. Run a prompt to generate results.</p>
+      <p class="mt-2 text-sm text-[var(--text-muted)]">Results will appear here as reusable cards with copy actions and timestamps.</p>
+    </div>
+  `;
+}
+
+function ResultCard(run, inspectorMode = false) {
+  return `
+    <article class="fade-in rounded-3xl border border-[var(--border)] bg-[var(--panel)] p-4 shadow-[var(--shadow)] transition-all duration-200 hover:border-[var(--accent)]">
+      <div class="flex items-start justify-between gap-4">
+        <div class="min-w-0">
+          <h3 class="truncate text-sm font-medium text-[var(--text)]">${escapeHtml(run.inputSnapshot?.fieldName || "Untitled field")}</h3>
+          <p class="mt-1 text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">${formatTimestamp(run.timestamp)}</p>
+        </div>
+        <button
+          type="button"
+          data-copy="${run.id}"
+          class="inline-flex items-center gap-1 rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2 text-xs font-medium text-[var(--text-muted)] transition-all duration-200 hover:border-[var(--accent)] hover:text-[var(--text)]"
+        >
+          ${icon("copy", "h-4 w-4")}
+          <span>Copy</span>
+        </button>
+      </div>
+      <div class="mt-4 flex flex-wrap gap-2">
+        <span class="rounded-full bg-[var(--accent-soft)] px-3 py-1 text-xs font-medium text-[var(--accent)]">${run.decision.toUpperCase()}</span>
+        <span class="rounded-full bg-[var(--panel-muted)] px-3 py-1 text-xs font-medium text-[var(--text-muted)]">${run.recommendedAmountMm.toFixed(1)} mm</span>
+        <span class="rounded-full bg-[var(--panel-muted)] px-3 py-1 text-xs font-medium text-[var(--text-muted)]">${formatWindow(run.timingWindow)}</span>
+      </div>
+      ${inspectorMode ? `<div class="mt-4 h-px bg-[var(--border)]"></div>` : ""}
+      <pre class="mt-4 overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] p-4 font-mono text-[12px] leading-6 text-[var(--text-muted)]">${escapeHtml(run.copyText)}</pre>
+    </article>
+  `;
+}
+
+function bindAppEvents() {
+  document.querySelectorAll("[data-nav]").forEach((button) => {
+    button.addEventListener("click", () => setPage(button.dataset.nav));
+  });
+
+  document.querySelector("#theme-toggle")?.addEventListener("click", toggleTheme);
+  document.querySelector("#theme-toggle-inline")?.addEventListener("click", toggleTheme);
+
+  document.querySelectorAll("[data-preset]").forEach((button) => {
+    button.addEventListener("click", () => applyPreset(button.dataset.preset));
+  });
+
+  document.querySelectorAll("[data-copy]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const run = [...state.runHistory, ...state.savedRuns].find((item) => item.id === button.dataset.copy);
+      if (run) {
+        copyText(run.copyText, button);
+      }
+    });
+  });
+
+  const form = document.querySelector("#analysis-form");
+  if (form) {
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      syncFormState(form);
+      evaluateScenario();
+    });
+
+    form.addEventListener("input", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+      if (target instanceof HTMLInputElement && target.type === "checkbox") {
+        if (target.name === "waterWindow" || target.name === "energyWindow") {
+          updateArrayField(target.name, target.value, target.checked);
+        } else {
+          updateFormField(target.name, target.checked);
+        }
+      } else if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement) {
+        updateFormField(target.name, parseFieldValue(target));
+      }
+
+      if (target instanceof HTMLTextAreaElement) {
+        autoSizeTextarea(target);
+      }
+    });
+  }
+
+  document.querySelector("#save-latest-run")?.addEventListener("click", saveLatestRun);
+}
+
+function parseFieldValue(target) {
+  if (target.type === "number") {
+    return Number(target.value);
+  }
+  return target.value;
+}
+
+function syncFormState(form) {
+  const formData = new FormData(form);
+  for (const [key, value] of formData.entries()) {
+    if (key === "waterWindow" || key === "energyWindow") {
       continue;
     }
     const field = form.elements.namedItem(key);
-    if (field && "value" in field) {
-      field.value = String(value);
+    if (field instanceof HTMLInputElement && field.type === "checkbox") {
+      state.form[key] = field.checked;
+    } else if (field instanceof HTMLInputElement && field.type === "number") {
+      state.form[key] = Number(value);
+    } else {
+      state.form[key] = value;
     }
   }
-
-  form.querySelectorAll('input[name="waterWindow"]').forEach((checkbox) => {
-    checkbox.checked = preset.waterWindow.includes(checkbox.value);
-  });
-  form.querySelectorAll('input[name="energyWindow"]').forEach((checkbox) => {
-    checkbox.checked = preset.energyWindow.includes(checkbox.value);
-  });
-
-  evaluateScenario();
+  state.form.waterWindow = [...form.querySelectorAll('input[name="waterWindow"]:checked')].map((item) => item.value);
+  state.form.energyWindow = [...form.querySelectorAll('input[name="energyWindow"]:checked')].map((item) => item.value);
 }
 
-form.addEventListener("submit", (event) => {
-  event.preventDefault();
-  evaluateScenario();
-});
+function autoSizeTextarea(textarea) {
+  textarea.style.height = "0px";
+  textarea.style.height = `${textarea.scrollHeight}px`;
+}
 
-form.addEventListener("input", () => {
-  evaluateScenario();
-});
-
-saveScenarioButton.addEventListener("click", () => {
-  const history = readHistory();
-  history.unshift(evaluateScenario());
-  writeHistory(history);
-  renderHistory();
-});
-
-presetButtons.forEach((button) => {
-  button.addEventListener("click", () => {
-    applyPreset(button.dataset.preset);
-  });
-});
-
-applyPreset("heatwave");
-renderHistory();
+function resizePromptInput() {
+  const prompt = document.querySelector("#analysis-prompt");
+  if (prompt) {
+    autoSizeTextarea(prompt);
+  }
+}

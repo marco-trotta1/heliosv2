@@ -453,6 +453,20 @@ function buildSummary(inputs, predicted, plan) {
   return `${inputs.fieldName} is forecast to move from ${inputs.currentMoisture.toFixed(2)} now to ${predicted.moisture48h.toFixed(2)} in 48 hours. ${action}`;
 }
 
+function recommendationTone(run) {
+  return run.decision === "water"
+    ? {
+        spotlight: "spotlight-water",
+        pill: "bg-[var(--accent-warm-soft)] text-[var(--accent-warm)]",
+        amount: "text-[var(--accent-warm)]",
+      }
+    : {
+        spotlight: "spotlight-wait",
+        pill: "bg-[var(--accent-mint-soft)] text-[var(--accent-mint)]",
+        amount: "text-[var(--accent-mint)]",
+      };
+}
+
 function serializeRunForCopy(run) {
   return [
     `Run: ${run.title}`,
@@ -1019,6 +1033,7 @@ function AnalysisWorkspace() {
 
       <form id="analysis-form" class="space-y-6">
         ${PromptInput()}
+        ${RecommendationSpotlight()}
         <div class="grid gap-6 2xl:grid-cols-3">
           ${fieldCard(
             "Field profile",
@@ -1100,6 +1115,72 @@ function AnalysisWorkspace() {
           )}
         </div>
       </form>
+    </section>
+  `;
+}
+
+function RecommendationSpotlight() {
+  if (!state.latestRun) {
+    return `
+      <section class="rounded-[28px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <p class="text-sm font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">Recommendation</p>
+            <h3 class="mt-2 text-xl font-semibold text-[var(--text)]">Run an analysis to reveal the irrigation call</h3>
+            <p class="mt-3 text-sm leading-7 text-[var(--text-muted)]">
+              The result will surface here with the recommendation amount, timing window, confidence, and agronomic drivers.
+            </p>
+          </div>
+          <span class="hidden rounded-full bg-[var(--accent-soft)] px-4 py-2 text-xs font-medium text-[var(--accent)] lg:inline-flex">
+            Waiting for first run
+          </span>
+        </div>
+      </section>
+    `;
+  }
+
+  const run = state.latestRun;
+  const tone = recommendationTone(run);
+  return `
+    <section class="accent-divider rounded-[28px] border p-6 shadow-[var(--shadow)] ${tone.spotlight}">
+      <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div class="max-w-2xl">
+          <p class="text-sm font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">Recommendation</p>
+          <div class="mt-3 flex flex-wrap items-center gap-3">
+            <h3 class="text-[28px] font-semibold tracking-tight text-[var(--text)]">${run.decision === "water" ? "Irrigate now" : "Hold irrigation"}</h3>
+            <span class="rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${tone.pill}">
+              ${run.decision.toUpperCase()}
+            </span>
+          </div>
+          <p class="mt-3 max-w-2xl text-sm leading-7 text-[var(--text-muted)]">${escapeHtml(run.summary)}</p>
+        </div>
+        <div class="rounded-3xl border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-3 text-right">
+          <p class="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">Latest run</p>
+          <p class="mt-2 text-sm font-medium text-[var(--text)]">${formatTimestamp(run.timestamp)}</p>
+        </div>
+      </div>
+      <div class="mt-6 grid gap-4 lg:grid-cols-[1.2fr_repeat(3,minmax(0,1fr))]">
+        <div class="rounded-3xl border border-[var(--border)] bg-[var(--panel)] p-5">
+          <p class="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">Recommended amount</p>
+          <div class="mt-3 flex items-end gap-3">
+            <span class="text-5xl font-semibold tracking-tight ${tone.amount}">${run.recommendedAmountMm.toFixed(1)}</span>
+            <span class="pb-1 text-lg font-medium text-[var(--text-muted)]">mm</span>
+          </div>
+          <p class="mt-4 text-sm text-[var(--text-muted)]">This is the number the operator should notice first.</p>
+        </div>
+        <div class="rounded-3xl border border-[var(--border)] bg-[var(--panel)] p-5">
+          <p class="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">Best timing</p>
+          <p class="mt-4 text-2xl font-semibold text-[var(--text)]">${escapeHtml(formatWindow(run.timingWindow))}</p>
+        </div>
+        <div class="rounded-3xl border border-[var(--border)] bg-[var(--panel)] p-5">
+          <p class="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">Confidence</p>
+          <p class="mt-4 text-2xl font-semibold text-[var(--text)]">${formatPercent(run.confidenceScore)}</p>
+        </div>
+        <div class="rounded-3xl border border-[var(--border)] bg-[var(--panel)] p-5">
+          <p class="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">Stress risk</p>
+          <p class="mt-4 text-2xl font-semibold text-[var(--text)]">${formatPercent(run.stressProbability)}</p>
+        </div>
+      </div>
     </section>
   `;
 }
@@ -1188,6 +1269,7 @@ function emptyInspectorState() {
 }
 
 function ResultCard(run, inspectorMode = false) {
+  const tone = recommendationTone(run);
   return `
     <article class="fade-in rounded-3xl border border-[var(--border)] bg-[var(--panel)] p-4 shadow-[var(--shadow)] transition-all duration-200 hover:border-[var(--accent)]">
       <div class="flex items-start justify-between gap-4">
@@ -1204,10 +1286,22 @@ function ResultCard(run, inspectorMode = false) {
           <span>Copy</span>
         </button>
       </div>
-      <div class="mt-4 flex flex-wrap gap-2">
-        <span class="rounded-full bg-[var(--accent-soft)] px-3 py-1 text-xs font-medium text-[var(--accent)]">${run.decision.toUpperCase()}</span>
-        <span class="rounded-full bg-[var(--panel-muted)] px-3 py-1 text-xs font-medium text-[var(--text-muted)]">${run.recommendedAmountMm.toFixed(1)} mm</span>
-        <span class="rounded-full bg-[var(--panel-muted)] px-3 py-1 text-xs font-medium text-[var(--text-muted)]">${formatWindow(run.timingWindow)}</span>
+      <div class="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+        <div class="rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] p-4">
+          <p class="text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">Recommendation amount</p>
+          <div class="mt-2 flex items-end gap-2">
+            <span class="text-3xl font-semibold tracking-tight ${tone.amount}">${run.recommendedAmountMm.toFixed(1)}</span>
+            <span class="pb-1 text-sm font-medium text-[var(--text-muted)]">mm</span>
+          </div>
+        </div>
+        <div class="flex flex-wrap content-start gap-2">
+          <span class="rounded-full px-3 py-1 text-xs font-medium ${tone.pill}">${run.decision.toUpperCase()}</span>
+          <span class="rounded-full bg-[var(--panel-muted)] px-3 py-1 text-xs font-medium text-[var(--text-muted)]">${formatWindow(run.timingWindow)}</span>
+        </div>
+      </div>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <span class="rounded-full bg-[var(--panel-muted)] px-3 py-1 text-xs font-medium text-[var(--text-muted)]">Confidence ${formatPercent(run.confidenceScore)}</span>
+        <span class="rounded-full bg-[var(--panel-muted)] px-3 py-1 text-xs font-medium text-[var(--text-muted)]">Stress ${formatPercent(run.stressProbability)}</span>
       </div>
       ${inspectorMode ? `<div class="mt-4 h-px bg-[var(--border)]"></div>` : ""}
       <pre class="mt-4 overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] p-4 font-mono text-[12px] leading-6 text-[var(--text-muted)]">${escapeHtml(run.copyText)}</pre>

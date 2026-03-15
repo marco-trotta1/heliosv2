@@ -9,6 +9,10 @@
   --accent: #5b8cff;
   --accent-hover: #6a98ff;
   --accent-soft: rgba(91, 140, 255, 0.18);
+  --accent-mint: #4fd6b2;
+  --accent-mint-soft: rgba(79, 214, 178, 0.16);
+  --accent-warm: #ffb86b;
+  --accent-warm-soft: rgba(255, 184, 107, 0.14);
   --success: #47d6a0;
   --warning: #ff9f5a;
   --danger: #ff6f7d;
@@ -26,6 +30,10 @@ body.theme-light {
   --accent: #4f7cff;
   --accent-hover: #5a86ff;
   --accent-soft: rgba(79, 124, 255, 0.14);
+  --accent-mint: #1ea57a;
+  --accent-mint-soft: rgba(30, 165, 122, 0.12);
+  --accent-warm: #d47c1f;
+  --accent-warm-soft: rgba(212, 124, 31, 0.12);
   --success: #109b6b;
   --warning: #d47c1f;
   --danger: #d14d63;
@@ -84,6 +92,32 @@ textarea {
     linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
   background-size: 32px 32px;
+}
+
+.spotlight-water {
+  border-color: rgba(255, 184, 107, 0.28);
+  background:
+    linear-gradient(135deg, rgba(255, 184, 107, 0.1), rgba(91, 140, 255, 0.08)),
+    var(--panel);
+}
+
+.spotlight-wait {
+  border-color: rgba(79, 214, 178, 0.26);
+  background:
+    linear-gradient(135deg, rgba(79, 214, 178, 0.08), rgba(91, 140, 255, 0.06)),
+    var(--panel);
+}
+
+.accent-divider {
+  position: relative;
+}
+
+.accent-divider::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(91, 140, 255, 0.45), transparent);
 }
 
 .theme-light .glass-grid {

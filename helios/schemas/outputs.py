@@ -23,6 +23,7 @@ class RegionalInsights(BaseModel):
     avg_yield_delta: float | None = None
     total_samples: int = Field(ge=0)
     weighted_samples: float = Field(ge=0)
+    comparable_samples: int = Field(ge=0)
     radius_km: float = Field(gt=0)
 
 
@@ -45,10 +46,13 @@ class PredictionResponse(BaseModel):
 
 
 class HealthResponse(BaseModel):
-    status: Literal["ok"]
+    status: Literal["ready", "degraded"]
+    ready: bool
     model_loaded: bool
     database_ready: bool
+    rate_limit_enabled: bool
     timestamp: datetime
+    issues: list[str] = Field(default_factory=list)
 
 
 class ChartPoint(BaseModel):
@@ -60,3 +64,9 @@ class FeedbackResponse(BaseModel):
     id: int
     duplicate_prevented: bool = False
     message: str
+
+
+class ErrorResponse(BaseModel):
+    error_code: str
+    detail: str
+    issues: list[str] = Field(default_factory=list)

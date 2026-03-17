@@ -35,35 +35,56 @@ def get_regional_insights(
     lon: float,
     crop_type: str,
     recommendation_type: str,
+    soil_texture: str,
+    irrigation_type: str,
+    growth_stage: str,
+    season_month: int,
     radius_km: float = DEFAULT_RADIUS_KM,
 ) -> dict[str, float | int | None]:
-    rows = get_feedback_rows(crop_type=crop_type, recommendation_type=recommendation_type)
-    return aggregate_feedback(rows, origin_lat=lat, origin_lon=lon, radius_km=radius_km)
+    rows = get_feedback_rows(
+        crop_type=crop_type,
+        recommendation_type=recommendation_type,
+        soil_texture=soil_texture,
+        irrigation_type=irrigation_type,
+    )
+    return aggregate_feedback(
+        rows,
+        origin_lat=lat,
+        origin_lon=lon,
+        radius_km=radius_km,
+        growth_stage=growth_stage,
+        season_month=season_month,
+    )
 
 
 def adjust_recommendation(
     base_recommendation: float,
     insights: dict[str, Any] | None,
 ) -> dict[str, float | str]:
-    if not insights or insights.get("total_samples", 0) < 3 or insights.get("weighted_samples", 0.0) < 1.5:
+    if (
+        not insights
+        or insights.get("total_samples", 0) < 4
+        or insights.get("comparable_samples", 0) < 2
+        or insights.get("weighted_samples", 0.0) < 2.5
+    ):
         return {
             "adjusted_recommendation_mm": round(base_recommendation, 1),
             "adjustment_factor": 1.0,
-            "reason": "Insufficient regional feedback; leaving recommendation unchanged.",
+            "reason": "Not enough comparable nearby feedback to safely adjust the base recommendation.",
         }
 
     success_rate = float(insights["success_rate"])
     avg_yield_delta = insights.get("avg_yield_delta")
 
     if success_rate > 0.7:
-        factor = 1.05 if avg_yield_delta is None or avg_yield_delta < 5 else 1.1
-        reason = "Regional outcomes are strong, so the recommendation was reinforced."
+        factor = 1.05 if avg_yield_delta is None or avg_yield_delta < 5 else 1.08
+        reason = "Comparable nearby feedback was consistently positive, so the recommendation was modestly reinforced."
     elif success_rate < 0.4:
-        factor = 0.9 if avg_yield_delta is None or avg_yield_delta > -5 else 0.85
-        reason = "Regional outcomes are weak, so the recommendation was reduced."
+        factor = 0.92 if avg_yield_delta is None or avg_yield_delta > -5 else 0.88
+        reason = "Comparable nearby feedback was weak, so the recommendation was reduced conservatively."
     else:
         factor = 1.0
-        reason = "Regional outcomes are mixed, so the recommendation was left unchanged."
+        reason = "Comparable nearby feedback was mixed, so the base recommendation was left unchanged."
 
     adjusted = max(0.0, round(base_recommendation * factor, 1))
     return {

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -19,9 +20,7 @@ class MoistureForecastModel:
 
     @classmethod
     def load(cls, model_path: Path, metadata_path: Path) -> "MoistureForecastModel":
-        model = joblib.load(model_path)
-        metadata = json.loads(metadata_path.read_text())
-        return cls(model=model, feature_columns=metadata["feature_columns"], metadata=metadata)
+        return _load_model_bundle(str(model_path), str(metadata_path))
 
     def predict(self, features: pd.DataFrame) -> dict[str, float]:
         matrix = prepare_feature_matrix(features, self.feature_columns)
@@ -47,3 +46,14 @@ class MoistureForecastModel:
             feature: round(score / total, 4)
             for feature, score in zip(self.feature_columns, aggregated, strict=True)
         }
+
+
+@lru_cache(maxsize=4)
+def _load_model_bundle(model_path: str, metadata_path: str) -> MoistureForecastModel:
+    model = joblib.load(model_path)
+    metadata = json.loads(Path(metadata_path).read_text())
+    return MoistureForecastModel(model=model, feature_columns=metadata["feature_columns"], metadata=metadata)
+
+
+def clear_model_cache() -> None:
+    _load_model_bundle.cache_clear()

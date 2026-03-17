@@ -56,6 +56,27 @@ const RUN_HISTORY_KEY = "helios-pages-history";
 const SAVED_RUNS_KEY = "helios-pages-saved-runs";
 const THEME_KEY = "helios-dashboard-theme";
 
+const DEFAULT_RUNTIME_CONFIG = {
+  mode: "demo",
+  apiBaseUrl: "",
+  disclaimer:
+    "Demo mode uses browser-side prototype logic only. It does not call a live backend or store feedback in the project database.",
+};
+
+function normalizeRuntimeConfig(config) {
+  const mode = config?.mode === "live" ? "live" : "demo";
+  return {
+    mode,
+    apiBaseUrl: typeof config?.apiBaseUrl === "string" ? config.apiBaseUrl.trim().replace(/\/+$/, "") : "",
+    disclaimer:
+      typeof config?.disclaimer === "string" && config.disclaimer.trim().length > 0
+        ? config.disclaimer.trim()
+        : DEFAULT_RUNTIME_CONFIG.disclaimer,
+  };
+}
+
+const runtimeConfig = normalizeRuntimeConfig(window.HELIOS_CONFIG || DEFAULT_RUNTIME_CONFIG);
+
 const DEFAULT_FORM = {
   analysisPrompt:
     "Review the next 72 hours of moisture risk and recommend whether this field should be irrigated now or held.",
@@ -187,10 +208,12 @@ const state = {
   savedRuns: loadStoredArray(SAVED_RUNS_KEY),
   latestRun: null,
   analysis: {
-    status: "Ready to run a recommendation.",
+    status: isLiveApiMode()
+      ? "Live API mode is configured. Helios will request a recommendation from the backend."
+      : runtimeConfig.disclaimer,
     error: "",
     submitting: false,
-    source: "api",
+    source: isLiveApiMode() ? "api" : "demo",
   },
   feedbackForm: {
     open: false,
@@ -262,6 +285,26 @@ function persistState() {
 
 function applyTheme() {
   document.body.classList.toggle("theme-light", state.theme === "light");
+}
+
+function isLiveApiMode() {
+  return runtimeConfig.mode === "live";
+}
+
+function apiUrl(path) {
+  return runtimeConfig.apiBaseUrl ? `${runtimeConfig.apiBaseUrl}${path}` : path;
+}
+
+async function readJsonResponse(response) {
+  const text = await response.text();
+  if (!text) {
+    return {};
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { detail: text };
+  }
 }
 
 function round(value, decimals = 1) {
@@ -504,7 +547,7 @@ function serializeRunForCopy(run) {
     `Decision: ${run.decision.toUpperCase()}`,
     `Recommended amount: ${run.recommendedAmountMm.toFixed(1)} mm`,
     `Timing window: ${formatWindow(run.timingWindow)}`,
-    `Confidence: ${formatPercent(run.confidenceScore)}`,
+    `Heuristic confidence: ${formatPercent(run.confidenceScore)}`,
     `Stress probability: ${formatPercent(run.stressProbability)}`,
     `Reference ET: ${run.estimatedEtMm.toFixed(1)} mm/day`,
     `Forecast 24h: ${run.predicted.moisture24h.toFixed(2)}`,
@@ -607,7 +650,7 @@ function buildApiSummary(inputs, response) {
       ? `Apply ${response.recommended_amount_mm.toFixed(1)} mm during ${formatWindow(response.timing_window)}.`
       : "Hold irrigation and check again after the next weather update.";
   if (response.regional_insights?.total_samples) {
-    return `${inputs.fieldName} is being compared with ${response.regional_insights.total_samples} nearby feedback reports. ${action}`;
+    return `${inputs.fieldName} is being compared with ${response.regional_insights.total_samples} comparable nearby feedback reports. ${action}`;
   }
   return `${inputs.fieldName} has no nearby feedback history yet. ${action}`;
 }
@@ -690,9 +733,11 @@ function buildLocalRun(inputs) {
       baseRecommendationMm: plan.recommendedAmountMm,
       adjustedRecommendationMm: plan.recommendedAmountMm,
       adjustmentFactor: 1,
-      reason: "Live feedback service was unavailable, so this result uses the local rules only.",
+      reason: isLiveApiMode()
+        ? "Live feedback service was unavailable, so this result uses the local prototype rules only."
+        : "Demo mode uses the local prototype rules only. No backend model or stored feedback was used.",
     },
-    sourceLabel: "Local fallback estimate",
+    sourceLabel: isLiveApiMode() ? "Local fallback estimate" : "Static demo estimate",
     copyText: "",
   };
   run.copyText = serializeRunForCopy(run);
@@ -716,6 +761,9 @@ function storeRun(run) {
 }
 
 async function refreshRegionalInsights(run) {
+  if (!isLiveApiMode()) {
+    return;
+  }
   if (run?.inputSnapshot?.locationLat == null || run?.inputSnapshot?.locationLon == null) {
     return;
   }
@@ -725,9 +773,13 @@ async function refreshRegionalInsights(run) {
     radius: "50",
     crop_type: run.inputSnapshot.cropType,
     recommendation_type: "irrigation",
+    soil_texture: run.inputSnapshot.soilTexture,
+    irrigation_type: run.inputSnapshot.irrigationType,
+    growth_stage: run.inputSnapshot.growthStage,
+    season_month: String(new Date(run.timestamp).getUTCMonth() + 1),
   });
-  const response = await fetch(`/api/feedback/nearby?${params.toString()}`);
-  const result = await response.json();
+  const response = await fetch(apiUrl(`/api/feedback/nearby?${params.toString()}`));
+  const result = await readJsonResponse(response);
   if (!response.ok) {
     throw new Error(result.detail || "Unable to refresh nearby feedback.");
   }
@@ -748,18 +800,30 @@ async function evaluateScenario() {
   }
   state.analysis.submitting = true;
   state.analysis.error = "";
-  state.analysis.status = "Running recommendation with nearby feedback...";
+  state.analysis.status = isLiveApiMode()
+    ? "Running recommendation with nearby feedback..."
+    : "Running local demo estimate. No live backend call will be made.";
   renderApp();
 
+  if (!isLiveApiMode()) {
+    const run = buildLocalRun(inputs);
+    storeRun(run);
+    state.analysis.source = "demo";
+    state.analysis.status = runtimeConfig.disclaimer;
+    state.analysis.submitting = false;
+    renderApp();
+    return;
+  }
+
   try {
-    const response = await fetch("/predict", {
+    const response = await fetch(apiUrl("/predict"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(buildPredictionRequest(inputs)),
     });
-    const result = await response.json();
+    const result = await readJsonResponse(response);
     if (!response.ok) {
       throw new Error(result.detail || "Unable to run the recommendation service.");
     }
@@ -774,7 +838,7 @@ async function evaluateScenario() {
     storeRun(run);
     state.analysis.source = "local";
     state.analysis.error = error instanceof Error ? error.message : "Unable to reach the recommendation service.";
-    state.analysis.status = "Showing the local estimate because the live feedback service is unavailable.";
+    state.analysis.status = "Showing the local demo estimate because the live API could not be reached.";
   } finally {
     state.analysis.submitting = false;
     renderApp();
@@ -783,17 +847,27 @@ async function evaluateScenario() {
 
 function feedbackSummary(run) {
   if (!run?.regionalInsights) {
-    return "No nearby farmer feedback is being used yet for this field.";
+    return isLiveApiMode()
+      ? "No comparable nearby farmer feedback is being used yet for this field."
+      : "Demo mode does not use stored farmer feedback.";
   }
   const yieldText =
     run.regionalInsights.avgYieldDelta == null
       ? "Yield change data is still limited."
       : `Average yield change: ${Number(run.regionalInsights.avgYieldDelta).toFixed(1)}%.`;
-  return `${Math.round(run.regionalInsights.successRate * 100)}% success across ${run.regionalInsights.totalSamples} nearby farms within ${Math.round(run.regionalInsights.radiusKm || 50)} km. ${yieldText}`;
+  return `${Math.round(run.regionalInsights.successRate * 100)}% success across ${run.regionalInsights.totalSamples} nearby farms within ${Math.round(run.regionalInsights.radiusKm || 50)} km. Filters require the same crop, soil texture, and irrigation type. ${yieldText}`;
 }
 
 async function submitFeedback() {
   if (!state.latestRun || state.feedbackForm.submitting) {
+    return;
+  }
+
+  if (!isLiveApiMode()) {
+    state.feedbackForm.status = "Live API mode is required to store feedback in the Helios database.";
+    state.feedbackForm.error = "";
+    state.feedbackForm.open = false;
+    renderApp();
     return;
   }
 
@@ -806,6 +880,9 @@ async function submitFeedback() {
     farm_id: state.latestRun.inputSnapshot.farmId,
     timestamp: new Date().toISOString(),
     crop_type: state.latestRun.inputSnapshot.cropType,
+    soil_texture: state.latestRun.inputSnapshot.soilTexture,
+    irrigation_type: state.latestRun.inputSnapshot.irrigationType,
+    growth_stage: state.latestRun.inputSnapshot.growthStage,
     recommendation_type: "irrigation",
     recommendation_value: String(state.latestRun.recommendedAmountMm),
     outcome: state.feedbackForm.outcome,
@@ -816,14 +893,14 @@ async function submitFeedback() {
   };
 
   try {
-    const response = await fetch("/api/feedback", {
+    const response = await fetch(apiUrl("/api/feedback"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
     });
-    const result = await response.json();
+    const result = await readJsonResponse(response);
     if (!response.ok) {
       throw new Error(result.detail || "Unable to submit feedback.");
     }
@@ -948,7 +1025,7 @@ function Sidebar() {
         </div>
         <div class="hidden xl:block">
           <p class="text-sm font-semibold text-[var(--text)]">Helios</p>
-          <p class="text-xs text-[var(--text-muted)]">Irrigation AI</p>
+          <p class="text-xs text-[var(--text-muted)]">Irrigation prototype</p>
         </div>
       </div>
       <nav class="flex-1 px-3 py-5">
@@ -1185,6 +1262,12 @@ function PrimaryButton({ id = "", label, iconName = "", variant = "primary", ext
 }
 
 function PromptInput() {
+  const modeLabel =
+    state.analysis.source === "api"
+      ? "Live API mode"
+      : state.analysis.source === "local"
+        ? "Fallback mode"
+        : "Demo mode";
   return `
     <section class="rounded-[28px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
       <div class="mb-4 flex items-start justify-between gap-4">
@@ -1193,7 +1276,7 @@ function PromptInput() {
           <h2 class="mt-2 text-base font-medium text-[var(--text)]">Operator instructions</h2>
         </div>
         <div class="hidden rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2 text-xs text-[var(--text-muted)] sm:block">
-          ${state.analysis.source === "api" ? "Nearby farm feedback is active." : "Local estimate mode."}
+          ${modeLabel}
         </div>
       </div>
       <textarea
@@ -1234,6 +1317,7 @@ function PromptInput() {
       <div class="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-3 text-sm text-[var(--text-muted)]">
         <p>${escapeHtml(state.analysis.status)}</p>
         ${state.analysis.error ? `<p class="mt-2 text-[var(--accent-warm)]">${escapeHtml(state.analysis.error)}</p>` : ""}
+        <p class="mt-2">Prototype note: synthetic training data, approximate ET, heuristic confidence, and rule-based optimization.</p>
       </div>
     </section>
   `;
@@ -1347,8 +1431,8 @@ function AnalysisWorkspace() {
           <div class="max-w-3xl">
             <h2 class="text-2xl font-semibold tracking-tight text-[var(--text)]">Forecast moisture and plan irrigation</h2>
             <p class="mt-2 text-sm leading-7 text-[var(--text-muted)]">
-              This workspace keeps Helios’s agronomy logic intact and wraps it in a cleaner operator flow.
-              Enter field context, review the latest conditions, and run a recommendation without leaving the dashboard.
+              Helios is a decision-support prototype, not an autonomous agronomic advisor.
+              Enter field context, review the limits of the estimate, and use the result as one input into your irrigation decision.
             </p>
           </div>
           <div class="flex flex-wrap gap-2">
@@ -1459,7 +1543,7 @@ function RecommendationSpotlight() {
             <p class="text-sm font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">Recommendation</p>
             <h3 class="mt-2 text-xl font-semibold text-[var(--text)]">Run an analysis to reveal the irrigation call</h3>
             <p class="mt-3 text-sm leading-7 text-[var(--text-muted)]">
-              The result will surface here with the recommendation amount, timing window, confidence, and agronomic drivers.
+              The result will surface here with the recommended amount, timing window, heuristic confidence, and the main drivers behind the estimate.
             </p>
           </div>
           <span class="hidden rounded-full bg-[var(--accent-soft)] px-4 py-2 text-xs font-medium text-[var(--accent)] lg:inline-flex">
@@ -1504,7 +1588,7 @@ function RecommendationSpotlight() {
           <p class="mt-4 text-2xl font-semibold text-[var(--text)]">${escapeHtml(formatWindow(run.timingWindow))}</p>
         </div>
         <div class="rounded-3xl border border-[var(--border)] bg-[var(--panel)] p-5">
-          <p class="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">Confidence</p>
+          <p class="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">Heuristic confidence</p>
           <p class="mt-4 text-2xl font-semibold text-[var(--text)]">${formatPercent(run.confidenceScore)}</p>
         </div>
         <div class="rounded-3xl border border-[var(--border)] bg-[var(--panel)] p-5">
@@ -1523,9 +1607,13 @@ function RecommendationSpotlight() {
           <button
             type="button"
             id="feedback-toggle"
-            class="inline-flex items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2 text-sm font-medium text-[var(--text)] transition-all duration-200 hover:border-[var(--accent)]"
+            ${isLiveApiMode() ? "" : "disabled"}
+            class="${classNames(
+              "inline-flex items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2 text-sm font-medium text-[var(--text)] transition-all duration-200",
+              isLiveApiMode() ? "hover:border-[var(--accent)]" : "cursor-not-allowed opacity-60",
+            )}"
           >
-            Submit Feedback
+            ${isLiveApiMode() ? "Submit Feedback" : "Live API required"}
           </button>
         </div>
         ${state.feedbackForm.open ? `
@@ -1591,11 +1679,11 @@ function SettingsPage() {
         </div>
         <div class="rounded-[28px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
           <p class="text-sm font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">Deployment</p>
-          <h3 class="mt-2 text-lg font-medium text-[var(--text)]">Static MVP status</h3>
+          <h3 class="mt-2 text-lg font-medium text-[var(--text)]">Runtime mode</h3>
           <ul class="mt-4 space-y-3 text-sm text-[var(--text-muted)]">
-            <li class="rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-3">Tailwind dashboard shell is active on GitHub Pages.</li>
-            <li class="rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-3">Core irrigation recommendation logic remains browser-side and unchanged.</li>
-            <li class="rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-3">FastAPI + LightGBM backend can still be attached later without rewriting the UI system.</li>
+            <li class="rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-3">Configured mode: ${escapeHtml(runtimeConfig.mode)}</li>
+            <li class="rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-3">API base URL: ${escapeHtml(runtimeConfig.apiBaseUrl || "same-origin or none")}</li>
+            <li class="rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-3">${escapeHtml(runtimeConfig.disclaimer)}</li>
           </ul>
         </div>
       </div>
@@ -1672,7 +1760,7 @@ function ResultCard(run, inspectorMode = false) {
         </div>
       </div>
       <div class="mt-3 flex flex-wrap gap-2">
-        <span class="rounded-full bg-[var(--panel-muted)] px-3 py-1 text-xs font-medium text-[var(--text-muted)]">Confidence ${formatPercent(run.confidenceScore)}</span>
+        <span class="rounded-full bg-[var(--panel-muted)] px-3 py-1 text-xs font-medium text-[var(--text-muted)]">Heuristic confidence ${formatPercent(run.confidenceScore)}</span>
         <span class="rounded-full bg-[var(--panel-muted)] px-3 py-1 text-xs font-medium text-[var(--text-muted)]">Stress ${formatPercent(run.stressProbability)}</span>
       </div>
       ${inspectorMode ? `<div class="mt-4 h-px bg-[var(--border)]"></div>` : ""}

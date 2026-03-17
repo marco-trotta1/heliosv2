@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -105,6 +105,9 @@ class FeedbackCreateRequest(BaseModel):
     farm_id: str = Field(min_length=1)
     timestamp: datetime
     crop_type: str = Field(min_length=1)
+    soil_texture: Literal["sand", "loam", "clay"]
+    irrigation_type: Literal["pivot", "drip", "flood"]
+    growth_stage: Literal["emergence", "vegetative", "flowering", "grain_fill", "maturity"]
     recommendation_type: str = Field(min_length=1)
     recommendation_value: str = Field(min_length=1)
     outcome: Literal["SUCCESS", "PARTIAL", "FAILURE"]
@@ -113,6 +116,26 @@ class FeedbackCreateRequest(BaseModel):
     location_lat: float = Field(ge=-90, le=90)
     location_lon: float = Field(ge=-180, le=180)
 
+    @field_validator("yield_delta")
+    @classmethod
+    def validate_yield_delta(cls, value: float | None) -> float | None:
+        if value is None:
+            return None
+        if value < -100 or value > 1000:
+            raise ValueError("yield_delta must be between -100 and 1000 percent")
+        return value
+
+    @model_validator(mode="after")
+    def normalize_feedback(self) -> "FeedbackCreateRequest":
+        current_time = datetime.now(timezone.utc)
+        timestamp = self.timestamp.astimezone(timezone.utc) if self.timestamp.tzinfo else self.timestamp.replace(tzinfo=timezone.utc)
+        if timestamp > current_time:
+            raise ValueError("timestamp cannot be in the future")
+        if self.notes is not None:
+            cleaned = self.notes.strip()
+            self.notes = cleaned or None
+        return self
+
 
 class NearbyFeedbackQuery(BaseModel):
     lat: float = Field(ge=-90, le=90)
@@ -120,3 +143,6 @@ class NearbyFeedbackQuery(BaseModel):
     radius_km: float = Field(default=50, gt=0, le=500)
     crop_type: str | None = None
     recommendation_type: str | None = None
+    soil_texture: Literal["sand", "loam", "clay"] | None = None
+    irrigation_type: Literal["pivot", "drip", "flood"] | None = None
+    growth_stage: Literal["emergence", "vegetative", "flowering", "grain_fill", "maturity"] | None = None

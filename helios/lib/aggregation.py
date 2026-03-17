@@ -31,6 +31,8 @@ def aggregate_feedback(
     origin_lat: float,
     origin_lon: float,
     radius_km: float,
+    growth_stage: str | None = None,
+    season_month: int | None = None,
 ) -> dict[str, float | int | None]:
     filtered: list[tuple[dict[str, Any], float]] = []
     for row in rows:
@@ -44,6 +46,7 @@ def aggregate_feedback(
             "avg_yield_delta": None,
             "total_samples": 0,
             "weighted_samples": 0.0,
+            "comparable_samples": 0,
             "radius_km": radius_km,
         }
 
@@ -51,20 +54,34 @@ def aggregate_feedback(
     total_weight = 0.0
     weighted_yield_sum = 0.0
     weighted_yield_weight = 0.0
+    comparable_samples = 0
 
     for row, distance in filtered:
         weight = distance_weight(distance, radius_km)
+        comparability_weight = 1.0
+        if growth_stage and row.get("growth_stage") and row["growth_stage"] != growth_stage:
+            comparability_weight *= 0.75
+        if season_month and row.get("season_month"):
+            month_delta = abs(int(row["season_month"]) - season_month)
+            wrapped_delta = min(month_delta, 12 - month_delta)
+            if wrapped_delta > 1:
+                comparability_weight *= 0.6
+        if comparability_weight >= 0.95:
+            comparable_samples += 1
+
+        weighted_row = weight * comparability_weight
         outcome_score = {"SUCCESS": 1.0, "PARTIAL": 0.5, "FAILURE": 0.0}.get(row["outcome"], 0.0)
-        weighted_success += weight * outcome_score
-        total_weight += weight
+        weighted_success += weighted_row * outcome_score
+        total_weight += weighted_row
         if row.get("yield_delta") is not None:
-            weighted_yield_sum += weight * float(row["yield_delta"])
-            weighted_yield_weight += weight
+            weighted_yield_sum += weighted_row * float(row["yield_delta"])
+            weighted_yield_weight += weighted_row
 
     return {
         "success_rate": round(weighted_success / total_weight, 3) if total_weight else 0.0,
         "avg_yield_delta": round(weighted_yield_sum / weighted_yield_weight, 3) if weighted_yield_weight else None,
         "total_samples": len(filtered),
         "weighted_samples": round(total_weight, 3),
+        "comparable_samples": comparable_samples,
         "radius_km": radius_km,
     }

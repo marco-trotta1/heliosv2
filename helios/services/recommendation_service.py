@@ -23,17 +23,28 @@ from helios.utils.evapotranspiration import estimate_reference_et_mm
 class RecommendationService:
     def __init__(
         self,
-        model_path: Path = Path("artifacts/moisture_model.pkl"),
-        metadata_path: Path = Path("artifacts/model_metadata.json"),
+        *,
+        model: MoistureForecastModel,
+        model_path: Path,
+        metadata_path: Path,
     ) -> None:
+        self.model = model
         self.model_path = model_path
         self.metadata_path = metadata_path
 
+    @classmethod
+    def from_artifacts(
+        cls,
+        model_path: Path = Path("artifacts/moisture_model.pkl"),
+        metadata_path: Path = Path("artifacts/model_metadata.json"),
+    ) -> "RecommendationService":
+        model = MoistureForecastModel.load(model_path, metadata_path)
+        return cls(model=model, model_path=model_path, metadata_path=metadata_path)
+
     def predict_recommendation(self, request: PredictionRequest) -> PredictionResponse:
-        model = MoistureForecastModel.load(self.model_path, self.metadata_path)
         raw_frame = request_to_feature_frame(request)
         features = build_inference_features(raw_frame)
-        predicted = model.predict(features)
+        predicted = self.model.predict(features)
 
         thresholds = SOIL_THRESHOLDS.get(request.soil_properties.soil_texture, SOIL_THRESHOLDS["loam"])
         estimated_et = estimate_reference_et_mm(
@@ -64,7 +75,7 @@ class RecommendationService:
                 budget_dollars=request.operational.budget_dollars,
                 estimated_et_mm=estimated_et,
                 recent_precipitation_mm=request.weather.precipitation_mm,
-                model_rmse=float(model.metadata.get("cv_rmse_mean", 0.12)),
+                model_rmse=float(self.model.metadata.get("cv_rmse_mean", 0.12)),
                 sensor_count=len(request.soil_moisture_readings),
             )
         )
@@ -92,6 +103,10 @@ class RecommendationService:
             lon=request.location_lon,
             crop_type=request.crop.crop_type,
             recommendation_type="irrigation",
+            soil_texture=request.soil_properties.soil_texture,
+            irrigation_type=request.irrigation_system.irrigation_type,
+            growth_stage=request.crop.growth_stage,
+            season_month=request.soil_moisture_readings[-1].timestamp.month,
         )
         adjustment_data = adjust_recommendation(plan["recommended_amount_mm"], insights_data)
         response.recommended_amount_mm = adjustment_data["adjusted_recommendation_mm"]

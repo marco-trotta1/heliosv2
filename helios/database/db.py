@@ -1,19 +1,17 @@
 from __future__ import annotations
 
-import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, MetaData, String, Table, and_, create_engine, func, select
+from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Integer, MetaData, String, Table, and_, create_engine, func, inspect, select, text
 from sqlalchemy.engine import Engine
 
-from helios.schemas.inputs import FeedbackCreateRequest
-from helios.schemas.inputs import PredictionRequest
+from helios.config import get_settings
+from helios.schemas.inputs import FeedbackCreateRequest, PredictionRequest
 from helios.schemas.outputs import PredictionResponse
 
 
-DATABASE_PATH = Path("data/helios.db")
 metadata = MetaData()
 
 prediction_runs = Table(
@@ -52,21 +50,63 @@ feedback = Table(
     Column("notes", String, nullable=True),
     Column("location_lat", Float, nullable=False),
     Column("location_lon", Float, nullable=False),
+    Column("soil_texture", String, nullable=True),
+    Column("irrigation_type", String, nullable=True),
+    Column("growth_stage", String, nullable=True),
+    Column("season_month", Integer, nullable=True),
 )
 
 _engine: Engine | None = None
 
 
+def _database_path() -> Path:
+    return get_settings().database_path
+
+
 def get_engine() -> Engine:
     global _engine
     if _engine is None:
-        DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _engine = create_engine(f"sqlite:///{DATABASE_PATH}", future=True)
+        database_path = _database_path()
+        database_path.parent.mkdir(parents=True, exist_ok=True)
+        _engine = create_engine(
+            f"sqlite:///{database_path}",
+            future=True,
+            connect_args={"check_same_thread": False},
+            pool_pre_ping=True,
+        )
     return _engine
 
 
+def reset_engine() -> None:
+    global _engine
+    if _engine is not None:
+        _engine.dispose()
+    _engine = None
+
+
 def init_db() -> None:
-    metadata.create_all(get_engine())
+    engine = get_engine()
+    metadata.create_all(engine)
+    _migrate_feedback_table(engine)
+
+
+def _migrate_feedback_table(engine: Engine) -> None:
+    existing_columns = {column["name"] for column in inspect(engine).get_columns("feedback")}
+    optional_columns = {
+        "soil_texture": "TEXT",
+        "irrigation_type": "TEXT",
+        "growth_stage": "TEXT",
+        "season_month": "INTEGER",
+    }
+    with engine.begin() as connection:
+        for column_name, column_type in optional_columns.items():
+            if column_name in existing_columns:
+                continue
+            connection.execute(text(f"ALTER TABLE feedback ADD COLUMN {column_name} {column_type}"))
+        connection.execute(text("CREATE INDEX IF NOT EXISTS ix_feedback_crop_type ON feedback (crop_type)"))
+        connection.execute(text("CREATE INDEX IF NOT EXISTS ix_feedback_recommendation_type ON feedback (recommendation_type)"))
+        connection.execute(text("CREATE INDEX IF NOT EXISTS ix_feedback_farm_id ON feedback (farm_id)"))
+        connection.execute(text("CREATE INDEX IF NOT EXISTS ix_feedback_timestamp ON feedback (timestamp)"))
 
 
 def save_prediction_run(request: PredictionRequest, response: PredictionResponse) -> int:
@@ -121,6 +161,10 @@ def insert_feedback(payload: FeedbackCreateRequest) -> int:
                 notes=payload.notes,
                 location_lat=payload.location_lat,
                 location_lon=payload.location_lon,
+                soil_texture=payload.soil_texture,
+                irrigation_type=payload.irrigation_type,
+                growth_stage=payload.growth_stage,
+                season_month=payload.timestamp.month,
             )
         )
         return int(result.inserted_primary_key[0])
@@ -154,13 +198,23 @@ def find_duplicate_feedback(
     return int(row[0])
 
 
-def get_feedback_rows(*, crop_type: str | None = None, recommendation_type: str | None = None) -> list[dict[str, Any]]:
+def get_feedback_rows(
+    *,
+    crop_type: str | None = None,
+    recommendation_type: str | None = None,
+    soil_texture: str | None = None,
+    irrigation_type: str | None = None,
+) -> list[dict[str, Any]]:
     engine = get_engine()
     query = select(feedback)
     if crop_type:
         query = query.where(feedback.c.crop_type == crop_type)
     if recommendation_type:
         query = query.where(feedback.c.recommendation_type == recommendation_type)
+    if soil_texture:
+        query = query.where(feedback.c.soil_texture == soil_texture)
+    if irrigation_type:
+        query = query.where(feedback.c.irrigation_type == irrigation_type)
 
     with engine.connect() as connection:
         rows = connection.execute(query).mappings().all()

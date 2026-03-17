@@ -1,0 +1,133 @@
+from __future__ import annotations
+
+from datetime import datetime
+
+from fastapi.testclient import TestClient
+
+from helios.schemas.outputs import PredictionResponse
+
+
+class DummyRecommendationService:
+    def __init__(self, response: PredictionResponse) -> None:
+        self.response = response
+        self.calls = 0
+
+    def predict_recommendation(self, request) -> PredictionResponse:
+        self.calls += 1
+        return self.response
+
+
+def test_health_reports_degraded_when_model_is_unavailable(app_factory) -> None:
+    with app_factory(recommendation_service=None, database_ready=True, startup_issues=["Model artifacts are missing."]) as client:
+        response = client.get("/health")
+
+    assert response.status_code == 503
+    body = response.json()
+    assert body["status"] == "degraded"
+    assert body["ready"] is False
+    assert "Model artifacts are missing." in body["issues"]
+
+
+def test_predict_success_returns_structured_response(app_factory, prediction_payload, prediction_response) -> None:
+    service = DummyRecommendationService(prediction_response)
+
+    with app_factory(recommendation_service=service, database_ready=True) as client:
+        response = client.post("/predict", json=prediction_payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["decision"] == "water"
+    assert body["regional_insights"]["comparable_samples"] == 4
+    assert service.calls == 1
+
+
+def test_predict_returns_503_when_runtime_is_not_ready(app_factory, prediction_payload) -> None:
+    with app_factory(recommendation_service=None, database_ready=True, startup_issues=["Model artifacts are missing."]) as client:
+        response = client.post("/predict", json=prediction_payload)
+
+    assert response.status_code == 503
+    assert response.json()["error_code"] == "service_unavailable"
+
+
+def test_predict_validation_errors_are_structured(app_factory, prediction_payload, prediction_response) -> None:
+    service = DummyRecommendationService(prediction_response)
+    payload = dict(prediction_payload)
+    payload["forecast_horizon_hours"] = 99
+
+    with app_factory(recommendation_service=service, database_ready=True) as client:
+        response = client.post("/predict", json=payload)
+
+    assert response.status_code == 422
+    body = response.json()
+    assert body["error_code"] == "validation_error"
+    assert body["issues"]
+
+
+def test_feedback_submission_prevents_duplicates(app_factory, feedback_payload) -> None:
+    with app_factory(recommendation_service=None, database_ready=True) as client:
+        first = client.post("/api/feedback", json=feedback_payload)
+        second = client.post("/api/feedback", json=feedback_payload)
+
+    assert first.status_code == 201
+    assert first.json()["duplicate_prevented"] is False
+    assert second.status_code == 201
+    assert second.json()["duplicate_prevented"] is True
+
+
+def test_nearby_feedback_uses_comparability_filters(app_factory, feedback_payload) -> None:
+    mismatched = dict(feedback_payload)
+    mismatched["farm_id"] = "farm-002"
+    mismatched["soil_texture"] = "clay"
+
+    with app_factory(recommendation_service=None, database_ready=True) as client:
+        client.post("/api/feedback", json=feedback_payload)
+        client.post("/api/feedback", json=mismatched)
+        response = client.get(
+            "/api/feedback/nearby",
+            params={
+                "lat": feedback_payload["location_lat"],
+                "lon": feedback_payload["location_lon"],
+                "radius": 50,
+                "crop_type": feedback_payload["crop_type"],
+                "recommendation_type": feedback_payload["recommendation_type"],
+                "soil_texture": feedback_payload["soil_texture"],
+                "irrigation_type": feedback_payload["irrigation_type"],
+                "growth_stage": feedback_payload["growth_stage"],
+                "season_month": datetime.fromisoformat(feedback_payload["timestamp"]).month,
+            },
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total_samples"] == 1
+    assert body["comparable_samples"] == 1
+
+
+def test_rate_limit_returns_429(temp_settings_env, monkeypatch, prediction_payload, prediction_response) -> None:
+    import helios.api.main as main_module
+    from helios.api.runtime import AppRuntime
+    from helios.config import get_settings
+    from helios.database.db import init_db
+
+    monkeypatch.setenv("HELIOS_RATE_LIMIT_MAX_REQUESTS", "1")
+    get_settings.cache_clear()
+    service = DummyRecommendationService(prediction_response)
+
+    def fake_build_runtime(settings):
+        init_db()
+        return AppRuntime(
+            settings=settings,
+            recommendation_service=service,
+            database_ready=True,
+            startup_issues=[],
+        )
+
+    monkeypatch.setattr(main_module, "build_runtime", fake_build_runtime)
+    app = main_module.create_app(get_settings())
+    with TestClient(app) as client:
+        first = client.post("/predict", json=prediction_payload)
+        second = client.post("/predict", json=prediction_payload)
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+    assert second.json()["error_code"] == "rate_limited"

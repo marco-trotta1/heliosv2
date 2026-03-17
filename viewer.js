@@ -62,6 +62,7 @@ const DEFAULT_FORM = {
   model: "Helios Core",
   autoSave: false,
   includeNotes: true,
+  farmId: "north-pivot-7",
   fieldName: "North Pivot 7",
   fieldAreaHa: 24,
   cropType: "corn",
@@ -70,6 +71,8 @@ const DEFAULT_FORM = {
   drainageClass: "moderate",
   infiltrationRate: 12,
   slopePct: 2.5,
+  locationLat: 43.615,
+  locationLon: -116.202,
   currentMoisture: 0.2,
   lagOneMoisture: 0.21,
   lagTwoMoisture: 0.22,
@@ -93,7 +96,10 @@ const PRESETS = {
     ...DEFAULT_FORM,
     analysisPrompt:
       "Assess a heat-wave scenario. Prioritize yield protection and the cheapest feasible irrigation window.",
+    farmId: "north-pivot-7",
     fieldName: "North Pivot 7",
+    locationLat: 43.615,
+    locationLon: -116.202,
     temperatureC: 34,
     humidityPct: 26,
     windMps: 4.6,
@@ -113,7 +119,10 @@ const PRESETS = {
     analysisPrompt:
       "Check whether the field can safely wait through a mild day while preserving water and energy budget.",
     model: "Helios Balanced",
+    farmId: "south-bench-2",
     fieldName: "South Bench 2",
+    locationLat: 43.601,
+    locationLon: -116.145,
     fieldAreaHa: 18,
     cropType: "soybean",
     growthStage: "vegetative",
@@ -139,7 +148,10 @@ const PRESETS = {
     analysisPrompt:
       "Forecast whether incoming rain and higher retained soil water are enough to skip the next irrigation cycle.",
     model: "Helios Conservative",
+    farmId: "creek-flat-3",
     fieldName: "Creek Flat 3",
+    locationLat: 43.589,
+    locationLon: -116.248,
     fieldAreaHa: 31,
     cropType: "potato",
     growthStage: "grain_fill",
@@ -174,6 +186,21 @@ const state = {
   runHistory: loadStoredArray(RUN_HISTORY_KEY),
   savedRuns: loadStoredArray(SAVED_RUNS_KEY),
   latestRun: null,
+  analysis: {
+    status: "Ready to run a recommendation.",
+    error: "",
+    submitting: false,
+    source: "api",
+  },
+  feedbackForm: {
+    open: false,
+    outcome: "SUCCESS",
+    yieldDelta: "",
+    notes: "",
+    status: "",
+    error: "",
+    submitting: false,
+  },
 };
 
 if (state.runHistory.length > 0) {
@@ -219,6 +246,9 @@ function normalizeRun(run) {
     drivers: Array.isArray(run.drivers) ? run.drivers : [],
     summary: run.summary || "",
     inputSnapshot,
+    regionalInsights: run.regionalInsights || null,
+    recommendationAdjustment: run.recommendationAdjustment || null,
+    sourceLabel: run.sourceLabel || "",
   };
   normalized.copyText = run.copyText || serializeRunForCopy(normalized);
   return normalized;
@@ -468,7 +498,7 @@ function recommendationTone(run) {
 }
 
 function serializeRunForCopy(run) {
-  return [
+  const lines = [
     `Run: ${run.title}`,
     `Timestamp: ${formatTimestamp(run.timestamp)}`,
     `Decision: ${run.decision.toUpperCase()}`,
@@ -486,11 +516,148 @@ function serializeRunForCopy(run) {
     "",
     "Prompt:",
     run.prompt,
-  ].join("\n");
+  ];
+  if (run.recommendationAdjustment) {
+    lines.push("");
+    lines.push(`Base recommendation: ${run.recommendationAdjustment.baseRecommendationMm.toFixed(1)} mm`);
+    lines.push(`Adjustment factor: ${run.recommendationAdjustment.adjustmentFactor.toFixed(2)}x`);
+    lines.push(`Adjustment reason: ${run.recommendationAdjustment.reason}`);
+  }
+  if (run.regionalInsights) {
+    lines.push(`Regional success rate: ${Math.round(run.regionalInsights.successRate * 100)}%`);
+    lines.push(`Regional samples: ${run.regionalInsights.totalSamples}`);
+  }
+  if (run.sourceLabel) {
+    lines.push(`Recommendation source: ${run.sourceLabel}`);
+  }
+  return lines.join("\n");
 }
 
-function evaluateScenario() {
-  const inputs = { ...state.form };
+function buildPredictionRequest(inputs) {
+  const now = new Date();
+  const fieldId = inputs.farmId || inputs.fieldName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  return {
+    field_id: fieldId,
+    farm_id: inputs.farmId || fieldId,
+    forecast_horizon_hours: 72,
+    weather: {
+      temperature_c: Number(inputs.temperatureC),
+      humidity_pct: Number(inputs.humidityPct),
+      wind_mps: Number(inputs.windMps),
+      precipitation_mm: Number(inputs.precipitationMm),
+      solar_radiation_mj_m2: Number(inputs.solarRadiationMjM2),
+      forecast_horizon_hours: 72,
+    },
+    irrigation_system: {
+      irrigation_type: inputs.irrigationType,
+      pump_capacity_mm_per_hour: Number(inputs.pumpCapacity),
+      water_rights_schedule: inputs.waterWindow,
+      energy_price_window: inputs.energyWindow,
+    },
+    soil_moisture_readings: [
+      {
+        timestamp: new Date(now.getTime() - (12 * 60 * 60 * 1000)).toISOString(),
+        field_id: fieldId,
+        volumetric_water_content: Number(inputs.lagTwoMoisture),
+      },
+      {
+        timestamp: new Date(now.getTime() - (6 * 60 * 60 * 1000)).toISOString(),
+        field_id: fieldId,
+        volumetric_water_content: Number(inputs.lagOneMoisture),
+      },
+      {
+        timestamp: now.toISOString(),
+        field_id: fieldId,
+        volumetric_water_content: Number(inputs.currentMoisture),
+      },
+    ],
+    soil_properties: {
+      soil_texture: inputs.soilTexture,
+      infiltration_rate_mm_per_hour: Number(inputs.infiltrationRate),
+      slope_pct: Number(inputs.slopePct),
+      drainage_class: inputs.drainageClass,
+    },
+    crop: {
+      crop_type: inputs.cropType,
+      growth_stage: inputs.growthStage,
+    },
+    operational: {
+      max_irrigation_volume_mm: Number(inputs.maxIrrigationVolume),
+      field_area_ha: Number(inputs.fieldAreaHa),
+      budget_dollars: Number(inputs.budgetDollars),
+    },
+    location_lat: Number(inputs.locationLat),
+    location_lon: Number(inputs.locationLon),
+    recent_irrigation_events: [
+      {
+        timestamp: new Date(now.getTime() - (24 * 60 * 60 * 1000)).toISOString(),
+        applied_mm: Number(inputs.recentIrrigation24h),
+      },
+      {
+        timestamp: new Date(now.getTime() - (72 * 60 * 60 * 1000)).toISOString(),
+        applied_mm: Number(inputs.recentIrrigation72h),
+      },
+    ],
+  };
+}
+
+function buildApiSummary(inputs, response) {
+  const action =
+    response.decision === "water"
+      ? `Apply ${response.recommended_amount_mm.toFixed(1)} mm during ${formatWindow(response.timing_window)}.`
+      : "Hold irrigation and check again after the next weather update.";
+  if (response.regional_insights?.total_samples) {
+    return `${inputs.fieldName} is being compared with ${response.regional_insights.total_samples} nearby feedback reports. ${action}`;
+  }
+  return `${inputs.fieldName} has no nearby feedback history yet. ${action}`;
+}
+
+function mapApiRun(inputs, response) {
+  const estimatedEtMm = estimateReferenceEtMm(inputs);
+  const run = {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    title: `${inputs.fieldName} • ${PAGE_TITLES["run-analysis"]}`,
+    timestamp: new Date().toISOString(),
+    prompt: inputs.analysisPrompt,
+    decision: response.decision,
+    recommendedAmountMm: Number(response.recommended_amount_mm || 0),
+    timingWindow: response.timing_window,
+    confidenceScore: Number(response.confidence_score || 0),
+    stressProbability: Number(response.explanation?.stress_probability || 0),
+    estimatedEtMm,
+    predicted: {
+      moisture24h: Number(response.predicted_moisture?.moisture_24h || 0),
+      moisture48h: Number(response.predicted_moisture?.moisture_48h || 0),
+      moisture72h: Number(response.predicted_moisture?.moisture_72h || 0),
+    },
+    drivers: Array.isArray(response.explanation?.drivers) ? response.explanation.drivers : [],
+    summary: buildApiSummary(inputs, response),
+    inputSnapshot: inputs,
+    regionalInsights: response.regional_insights
+      ? {
+          successRate: Number(response.regional_insights.success_rate || 0),
+          avgYieldDelta: response.regional_insights.avg_yield_delta,
+          totalSamples: Number(response.regional_insights.total_samples || 0),
+          weightedSamples: Number(response.regional_insights.weighted_samples || 0),
+          radiusKm: Number(response.regional_insights.radius_km || 50),
+        }
+      : null,
+    recommendationAdjustment: response.recommendation_adjustment
+      ? {
+          baseRecommendationMm: Number(response.recommendation_adjustment.base_recommendation_mm || response.recommended_amount_mm || 0),
+          adjustedRecommendationMm: Number(response.recommendation_adjustment.adjusted_recommendation_mm || response.recommended_amount_mm || 0),
+          adjustmentFactor: Number(response.recommendation_adjustment.adjustment_factor || 1),
+          reason: response.recommendation_adjustment.reason || "No adjustment reason returned.",
+        }
+      : null,
+    sourceLabel: "Live API with nearby farm feedback",
+    copyText: "",
+  };
+  run.copyText = serializeRunForCopy(run);
+  return run;
+}
+
+function buildLocalRun(inputs) {
   const estimatedEtMm = estimateReferenceEtMm(inputs);
   const predicted = predictMoistureTrajectory(inputs, estimatedEtMm);
   const thresholds = SOIL_THRESHOLDS[inputs.soilTexture] ?? SOIL_THRESHOLDS.loam;
@@ -518,10 +685,27 @@ function evaluateScenario() {
     drivers,
     summary: buildSummary(inputs, predicted, plan),
     inputSnapshot: inputs,
+    regionalInsights: null,
+    recommendationAdjustment: {
+      baseRecommendationMm: plan.recommendedAmountMm,
+      adjustedRecommendationMm: plan.recommendedAmountMm,
+      adjustmentFactor: 1,
+      reason: "Live feedback service was unavailable, so this result uses the local rules only.",
+    },
+    sourceLabel: "Local fallback estimate",
     copyText: "",
   };
   run.copyText = serializeRunForCopy(run);
+  return run;
+}
+
+function storeRun(run) {
   state.latestRun = run;
+  state.feedbackForm.open = false;
+  state.feedbackForm.status = "";
+  state.feedbackForm.error = "";
+  state.feedbackForm.yieldDelta = "";
+  state.feedbackForm.notes = "";
   state.runHistory.unshift(run);
   state.runHistory = state.runHistory.slice(0, 50);
   if (state.form.autoSave) {
@@ -529,7 +713,137 @@ function evaluateScenario() {
     state.savedRuns = dedupeRuns(state.savedRuns).slice(0, 50);
   }
   persistState();
+}
+
+async function refreshRegionalInsights(run) {
+  if (run?.inputSnapshot?.locationLat == null || run?.inputSnapshot?.locationLon == null) {
+    return;
+  }
+  const params = new URLSearchParams({
+    lat: String(run.inputSnapshot.locationLat),
+    lon: String(run.inputSnapshot.locationLon),
+    radius: "50",
+    crop_type: run.inputSnapshot.cropType,
+    recommendation_type: "irrigation",
+  });
+  const response = await fetch(`/api/feedback/nearby?${params.toString()}`);
+  const result = await response.json();
+  if (!response.ok) {
+    throw new Error(result.detail || "Unable to refresh nearby feedback.");
+  }
+  run.regionalInsights = {
+    successRate: Number(result.success_rate || 0),
+    avgYieldDelta: result.avg_yield_delta,
+    totalSamples: Number(result.total_samples || 0),
+    weightedSamples: Number(result.weighted_samples || 0),
+    radiusKm: Number(result.radius_km || 50),
+  };
+  run.copyText = serializeRunForCopy(run);
+}
+
+async function evaluateScenario() {
+  const inputs = { ...state.form };
+  if (state.analysis.submitting) {
+    return;
+  }
+  state.analysis.submitting = true;
+  state.analysis.error = "";
+  state.analysis.status = "Running recommendation with nearby feedback...";
   renderApp();
+
+  try {
+    const response = await fetch("/predict", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(buildPredictionRequest(inputs)),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.detail || "Unable to run the recommendation service.");
+    }
+    const run = mapApiRun(inputs, result);
+    storeRun(run);
+    state.analysis.source = "api";
+    state.analysis.status = run.regionalInsights?.totalSamples
+      ? `Recommendation updated using ${run.regionalInsights.totalSamples} nearby feedback reports.`
+      : "Recommendation completed. No nearby feedback reports were available yet.";
+  } catch (error) {
+    const run = buildLocalRun(inputs);
+    storeRun(run);
+    state.analysis.source = "local";
+    state.analysis.error = error instanceof Error ? error.message : "Unable to reach the recommendation service.";
+    state.analysis.status = "Showing the local estimate because the live feedback service is unavailable.";
+  } finally {
+    state.analysis.submitting = false;
+    renderApp();
+  }
+}
+
+function feedbackSummary(run) {
+  if (!run?.regionalInsights) {
+    return "No nearby farmer feedback is being used yet for this field.";
+  }
+  const yieldText =
+    run.regionalInsights.avgYieldDelta == null
+      ? "Yield change data is still limited."
+      : `Average yield change: ${Number(run.regionalInsights.avgYieldDelta).toFixed(1)}%.`;
+  return `${Math.round(run.regionalInsights.successRate * 100)}% success across ${run.regionalInsights.totalSamples} nearby farms within ${Math.round(run.regionalInsights.radiusKm || 50)} km. ${yieldText}`;
+}
+
+async function submitFeedback() {
+  if (!state.latestRun || state.feedbackForm.submitting) {
+    return;
+  }
+
+  state.feedbackForm.submitting = true;
+  state.feedbackForm.error = "";
+  state.feedbackForm.status = "";
+  renderApp();
+
+  const payload = {
+    farm_id: state.latestRun.inputSnapshot.farmId,
+    timestamp: new Date().toISOString(),
+    crop_type: state.latestRun.inputSnapshot.cropType,
+    recommendation_type: "irrigation",
+    recommendation_value: String(state.latestRun.recommendedAmountMm),
+    outcome: state.feedbackForm.outcome,
+    yield_delta: state.feedbackForm.yieldDelta === "" ? null : Number(state.feedbackForm.yieldDelta),
+    notes: state.feedbackForm.notes.trim() || null,
+    location_lat: Number(state.latestRun.inputSnapshot.locationLat),
+    location_lon: Number(state.latestRun.inputSnapshot.locationLon),
+  };
+
+  try {
+    const response = await fetch("/api/feedback", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.detail || "Unable to submit feedback.");
+    }
+    state.feedbackForm.status = result.message || "Feedback recorded.";
+    state.feedbackForm.error = "";
+    state.feedbackForm.open = false;
+    state.feedbackForm.yieldDelta = "";
+    state.feedbackForm.notes = "";
+    try {
+      await refreshRegionalInsights(state.latestRun);
+      persistState();
+    } catch {
+      // Keep the successful feedback confirmation even if the summary refresh fails.
+    }
+  } catch (error) {
+    state.feedbackForm.error = error instanceof Error ? error.message : "Unable to submit feedback.";
+  } finally {
+    state.feedbackForm.submitting = false;
+    renderApp();
+  }
 }
 
 function dedupeRuns(runs) {
@@ -847,7 +1161,7 @@ function emptyBlock(title, body) {
   `;
 }
 
-function PrimaryButton({ id = "", label, iconName = "", variant = "primary", extraClass = "", type = "button" }) {
+function PrimaryButton({ id = "", label, iconName = "", variant = "primary", extraClass = "", type = "button", disabled = false }) {
   const palette =
     variant === "primary"
       ? "bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]"
@@ -856,8 +1170,10 @@ function PrimaryButton({ id = "", label, iconName = "", variant = "primary", ext
     <button
       ${id ? `id="${id}"` : ""}
       type="${type}"
+      ${disabled ? "disabled" : ""}
       class="${classNames(
         "inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
+        disabled ? "cursor-not-allowed opacity-60" : "",
         palette,
         extraClass,
       )}"
@@ -877,7 +1193,7 @@ function PromptInput() {
           <h2 class="mt-2 text-base font-medium text-[var(--text)]">Operator instructions</h2>
         </div>
         <div class="hidden rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2 text-xs text-[var(--text-muted)] sm:block">
-          Helios will keep the recommendation logic unchanged.
+          ${state.analysis.source === "api" ? "Nearby farm feedback is active." : "Local estimate mode."}
         </div>
       </div>
       <textarea
@@ -905,7 +1221,19 @@ function PromptInput() {
             ${toggleControl("includeNotes", "Detailed notes", state.form.includeNotes)}
           </div>
         </div>
-        ${PrimaryButton({ id: "run-analysis-button", label: "Run analysis", iconName: "sparkles", variant: "primary", type: "submit", extraClass: "min-w-[148px]" })}
+        ${PrimaryButton({
+          id: "run-analysis-button",
+          label: state.analysis.submitting ? "Running..." : "Run analysis",
+          iconName: "sparkles",
+          variant: "primary",
+          type: "submit",
+          extraClass: "min-w-[148px]",
+          disabled: state.analysis.submitting,
+        })}
+      </div>
+      <div class="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-3 text-sm text-[var(--text-muted)]">
+        <p>${escapeHtml(state.analysis.status)}</p>
+        ${state.analysis.error ? `<p class="mt-2 text-[var(--accent-warm)]">${escapeHtml(state.analysis.error)}</p>` : ""}
       </div>
     </section>
   `;
@@ -1040,7 +1368,10 @@ function AnalysisWorkspace() {
             "Crop, soil, and terrain descriptors",
             `<div class="grid gap-4 sm:grid-cols-2">
               ${inputGroup("Field name", textInput("fieldName", state.form.fieldName))}
+              ${inputGroup("Farm ID", textInput("farmId", state.form.farmId))}
               ${inputGroup("Field area (ha)", numericInput("fieldAreaHa", state.form.fieldAreaHa, "1"))}
+              ${inputGroup("Latitude", numericInput("locationLat", state.form.locationLat, "-90", "0.0001", "90"))}
+              ${inputGroup("Longitude", numericInput("locationLon", state.form.locationLon, "-180", "0.0001", "180"))}
               ${inputGroup("Crop type", selectInput("cropType", state.form.cropType, [
                 { value: "corn", label: "Corn" },
                 { value: "soybean", label: "Soybean" },
@@ -1180,6 +1511,47 @@ function RecommendationSpotlight() {
           <p class="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">Stress risk</p>
           <p class="mt-4 text-2xl font-semibold text-[var(--text)]">${formatPercent(run.stressProbability)}</p>
         </div>
+      </div>
+      <div class="mt-4 rounded-3xl border border-[var(--border)] bg-[var(--panel)] p-5">
+        <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <p class="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">Farmer feedback</p>
+            <p class="mt-2 text-sm text-[var(--text-muted)]">${escapeHtml(feedbackSummary(run))}</p>
+            ${run.sourceLabel ? `<p class="mt-2 text-sm text-[var(--text-muted)]">Source: ${escapeHtml(run.sourceLabel)}</p>` : ""}
+            ${run.recommendationAdjustment ? `<p class="mt-2 text-sm text-[var(--text-muted)]">Adjustment reason: ${escapeHtml(run.recommendationAdjustment.reason)}</p>` : ""}
+          </div>
+          <button
+            type="button"
+            id="feedback-toggle"
+            class="inline-flex items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2 text-sm font-medium text-[var(--text)] transition-all duration-200 hover:border-[var(--accent)]"
+          >
+            Submit Feedback
+          </button>
+        </div>
+        ${state.feedbackForm.open ? `
+          <div class="mt-4 grid gap-4 sm:grid-cols-2">
+            ${inputGroup("Did this recommendation work?", selectInput("feedbackOutcome", state.feedbackForm.outcome, [
+              { value: "SUCCESS", label: "Success" },
+              { value: "PARTIAL", label: "Partial" },
+              { value: "FAILURE", label: "Failure" },
+            ]))}
+            ${inputGroup("Yield change (%)", numericInput("feedbackYieldDelta", state.feedbackForm.yieldDelta, "-100", "0.1", "1000"))}
+          </div>
+          <div class="mt-4">
+            ${inputGroup("Notes", `<textarea id="feedback-notes" class="min-h-[96px] w-full rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2.5 text-sm text-[var(--text)] outline-none transition-all duration-200 focus:border-[var(--accent)]">${escapeHtml(state.feedbackForm.notes)}</textarea>`)}
+          </div>
+          <div class="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              id="feedback-submit"
+              class="inline-flex items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2 text-sm font-medium text-[var(--text)] transition-all duration-200 hover:border-[var(--accent)]"
+            >
+              ${state.feedbackForm.submitting ? "Submitting..." : "Send"}
+            </button>
+            ${state.feedbackForm.error ? `<p class="text-sm text-[var(--accent-warm)]">${escapeHtml(state.feedbackForm.error)}</p>` : ""}
+            ${state.feedbackForm.status ? `<p class="text-sm text-[var(--text-muted)]">${escapeHtml(state.feedbackForm.status)}</p>` : ""}
+          </div>
+        ` : state.feedbackForm.status ? `<p class="mt-4 text-sm text-[var(--text-muted)]">${escapeHtml(state.feedbackForm.status)}</p>` : ""}
       </div>
     </section>
   `;
@@ -1360,6 +1732,22 @@ function bindAppEvents() {
   }
 
   document.querySelector("#save-latest-run")?.addEventListener("click", saveLatestRun);
+  document.querySelector("#feedback-toggle")?.addEventListener("click", () => {
+    state.feedbackForm.open = !state.feedbackForm.open;
+    state.feedbackForm.error = "";
+    renderApp();
+  });
+  document.querySelector("#feedback-submit")?.addEventListener("click", submitFeedback);
+  document.querySelector('select[name="feedbackOutcome"]')?.addEventListener("input", (event) => {
+    state.feedbackForm.outcome = event.target.value;
+  });
+  document.querySelector('input[name="feedbackYieldDelta"]')?.addEventListener("input", (event) => {
+    state.feedbackForm.yieldDelta = event.target.value;
+  });
+  document.querySelector("#feedback-notes")?.addEventListener("input", (event) => {
+    state.feedbackForm.notes = event.target.value;
+    autoSizeTextarea(event.target);
+  });
 }
 
 function parseFieldValue(target) {

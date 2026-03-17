@@ -18,6 +18,21 @@ class RecommendationExplanation(BaseModel):
     drivers: list[str]
 
 
+class RegionalInsights(BaseModel):
+    success_rate: float = Field(ge=0, le=1)
+    avg_yield_delta: float | None = None
+    total_samples: int = Field(ge=0)
+    weighted_samples: float = Field(ge=0)
+    radius_km: float = Field(gt=0)
+
+
+class RecommendationAdjustment(BaseModel):
+    base_recommendation_mm: float = Field(ge=0)
+    adjusted_recommendation_mm: float = Field(ge=0)
+    adjustment_factor: float = Field(gt=0)
+    reason: str
+
+
 class PredictionResponse(BaseModel):
     decision: Literal["water", "wait"]
     recommended_amount_mm: float = Field(ge=0)
@@ -25,6 +40,8 @@ class PredictionResponse(BaseModel):
     confidence_score: float = Field(ge=0, le=1)
     explanation: RecommendationExplanation
     predicted_moisture: MoistureForecast
+    regional_insights: RegionalInsights | None = None
+    recommendation_adjustment: RecommendationAdjustment | None = None
 
 
 class HealthResponse(BaseModel):
@@ -37,3 +54,9 @@ class HealthResponse(BaseModel):
 class ChartPoint(BaseModel):
     label: str
     moisture: float = Field(ge=0, le=1)
+
+
+class FeedbackResponse(BaseModel):
+    id: int
+    duplicate_prevented: bool = False
+    message: str

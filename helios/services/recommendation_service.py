@@ -6,10 +6,17 @@ from pathlib import Path
 from helios.data.feature_engineering import build_inference_features
 from helios.data.ingestion import request_to_feature_frame
 from helios.database.db import save_prediction_run
+from helios.lib.feedback import adjust_recommendation, get_regional_insights
 from helios.models.moisture_model import MoistureForecastModel
 from helios.optimizer.irrigation_optimizer import OptimizationInputs, SOIL_THRESHOLDS, generate_irrigation_plan
 from helios.schemas.inputs import PredictionRequest
-from helios.schemas.outputs import MoistureForecast, PredictionResponse, RecommendationExplanation
+from helios.schemas.outputs import (
+    MoistureForecast,
+    PredictionResponse,
+    RecommendationAdjustment,
+    RecommendationExplanation,
+    RegionalInsights,
+)
 from helios.utils.evapotranspiration import estimate_reference_et_mm
 
 
@@ -79,6 +86,21 @@ class RecommendationService:
                 drivers=drivers,
             ),
             predicted_moisture=MoistureForecast(**predicted),
+        )
+        insights_data = get_regional_insights(
+            lat=request.location_lat,
+            lon=request.location_lon,
+            crop_type=request.crop.crop_type,
+            recommendation_type="irrigation",
+        )
+        adjustment_data = adjust_recommendation(plan["recommended_amount_mm"], insights_data)
+        response.recommended_amount_mm = adjustment_data["adjusted_recommendation_mm"]
+        response.regional_insights = RegionalInsights(**insights_data)
+        response.recommendation_adjustment = RecommendationAdjustment(
+            base_recommendation_mm=plan["recommended_amount_mm"],
+            adjusted_recommendation_mm=adjustment_data["adjusted_recommendation_mm"],
+            adjustment_factor=adjustment_data["adjustment_factor"],
+            reason=adjustment_data["reason"],
         )
         save_prediction_run(request, response)
         return response

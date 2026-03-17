@@ -63,6 +63,7 @@ class IrrigationEventInput(BaseModel):
 
 class PredictionRequest(BaseModel):
     field_id: str = Field(min_length=1)
+    farm_id: str | None = Field(default=None, min_length=1)
     forecast_horizon_hours: int
     weather: WeatherInput
     irrigation_system: IrrigationSystemInput
@@ -70,6 +71,8 @@ class PredictionRequest(BaseModel):
     soil_properties: SoilPropertiesInput
     crop: CropInput
     operational: OperationalConstraintsInput
+    location_lat: float = Field(ge=-90, le=90)
+    location_lon: float = Field(ge=-180, le=180)
     recent_irrigation_events: list[IrrigationEventInput] = Field(default_factory=list)
 
     @field_validator("forecast_horizon_hours")
@@ -93,4 +96,27 @@ class PredictionRequest(BaseModel):
         field_ids = {reading.field_id for reading in self.soil_moisture_readings}
         if field_ids != {self.field_id}:
             raise ValueError("all soil moisture readings must match field_id")
+        if self.farm_id is None:
+            self.farm_id = self.field_id
         return self
+
+
+class FeedbackCreateRequest(BaseModel):
+    farm_id: str = Field(min_length=1)
+    timestamp: datetime
+    crop_type: str = Field(min_length=1)
+    recommendation_type: str = Field(min_length=1)
+    recommendation_value: str = Field(min_length=1)
+    outcome: Literal["SUCCESS", "PARTIAL", "FAILURE"]
+    yield_delta: float | None = None
+    notes: str | None = Field(default=None, max_length=2000)
+    location_lat: float = Field(ge=-90, le=90)
+    location_lon: float = Field(ge=-180, le=180)
+
+
+class NearbyFeedbackQuery(BaseModel):
+    lat: float = Field(ge=-90, le=90)
+    lon: float = Field(ge=-180, le=180)
+    radius_km: float = Field(default=50, gt=0, le=500)
+    crop_type: str | None = None
+    recommendation_type: str | None = None

@@ -224,6 +224,7 @@ const state = {
     error: "",
     submitting: false,
   },
+  analysisConsoleOpen: false,
 };
 
 if (state.runHistory.length > 0) {
@@ -358,6 +359,8 @@ function icon(name, className = "h-5 w-5") {
       `<svg class="${className}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="8" r="4"/></svg>`,
     chart:
       `<svg class="${className}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg>`,
+    chevronDown:
+      `<svg class="${className}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m6 9 6 6 6-6"/></svg>`,
   };
   return icons[name] || "";
 }
@@ -997,9 +1000,10 @@ function copyText(value, trigger) {
 }
 
 function renderApp() {
+  const showResultsPanel = state.activePage !== "run-analysis";
   app.innerHTML = `
     <div class="min-h-screen bg-[var(--bg)] text-[var(--text)]">
-      <div class="grid min-h-screen grid-cols-[78px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)_420px]">
+      <div class="grid min-h-screen ${showResultsPanel ? "grid-cols-[78px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)_420px]" : "grid-cols-[78px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)]"}">
         ${Sidebar()}
         <div class="min-w-0">
           ${TopBar()}
@@ -1007,7 +1011,7 @@ function renderApp() {
             ${renderPage()}
           </main>
         </div>
-        ${ResultsPanel()}
+        ${showResultsPanel ? ResultsPanel() : ""}
       </div>
     </div>
   `;
@@ -1270,24 +1274,38 @@ function PromptInput() {
         : "Demo mode";
   return `
     <section class="rounded-[28px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
-      <div class="mb-4 flex items-start justify-between gap-4">
+      <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <p class="text-sm font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">Analysis Prompt</p>
-          <h2 class="mt-2 text-base font-medium text-[var(--text)]">Operator instructions</h2>
+          <p class="text-sm font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">Prompt</p>
+          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-[var(--text)]">Describe the field situation and what you need to decide</h2>
+          <p class="mt-3 max-w-3xl text-sm leading-7 text-[var(--text-muted)]">
+            Start here. Enter the request in plain language, then review the recommendation below before checking supporting data.
+          </p>
         </div>
-        <div class="hidden rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2 text-xs text-[var(--text-muted)] sm:block">
-          ${modeLabel}
+        <div class="flex flex-wrap gap-2">
+          <div class="hidden rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2 text-xs text-[var(--text-muted)] sm:block">
+            ${modeLabel}
+          </div>
+          ${Object.keys(PRESETS)
+            .map((key) => PrimaryButton({ label: key === "heatwave" ? "Heat wave" : key === "balanced" ? "Balanced day" : "Rain incoming", iconName: "sparkles", variant: "secondary", extraClass: "preset-trigger", id: "", type: "button" }).replace("<button", `<button data-preset="${key}"`))
+            .join("")}
         </div>
       </div>
       <textarea
         id="analysis-prompt"
         name="analysisPrompt"
         rows="4"
-        class="w-full rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-4 text-sm leading-7 text-[var(--text)] outline-none transition-all duration-200 placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]"
-        placeholder="Describe the field context, operator goal, or specific irrigation concern..."
+        class="mt-5 w-full rounded-[24px] border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-4 text-sm leading-7 text-[var(--text)] outline-none transition-all duration-200 placeholder:text-[var(--text-muted)] focus:border-[var(--accent)]"
+        placeholder="Enter your request, scenario, or irrigation question here..."
       >${escapeHtml(state.form.analysisPrompt)}</textarea>
-      <div class="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div class="flex flex-1 flex-col gap-3 xl:flex-row xl:items-center">
+      <div class="mt-5 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div class="flex flex-1 flex-col gap-4">
+          <div class="rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-3 text-sm text-[var(--text-muted)]">
+            <p>${escapeHtml(state.analysis.status)}</p>
+            ${state.analysis.error ? `<p class="mt-2 text-[var(--accent-warm)]">${escapeHtml(state.analysis.error)}</p>` : ""}
+            <p class="mt-2">Prototype note: synthetic training data, approximate ET, heuristic confidence, and rule-based optimization.</p>
+          </div>
+          <div class="flex flex-1 flex-col gap-3 xl:flex-row xl:items-center">
           <label class="text-sm text-[var(--text-muted)]">
             <span class="mb-2 block text-sm font-medium text-[var(--text-muted)]">Model</span>
             <select
@@ -1304,20 +1322,18 @@ function PromptInput() {
             ${toggleControl("includeNotes", "Detailed notes", state.form.includeNotes)}
           </div>
         </div>
-        ${PrimaryButton({
+        </div>
+        <div class="flex justify-start xl:justify-end">
+          ${PrimaryButton({
           id: "run-analysis-button",
           label: state.analysis.submitting ? "Running..." : "Run analysis",
           iconName: "sparkles",
           variant: "primary",
           type: "submit",
-          extraClass: "min-w-[148px]",
+          extraClass: "min-w-[160px]",
           disabled: state.analysis.submitting,
         })}
-      </div>
-      <div class="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-3 text-sm text-[var(--text-muted)]">
-        <p>${escapeHtml(state.analysis.status)}</p>
-        ${state.analysis.error ? `<p class="mt-2 text-[var(--accent-warm)]">${escapeHtml(state.analysis.error)}</p>` : ""}
-        <p class="mt-2">Prototype note: synthetic training data, approximate ET, heuristic confidence, and rule-based optimization.</p>
+        </div>
       </div>
     </section>
   `;
@@ -1339,7 +1355,7 @@ function toggleControl(name, label, checked) {
 
 function fieldCard(title, description, content) {
   return `
-    <section class="rounded-[28px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
+    <section class="rounded-[24px] border border-[var(--border)] bg-[var(--panel-muted)] p-5">
       <div class="mb-5">
         <p class="text-sm font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">${title}</p>
         <h3 class="mt-2 text-base font-medium text-[var(--text)]">${description}</h3>
@@ -1422,113 +1438,186 @@ function checkboxGroup(title, name, options, selected) {
   `;
 }
 
-function AnalysisWorkspace() {
+function FieldProfileSection() {
+  return fieldCard(
+    "Field Profile",
+    "Crop, soil, and terrain descriptors",
+    `<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+      ${inputGroup("Field name", textInput("fieldName", state.form.fieldName))}
+      ${inputGroup("Farm ID", textInput("farmId", state.form.farmId))}
+      ${inputGroup("Field area (ha)", numericInput("fieldAreaHa", state.form.fieldAreaHa, "1"))}
+      ${inputGroup("Latitude", numericInput("locationLat", state.form.locationLat, "-90", "0.0001", "90"))}
+      ${inputGroup("Longitude", numericInput("locationLon", state.form.locationLon, "-180", "0.0001", "180"))}
+      ${inputGroup("Crop type", selectInput("cropType", state.form.cropType, [
+        { value: "corn", label: "Corn" },
+        { value: "soybean", label: "Soybean" },
+        { value: "potato", label: "Potato" },
+        { value: "alfalfa", label: "Alfalfa" },
+        { value: "wheat", label: "Wheat" },
+      ]))}
+      ${inputGroup("Growth stage", selectInput("growthStage", state.form.growthStage, [
+        { value: "emergence", label: "Emergence" },
+        { value: "vegetative", label: "Vegetative" },
+        { value: "flowering", label: "Flowering" },
+        { value: "grain_fill", label: "Grain fill" },
+        { value: "maturity", label: "Maturity" },
+      ]))}
+      ${inputGroup("Soil texture", selectInput("soilTexture", state.form.soilTexture, [
+        { value: "sand", label: "Sand" },
+        { value: "loam", label: "Loam" },
+        { value: "clay", label: "Clay" },
+      ]))}
+      ${inputGroup("Drainage", selectInput("drainageClass", state.form.drainageClass, [
+        { value: "poor", label: "Poor" },
+        { value: "moderate", label: "Moderate" },
+        { value: "well", label: "Well drained" },
+      ]))}
+      ${inputGroup("Infiltration rate (mm/hr)", numericInput("infiltrationRate", state.form.infiltrationRate, "1"))}
+      ${inputGroup("Slope (%)", numericInput("slopePct", state.form.slopePct, "0"))}
+    </div>`,
+  );
+}
+
+function SensorFeedSection() {
+  return fieldCard(
+    "Sensor Feed",
+    "Soil moisture and weather inputs",
+    `<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+      ${inputGroup("Current soil moisture", numericInput("currentMoisture", state.form.currentMoisture, "0.05", "0.01", "0.6"))}
+      ${inputGroup("6h ago moisture", numericInput("lagOneMoisture", state.form.lagOneMoisture, "0.05", "0.01", "0.6"))}
+      ${inputGroup("12h ago moisture", numericInput("lagTwoMoisture", state.form.lagTwoMoisture, "0.05", "0.01", "0.6"))}
+      ${inputGroup("Temperature (C)", numericInput("temperatureC", state.form.temperatureC, "-5"))}
+      ${inputGroup("Humidity (%)", numericInput("humidityPct", state.form.humidityPct, "0", "1", "100"))}
+      ${inputGroup("Wind (m/s)", numericInput("windMps", state.form.windMps, "0"))}
+      ${inputGroup("Forecast precipitation (mm)", numericInput("precipitationMm", state.form.precipitationMm, "0"))}
+      ${inputGroup("Solar radiation (MJ/m²)", numericInput("solarRadiationMjM2", state.form.solarRadiationMjM2, "0"))}
+    </div>`,
+  );
+}
+
+function OperationsSection() {
+  return fieldCard(
+    "Operations",
+    "System constraints and scheduling rules",
+    `<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+      ${inputGroup("Irrigation type", selectInput("irrigationType", state.form.irrigationType, [
+        { value: "pivot", label: "Pivot" },
+        { value: "drip", label: "Drip" },
+        { value: "flood", label: "Flood" },
+      ]))}
+      ${inputGroup("Pump capacity (mm/hr)", numericInput("pumpCapacity", state.form.pumpCapacity, "0.5"))}
+      ${inputGroup("Max irrigation volume (mm)", numericInput("maxIrrigationVolume", state.form.maxIrrigationVolume, "0"))}
+      ${inputGroup("Budget ($)", numericInput("budgetDollars", state.form.budgetDollars, "0", "1"))}
+      ${inputGroup("Irrigation last 24h (mm)", numericInput("recentIrrigation24h", state.form.recentIrrigation24h, "0"))}
+      ${inputGroup("Irrigation last 72h (mm)", numericInput("recentIrrigation72h", state.form.recentIrrigation72h, "0"))}
+    </div>
+    <div class="mt-5 grid gap-4">
+      ${checkboxGroup("Water rights schedule", "waterWindow", [
+        { value: "tonight", label: "Tonight" },
+        { value: "tomorrow_morning", label: "Tomorrow morning" },
+        { value: "tomorrow_afternoon", label: "Tomorrow afternoon" },
+        { value: "tomorrow_night", label: "Tomorrow night" },
+      ], state.form.waterWindow)}
+      ${checkboxGroup("Lower-cost energy windows", "energyWindow", [
+        { value: "tonight", label: "Tonight" },
+        { value: "tomorrow_morning", label: "Tomorrow morning" },
+        { value: "tomorrow_afternoon", label: "Tomorrow afternoon" },
+        { value: "tomorrow_night", label: "Tomorrow night" },
+      ], state.form.energyWindow)}
+    </div>`,
+  );
+}
+
+function DataSection() {
   return `
-    <section class="space-y-6">
-      <div class="rounded-[28px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
-        <p class="text-sm font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">Run Analysis</p>
-        <div class="mt-3 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
-          <div class="max-w-3xl">
-            <h2 class="text-2xl font-semibold tracking-tight text-[var(--text)]">Forecast moisture and plan irrigation</h2>
-            <p class="mt-2 text-sm leading-7 text-[var(--text-muted)]">
-              Helios is a decision-support prototype, not an autonomous agronomic advisor.
-              Enter field context, review the limits of the estimate, and use the result as one input into your irrigation decision.
-            </p>
-          </div>
-          <div class="flex flex-wrap gap-2">
-            ${Object.keys(PRESETS)
-              .map((key) => PrimaryButton({ label: key === "heatwave" ? "Heat wave" : key === "balanced" ? "Balanced day" : "Rain incoming", iconName: "sparkles", variant: "secondary", extraClass: "preset-trigger", id: "", type: "button" }).replace("<button", `<button data-preset="${key}"`))
-              .join("")}
+    <section class="rounded-[28px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
+      <div class="max-w-3xl">
+        <p class="text-sm font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">Data</p>
+        <h2 class="mt-2 text-xl font-semibold tracking-tight text-[var(--text)]">Supporting field context</h2>
+        <p class="mt-3 text-sm leading-7 text-[var(--text-muted)]">
+          Review or update the field details that support the recommendation. These inputs stay grouped together so they inform the decision without competing with it.
+        </p>
+      </div>
+      <div class="mt-6 grid gap-4 xl:grid-cols-3">
+        ${FieldProfileSection()}
+        ${SensorFeedSection()}
+        ${OperationsSection()}
+      </div>
+    </section>
+  `;
+}
+
+function AnalysisConsoleDisclosure() {
+  const expanded = state.analysisConsoleOpen;
+  return `
+    <section class="rounded-[28px] border border-[var(--border)] bg-[var(--panel)] p-3 shadow-[var(--shadow)]">
+      <button
+        type="button"
+        id="analysis-console-toggle"
+        aria-expanded="${expanded ? "true" : "false"}"
+        aria-controls="analysis-console-panel"
+        class="flex w-full items-center justify-between gap-4 rounded-[22px] px-3 py-3 text-left transition-all duration-200 hover:bg-[var(--panel-muted)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+      >
+        <div>
+          <p class="text-sm font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">Analysis Console</p>
+          <p class="mt-2 text-sm text-[var(--text-muted)]">
+            Open recent runs, copyable analysis details, and technical output when you need deeper review.
+          </p>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="hidden rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2 text-xs text-[var(--text-muted)] sm:inline-flex">
+            ${state.runHistory.length} stored
+          </span>
+          <span class="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] text-[var(--text-muted)]">
+            <span class="transition-transform duration-200 ${expanded ? "rotate-180" : ""}">
+              ${icon("chevronDown", "h-5 w-5")}
+            </span>
+          </span>
+        </div>
+      </button>
+      <div
+        id="analysis-console-panel"
+        aria-hidden="${expanded ? "false" : "true"}"
+        ${expanded ? "" : "inert"}
+        class="${classNames(
+          "grid overflow-hidden transition-all duration-300 ease-out",
+          expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+        )}"
+      >
+        <div class="min-h-0">
+          <div class="border-t border-[var(--border)] px-3 pb-3 pt-4">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 class="text-lg font-medium text-[var(--text)]">Recent analysis runs</h2>
+                <p class="mt-1 text-sm text-[var(--text-muted)]">Technical details stay available here without interrupting the main decision flow.</p>
+              </div>
+              <div class="flex items-center gap-2">
+                ${state.latestRun ? PrimaryButton({ id: "save-latest-run", label: "Save", iconName: "bookmark", variant: "secondary", extraClass: "px-3 py-2 text-xs" }) : ""}
+                <div class="rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2 text-xs text-[var(--text-muted)]">
+                  ${state.runHistory.length} total
+                </div>
+              </div>
+            </div>
+            <div class="mt-4 space-y-3">
+              ${state.runHistory.length > 0
+                ? state.runHistory.slice(0, 8).map((run) => ResultCard(run, true)).join("")
+                : emptyInspectorState()}
+            </div>
           </div>
         </div>
       </div>
+    </section>
+  `;
+}
 
+function AnalysisWorkspace() {
+  return `
+    <section class="space-y-6">
       <form id="analysis-form" class="space-y-6">
         ${PromptInput()}
         ${RecommendationSpotlight()}
-        <div class="grid gap-6 2xl:grid-cols-3">
-          ${fieldCard(
-            "Field profile",
-            "Crop, soil, and terrain descriptors",
-            `<div class="grid gap-4 sm:grid-cols-2">
-              ${inputGroup("Field name", textInput("fieldName", state.form.fieldName))}
-              ${inputGroup("Farm ID", textInput("farmId", state.form.farmId))}
-              ${inputGroup("Field area (ha)", numericInput("fieldAreaHa", state.form.fieldAreaHa, "1"))}
-              ${inputGroup("Latitude", numericInput("locationLat", state.form.locationLat, "-90", "0.0001", "90"))}
-              ${inputGroup("Longitude", numericInput("locationLon", state.form.locationLon, "-180", "0.0001", "180"))}
-              ${inputGroup("Crop type", selectInput("cropType", state.form.cropType, [
-                { value: "corn", label: "Corn" },
-                { value: "soybean", label: "Soybean" },
-                { value: "potato", label: "Potato" },
-                { value: "alfalfa", label: "Alfalfa" },
-                { value: "wheat", label: "Wheat" },
-              ]))}
-              ${inputGroup("Growth stage", selectInput("growthStage", state.form.growthStage, [
-                { value: "emergence", label: "Emergence" },
-                { value: "vegetative", label: "Vegetative" },
-                { value: "flowering", label: "Flowering" },
-                { value: "grain_fill", label: "Grain fill" },
-                { value: "maturity", label: "Maturity" },
-              ]))}
-              ${inputGroup("Soil texture", selectInput("soilTexture", state.form.soilTexture, [
-                { value: "sand", label: "Sand" },
-                { value: "loam", label: "Loam" },
-                { value: "clay", label: "Clay" },
-              ]))}
-              ${inputGroup("Drainage", selectInput("drainageClass", state.form.drainageClass, [
-                { value: "poor", label: "Poor" },
-                { value: "moderate", label: "Moderate" },
-                { value: "well", label: "Well drained" },
-              ]))}
-              ${inputGroup("Infiltration rate (mm/hr)", numericInput("infiltrationRate", state.form.infiltrationRate, "1"))}
-              ${inputGroup("Slope (%)", numericInput("slopePct", state.form.slopePct, "0"))}
-            </div>`,
-          )}
-          ${fieldCard(
-            "Sensor feed",
-            "Soil moisture and weather inputs",
-            `<div class="grid gap-4 sm:grid-cols-2">
-              ${inputGroup("Current soil moisture", numericInput("currentMoisture", state.form.currentMoisture, "0.05", "0.01", "0.6"))}
-              ${inputGroup("6h ago moisture", numericInput("lagOneMoisture", state.form.lagOneMoisture, "0.05", "0.01", "0.6"))}
-              ${inputGroup("12h ago moisture", numericInput("lagTwoMoisture", state.form.lagTwoMoisture, "0.05", "0.01", "0.6"))}
-              ${inputGroup("Temperature (C)", numericInput("temperatureC", state.form.temperatureC, "-5"))}
-              ${inputGroup("Humidity (%)", numericInput("humidityPct", state.form.humidityPct, "0", "1", "100"))}
-              ${inputGroup("Wind (m/s)", numericInput("windMps", state.form.windMps, "0"))}
-              ${inputGroup("Forecast precipitation (mm)", numericInput("precipitationMm", state.form.precipitationMm, "0"))}
-              ${inputGroup("Solar radiation (MJ/m²)", numericInput("solarRadiationMjM2", state.form.solarRadiationMjM2, "0"))}
-            </div>`,
-          )}
-          ${fieldCard(
-            "Operations",
-            "System constraints and scheduling rules",
-            `<div class="grid gap-4 sm:grid-cols-2">
-              ${inputGroup("Irrigation type", selectInput("irrigationType", state.form.irrigationType, [
-                { value: "pivot", label: "Pivot" },
-                { value: "drip", label: "Drip" },
-                { value: "flood", label: "Flood" },
-              ]))}
-              ${inputGroup("Pump capacity (mm/hr)", numericInput("pumpCapacity", state.form.pumpCapacity, "0.5"))}
-              ${inputGroup("Max irrigation volume (mm)", numericInput("maxIrrigationVolume", state.form.maxIrrigationVolume, "0"))}
-              ${inputGroup("Budget ($)", numericInput("budgetDollars", state.form.budgetDollars, "0", "1"))}
-              ${inputGroup("Irrigation last 24h (mm)", numericInput("recentIrrigation24h", state.form.recentIrrigation24h, "0"))}
-              ${inputGroup("Irrigation last 72h (mm)", numericInput("recentIrrigation72h", state.form.recentIrrigation72h, "0"))}
-            </div>
-            <div class="mt-5 grid gap-4 xl:grid-cols-2">
-              ${checkboxGroup("Water rights schedule", "waterWindow", [
-                { value: "tonight", label: "Tonight" },
-                { value: "tomorrow_morning", label: "Tomorrow morning" },
-                { value: "tomorrow_afternoon", label: "Tomorrow afternoon" },
-                { value: "tomorrow_night", label: "Tomorrow night" },
-              ], state.form.waterWindow)}
-              ${checkboxGroup("Lower-cost energy windows", "energyWindow", [
-                { value: "tonight", label: "Tonight" },
-                { value: "tomorrow_morning", label: "Tomorrow morning" },
-                { value: "tomorrow_afternoon", label: "Tomorrow afternoon" },
-                { value: "tomorrow_night", label: "Tomorrow night" },
-              ], state.form.energyWindow)}
-            </div>`,
-          )}
-        </div>
+        ${DataSection()}
+        ${AnalysisConsoleDisclosure()}
       </form>
     </section>
   `;
@@ -1820,6 +1909,10 @@ function bindAppEvents() {
   }
 
   document.querySelector("#save-latest-run")?.addEventListener("click", saveLatestRun);
+  document.querySelector("#analysis-console-toggle")?.addEventListener("click", () => {
+    state.analysisConsoleOpen = !state.analysisConsoleOpen;
+    renderApp();
+  });
   document.querySelector("#feedback-toggle")?.addEventListener("click", () => {
     state.feedbackForm.open = !state.feedbackForm.open;
     state.feedbackForm.error = "";

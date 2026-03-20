@@ -230,4 +230,6 @@ Near-term improvements that fit the current prototype:
 
 ## License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE).
+This project is source-available under BSL 1.1. You can view, fork, and modify it for personal, educational, evaluation, and non-production use. Commercial or production use requires separate permission.
+
+See [LICENSE](LICENSE) for the full Business Source License 1.1 terms.

@@ -9,7 +9,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 python3 -m pip install --upgrade pip
 python3 -m pip install -r requirements-dev.txt
-pytest
+python3 -m pytest
 uvicorn helios.api.main:app --reload
 ```
 
@@ -84,6 +84,12 @@ python3 -m pip install -r requirements-dev.txt
 - `requirements.txt`: backend and application runtime packages
 - `requirements-dev.txt`: runtime packages plus test and notebook tooling
 
+If you only need the backend runtime without tests or notebook tooling:
+
+```bash
+python3 -m pip install -r requirements.txt
+```
+
 ## Running the Backend
 
 ```bash
@@ -103,7 +109,109 @@ Primary endpoints:
 - `/livez` checks whether the process is running.
 - `/health` is the readiness endpoint.
 - `/health` returns `200` when the database is ready and model artifacts loaded.
-- `/health` returns `503` when the app is degraded, such as when artifacts are missing.
+- `/health` returns `503` when the app is degraded, such as when database initialization fails or model artifacts are missing.
+
+## API Examples
+
+Minimal liveness check:
+
+```bash
+curl http://127.0.0.1:8000/livez
+```
+
+Readiness check:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+Prediction request:
+
+```bash
+curl -X POST http://127.0.0.1:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "field_id": "field-001",
+    "farm_id": "farm-001",
+    "forecast_horizon_hours": 72,
+    "weather": {
+      "temperature_c": 31.0,
+      "humidity_pct": 38.0,
+      "wind_mps": 3.8,
+      "precipitation_mm": 0.0,
+      "solar_radiation_mj_m2": 24.0,
+      "forecast_horizon_hours": 72
+    },
+    "irrigation_system": {
+      "irrigation_type": "pivot",
+      "pump_capacity_mm_per_hour": 6.0,
+      "water_rights_schedule": ["tonight", "tomorrow_morning"],
+      "energy_price_window": ["tonight"]
+    },
+    "soil_moisture_readings": [
+      {
+        "timestamp": "2026-03-16T18:00:00Z",
+        "field_id": "field-001",
+        "volumetric_water_content": 0.22
+      },
+      {
+        "timestamp": "2026-03-17T00:00:00Z",
+        "field_id": "field-001",
+        "volumetric_water_content": 0.21
+      },
+      {
+        "timestamp": "2026-03-17T06:00:00Z",
+        "field_id": "field-001",
+        "volumetric_water_content": 0.20
+      }
+    ],
+    "soil_properties": {
+      "soil_texture": "loam",
+      "infiltration_rate_mm_per_hour": 12.0,
+      "slope_pct": 2.5,
+      "drainage_class": "moderate"
+    },
+    "crop": {
+      "crop_type": "corn",
+      "growth_stage": "flowering"
+    },
+    "operational": {
+      "max_irrigation_volume_mm": 18.0,
+      "field_area_ha": 24.0,
+      "budget_dollars": 2800.0
+    },
+    "location_lat": 43.615,
+    "location_lon": -116.202,
+    "recent_irrigation_events": [
+      {
+        "timestamp": "2026-03-16T06:00:00Z",
+        "applied_mm": 8.0
+      }
+    ]
+  }'
+```
+
+Feedback submission:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/feedback \
+  -H "Content-Type: application/json" \
+  -d '{
+    "farm_id": "farm-001",
+    "timestamp": "2026-03-18T18:00:00Z",
+    "crop_type": "corn",
+    "soil_texture": "loam",
+    "irrigation_type": "pivot",
+    "growth_stage": "flowering",
+    "recommendation_type": "irrigation",
+    "recommendation_value": "12.5",
+    "outcome": "SUCCESS",
+    "yield_delta": 4.0,
+    "notes": "Recommendation performed as expected.",
+    "location_lat": 43.615,
+    "location_lon": -116.202
+  }'
+```
 
 ## Frontend Deployment Modes
 
@@ -184,10 +292,12 @@ Artifacts are written to:
 
 ## Tests
 
+The test suite lives under `tests/`.
+
 Run the local test suite with:
 
 ```bash
-pytest
+python3 -m pytest
 ```
 
 GitHub Actions uses the same command on pushes and pull requests.

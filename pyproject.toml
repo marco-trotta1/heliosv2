@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "heliosv2"
+version = "0.2.0"
+description = "Early-stage irrigation decision-support prototype with a static frontend and FastAPI backend."
+readme = "README.md"
+requires-python = ">=3.11"
+license = {file = "LICENSE"}
+authors = [{name = "Marco Trotta"}]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

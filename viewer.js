@@ -329,7 +329,11 @@ function formatWindow(value) {
 }
 
 function formatTimestamp(value) {
-  return new Date(value).toLocaleString([], {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "Unknown time";
+  }
+  return date.toLocaleString([], {
     month: "short",
     day: "numeric",
     hour: "numeric",
@@ -987,7 +991,7 @@ function updateArrayField(name, nextValue, checked) {
 }
 
 function copyText(value, trigger) {
-  navigator.clipboard.writeText(value).then(() => {
+  const onCopySuccess = () => {
     if (!trigger) {
       return;
     }
@@ -995,12 +999,44 @@ function copyText(value, trigger) {
     window.setTimeout(() => {
       trigger.innerHTML = `${icon("copy", "h-4 w-4")} <span>Copy</span>`;
     }, 1200);
-  }).catch(() => {
+  };
+
+  const onCopyFailure = () => {
     if (!trigger) {
       return;
     }
     trigger.innerHTML = `${icon("copy", "h-4 w-4")} <span>Copy failed</span>`;
-  });
+  };
+
+  const fallbackCopy = () => {
+    const textarea = document.createElement("textarea");
+    textarea.value = value;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    textarea.style.pointerEvents = "none";
+    document.body.appendChild(textarea);
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+    let copied = false;
+    try {
+      copied = document.execCommand("copy");
+    } catch {
+      copied = false;
+    }
+    document.body.removeChild(textarea);
+    if (copied) {
+      onCopySuccess();
+      return;
+    }
+    onCopyFailure();
+  };
+
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(value).then(onCopySuccess).catch(fallbackCopy);
+    return;
+  }
+  fallbackCopy();
 }
 
 function BrandLogo() {
@@ -1105,7 +1141,7 @@ function TopBar() {
         <a
           href="https://github.com/marco-trotta1/heliosv2"
           target="_blank"
-          rel="noreferrer"
+          rel="noopener noreferrer"
           class="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--panel)] text-[var(--text-muted)] transition-all duration-200 hover:border-[var(--accent)] hover:text-[var(--text)]"
           aria-label="Open GitHub"
         >
@@ -2021,7 +2057,7 @@ function bindAppEvents() {
           updateFormField(target.name, target.checked);
         }
       } else if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement) {
-        updateFormField(target.name, parseFieldValue(target));
+        updateFormField(target.name, parseFieldValue(target, state.form[target.name]));
       }
 
       if (target instanceof HTMLTextAreaElement) {
@@ -2053,9 +2089,17 @@ function bindAppEvents() {
   });
 }
 
-function parseFieldValue(target) {
+function parseNumberInput(value, fallback) {
+  if (value === "") {
+    return fallback;
+  }
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? fallback : parsed;
+}
+
+function parseFieldValue(target, fallback) {
   if (target.type === "number") {
-    return Number(target.value);
+    return parseNumberInput(target.value, fallback);
   }
   return target.value;
 }
@@ -2070,7 +2114,7 @@ function syncFormState(form) {
     if (field instanceof HTMLInputElement && field.type === "checkbox") {
       state.form[key] = field.checked;
     } else if (field instanceof HTMLInputElement && field.type === "number") {
-      state.form[key] = Number(value);
+      state.form[key] = parseNumberInput(value, state.form[key]);
     } else {
       state.form[key] = value;
     }

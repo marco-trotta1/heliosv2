@@ -55,6 +55,10 @@ const NAV_ITEMS = [
 const RUN_HISTORY_KEY = "helios-pages-history";
 const SAVED_RUNS_KEY = "helios-pages-saved-runs";
 const THEME_KEY = "helios-dashboard-theme";
+const BRAND_LOGOS = {
+  dark: "assets/irrigant-dark.svg",
+  light: "assets/irrigant-light.svg",
+};
 
 const DEFAULT_RUNTIME_CONFIG = {
   mode: "demo",
@@ -999,6 +1003,25 @@ function copyText(value, trigger) {
   });
 }
 
+function BrandLogo() {
+  const logoSrc = state.theme === "light" ? BRAND_LOGOS.light : BRAND_LOGOS.dark;
+  return `
+    <div class="flex h-16 items-center border-b border-[var(--border)] px-4">
+      <div class="h-10 w-10 overflow-hidden xl:h-9 xl:w-[198px]">
+        <img
+          src="${logoSrc}"
+          alt="Irrigant"
+          width="440"
+          height="80"
+          class="block h-10 w-auto max-w-none xl:h-9"
+          decoding="async"
+          draggable="false"
+        />
+      </div>
+    </div>
+  `;
+}
+
 function renderApp() {
   const showResultsPanel = state.activePage !== "run-analysis";
   app.innerHTML = `
@@ -1023,15 +1046,7 @@ function renderApp() {
 function Sidebar() {
   return `
     <aside class="sticky top-0 flex h-screen flex-col border-r border-[var(--border)] bg-[var(--bg)]">
-      <div class="flex h-16 items-center gap-3 border-b border-[var(--border)] px-4">
-        <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-[var(--accent)] shadow-[var(--shadow)]">
-          ${icon("sparkles")}
-        </div>
-        <div class="hidden xl:block">
-          <p class="text-sm font-semibold text-[var(--text)]">Helios</p>
-          <p class="text-xs text-[var(--text-muted)]">Irrigation prototype</p>
-        </div>
-      </div>
+      ${BrandLogo()}
       <nav class="flex-1 px-3 py-5">
         <ul class="space-y-1">
           ${NAV_ITEMS.map(

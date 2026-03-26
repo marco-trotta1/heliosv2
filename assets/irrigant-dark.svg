@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 80" width="440" height="80">
+  <defs>
+    <clipPath id="mark-clip"><circle cx="36" cy="36" r="30"/></clipPath>
+  </defs>
+  <rect width="440" height="80" fill="#0A2240"/>
+  <circle cx="36" cy="36" r="30" fill="none" stroke="#FFFFFF" stroke-width="2" opacity="0.9"/>
+  <line x1="6" y1="36" x2="66" y2="36" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" opacity="0.9"/>
+  <line x1="13" y1="10" x2="60" y2="62" stroke="#178CF2" stroke-width="2.6" stroke-linecap="round"/>
+  <path clip-path="url(#mark-clip)" d="M13 10 L60 62 L6 62 L6 36Z" fill="#178CF2" opacity="0.22"/>
+  <circle cx="36" cy="36" r="2.8" fill="#178CF2"/>
+  <path d="M36 66 Q41 77 36 82 Q31 77 36 66Z" fill="#178CF2"/>
+  <line x1="36" y1="6"  x2="36" y2="12" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" opacity="0.9"/>
+  <line x1="36" y1="60" x2="36" y2="66" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" opacity="0.9"/>
+  <text x="82" y="53" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="44" font-weight="700" letter-spacing="-0.02em" fill="#FFFFFF">IRRIGANT</text>
+</svg>

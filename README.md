@@ -62,9 +62,16 @@ helios/
   schemas/       Request and response models
   services/      Recommendation orchestration
   utils/         Shared domain utilities
+src/
+  constants.js   Shared UI constants (thresholds, defaults, presets)
+  domain.js      Pure functions (ET₀, moisture forecast, plan logic)
+  state.js       Application state and persistence
+  api.js         Fetch calls and response mapping
+  ui.js          All rendering and event binding
+  validation.js  Client-side form validation
 tests/           Backend and schema tests
 index.html       Static frontend entrypoint
-viewer.js        Frontend application logic
+viewer.js        ES module entry point (~5 lines)
 styles.css       Frontend styles
 ```
 
@@ -265,15 +272,17 @@ Key variables:
 - `HELIOS_RATE_LIMIT_MAX_REQUESTS`
 - `HELIOS_STRICT_MODEL_STARTUP`
 - `HELIOS_LOG_LEVEL`
+- `HELIOS_API_KEY`
 
 Notes:
 
 - `HELIOS_CORS_ALLOW_ORIGINS` is comma-separated.
 - `HELIOS_STRICT_MODEL_STARTUP=1` makes the API fail fast when model artifacts are missing.
+- `HELIOS_API_KEY`: when set, all `POST /predict` and `POST /api/feedback` requests must supply a matching `Authorization: Bearer <key>` header. Leave unset (or empty) to disable authentication in demo or internal deployments.
 
 ## Training the Prototype Model
 
-Generate synthetic sample data:
+Generate synthetic sample data (uses a soil water balance simulation):
 
 ```bash
 python3 -m helios.scripts.generate_sample_data --rows 2500
@@ -289,6 +298,25 @@ Artifacts are written to:
 
 - `artifacts/moisture_model.pkl`
 - `artifacts/model_metadata.json`
+
+### Model provenance
+
+`model_metadata.json` records SHA-256 hashes of both the model artifact and the training data file used to produce it. These hashes are logged at startup and included in every `/health` response so you can verify the running artifact matches what was trained.
+
+### Forecast model
+
+The gradient boosting model is XGBoost (`XGBRegressor`, `reg:squarederror` objective). It predicts volumetric soil moisture at 24 h, 48 h, and 72 h horizons. Training targets are generated via a soil water balance simulation that combines FAO-56 reference ET₀, crop coefficients, infiltration efficiency, and drainage class.
+
+### Reference ET₀
+
+Both the Python backend and the browser-side fallback compute reference evapotranspiration using the FAO-56 Penman-Monteith equation:
+
+- Psychrometric constant derived from elevation and atmospheric pressure
+- Saturation vapor pressure via the Tetens formula
+- Net radiation approximated as Rn ≈ 0.77 × Rs (grass albedo 0.23)
+- Soil heat flux G = 0 (daily time step)
+
+The same formula is implemented in `helios/utils/evapotranspiration.py` and `src/domain.js` so demo-mode results use the same math as live-API results.
 
 ## Tests
 
@@ -321,10 +349,22 @@ Pragmatic deployment patterns for this repo:
 2. A separately hosted FastAPI backend on a VM, container platform, or Python app host
 3. A single VM serving static files and the API under one domain
 
+## API Authentication
+
+When `HELIOS_API_KEY` is set, the `POST /predict` and `POST /api/feedback` endpoints require a bearer token:
+
+```bash
+curl -X POST http://127.0.0.1:8000/predict \
+  -H "Authorization: Bearer your-key-here" \
+  -H "Content-Type: application/json" \
+  -d '{...}'
+```
+
+Requests without a valid token return `401 Unauthorized`. When the env var is empty or unset, authentication is skipped — suitable for demo mode and local development.
+
 ## Current Limitations
 
 - No production agronomic validation
-- No authentication or tenancy
 - No managed infrastructure templates
 - No background job system
 - SQLite is used for prototype persistence only

@@ -15,6 +15,36 @@ IRRIGATION_TYPES = ["pivot", "drip", "flood"]
 GROWTH_STAGES = ["emergence", "vegetative", "flowering", "grain_fill", "maturity"]
 CROP_TYPES = ["corn", "soybean", "alfalfa", "potato"]
 
+# Crop coefficients (Kc) per FAO-56 growth stage guidelines
+CROP_KC = {
+    "emergence": 0.3,
+    "vegetative": 0.7,
+    "flowering": 1.15,
+    "grain_fill": 1.0,
+    "maturity": 0.5,
+}
+
+# Root zone depth by soil texture (mm)
+ROOT_ZONE_DEPTH_MM = {
+    "sand": 300.0,
+    "loam": 450.0,
+    "clay": 500.0,
+}
+
+# Irrigation system efficiency (fraction of applied water entering root zone)
+IRRIGATION_EFFICIENCY = {
+    "pivot": 0.82,
+    "drip": 0.93,
+    "flood": 0.68,
+}
+
+# Drainage factor: fraction of excess water that drains per day
+DRAINAGE_FACTOR = {
+    "poor": 0.75,
+    "moderate": 1.0,
+    "well": 1.15,
+}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate synthetic Helios training data.")
@@ -32,10 +62,7 @@ def generate_sample_data(rows: int, output_path: str, seed: int) -> pd.DataFrame
     rng = np.random.default_rng(seed)
     records: list[dict[str, float | str | int]] = []
 
-    drainage_to_factor = {"poor": 0.75, "moderate": 1.0, "well": 1.15}
     texture_to_retention = {"sand": -0.04, "loam": 0.0, "clay": 0.05}
-    irrigation_efficiency = {"pivot": 0.82, "drip": 0.93, "flood": 0.68}
-    stage_stress = {"emergence": 0.01, "vegetative": 0.015, "flowering": 0.03, "grain_fill": 0.025, "maturity": 0.008}
 
     for idx in range(rows):
         soil_texture = _choose_category(rng, SOIL_TEXTURES)
@@ -88,22 +115,27 @@ def generate_sample_data(rows: int, output_path: str, seed: int) -> pd.DataFrame
             solar_radiation_mj_m2=rolling_solar_mean,
         )
 
-        drying_rate = (
-            0.012
-            + reference_et_mm * 0.005
-            + max(0.0, temperature_c - 30.0) * 0.0012
-            + texture_to_retention[soil_texture] * -0.35
-            + stage_stress[growth_stage]
-        )
-        replenishment = (
-            precipitation_mm * 0.0035
-            + cumulative_irrigation_24h * irrigation_efficiency[irrigation_type] * 0.0021
-            + drainage_to_factor[drainage_class] * 0.004
-        )
+        # Soil water balance targets derived from FAO-56 ET₀ and crop coefficients.
+        # This breaks the circular dependency: targets are physics-grounded, not
+        # derived from the same heuristics the optimizer uses.
+        kc = CROP_KC[growth_stage]
+        root_depth = ROOT_ZONE_DEPTH_MM[soil_texture]
+        eff = IRRIGATION_EFFICIENCY[irrigation_type]
+        drainage = DRAINAGE_FACTOR[drainage_class]
+        infiltration_efficiency = 0.90  # fraction of precipitation entering root zone
 
-        target_24h = float(np.clip(current_soil_moisture - drying_rate + replenishment + rng.normal(0, 0.012), 0.05, 0.5))
-        target_48h = float(np.clip(target_24h - drying_rate * 0.85 + precipitation_mm * 0.0015 + rng.normal(0, 0.014), 0.05, 0.5))
-        target_72h = float(np.clip(target_48h - drying_rate * 0.8 + cumulative_irrigation_72h * 0.0008 + rng.normal(0, 0.016), 0.05, 0.5))
+        def _step(moisture: float, precip: float, irrigation: float) -> float:
+            et_depletion = (reference_et_mm * kc * drainage) / root_depth
+            precip_gain = precip * infiltration_efficiency / root_depth
+            irrigation_gain = irrigation * eff / root_depth
+            return float(np.clip(
+                moisture - et_depletion + precip_gain + irrigation_gain + rng.normal(0, 0.012),
+                0.05, 0.50,
+            ))
+
+        target_24h = _step(current_soil_moisture, precipitation_mm, cumulative_irrigation_24h)
+        target_48h = _step(target_24h, precipitation_mm * 0.5, 0.0)
+        target_72h = _step(target_48h, 0.0, cumulative_irrigation_72h - cumulative_irrigation_24h)
 
         records.append(
             {

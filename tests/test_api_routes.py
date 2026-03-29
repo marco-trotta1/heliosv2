@@ -105,6 +105,7 @@ def test_nearby_feedback_uses_comparability_filters(app_factory, feedback_payloa
 
 def test_rate_limit_returns_429(temp_settings_env, monkeypatch, prediction_payload, prediction_response) -> None:
     import helios.api.main as main_module
+    from helios.api.rate_limit import InMemoryRateLimiter, RateLimitPolicy
     from helios.api.runtime import AppRuntime
     from helios.config import get_settings
     from helios.database.db import init_db
@@ -120,6 +121,12 @@ def test_rate_limit_returns_429(temp_settings_env, monkeypatch, prediction_paylo
             recommendation_service=service,
             database_ready=True,
             startup_issues=[],
+            rate_limiter=InMemoryRateLimiter(
+                RateLimitPolicy(
+                    window_seconds=settings.rate_limit_window_seconds,
+                    max_requests=settings.rate_limit_max_requests,
+                )
+            ),
         )
 
     monkeypatch.setattr(main_module, "build_runtime", fake_build_runtime)
@@ -131,3 +138,66 @@ def test_rate_limit_returns_429(temp_settings_env, monkeypatch, prediction_paylo
     assert first.status_code == 200
     assert second.status_code == 429
     assert second.json()["error_code"] == "rate_limited"
+
+
+def _build_keyed_app(monkeypatch, main_module, service, api_key: str):
+    """Helper: create an app with HELIOS_API_KEY set and a stubbed runtime."""
+    from helios.api.runtime import AppRuntime
+    from helios.config import get_settings
+
+    monkeypatch.setenv("HELIOS_API_KEY", api_key)
+    get_settings.cache_clear()
+
+    monkeypatch.setattr(
+        main_module,
+        "build_runtime",
+        lambda settings: AppRuntime(
+            settings=settings,
+            recommendation_service=service,
+            database_ready=True,
+            startup_issues=[],
+        ),
+    )
+    return main_module.create_app(get_settings())
+
+
+def test_predict_returns_401_when_api_key_set_and_header_missing(
+    temp_settings_env, monkeypatch, prediction_payload, prediction_response
+) -> None:
+    import helios.api.main as main_module
+
+    service = DummyRecommendationService(prediction_response)
+    app = _build_keyed_app(monkeypatch, main_module, service, "secret-test-key")
+    with TestClient(app) as client:
+        response = client.post("/predict", json=prediction_payload)
+
+    assert response.status_code == 401
+    assert response.json()["error_code"] == "unauthorized"
+
+
+def test_predict_returns_200_when_api_key_set_and_header_correct(
+    temp_settings_env, monkeypatch, prediction_payload, prediction_response
+) -> None:
+    import helios.api.main as main_module
+
+    service = DummyRecommendationService(prediction_response)
+    app = _build_keyed_app(monkeypatch, main_module, service, "secret-test-key")
+    with TestClient(app) as client:
+        response = client.post(
+            "/predict",
+            json=prediction_payload,
+            headers={"Authorization": "Bearer secret-test-key"},
+        )
+
+    assert response.status_code == 200
+
+
+def test_predict_works_without_header_when_api_key_unset(
+    app_factory, prediction_payload, prediction_response
+) -> None:
+    # HELIOS_API_KEY is not set in temp_settings_env, so auth is disabled
+    service = DummyRecommendationService(prediction_response)
+    with app_factory(recommendation_service=service, database_ready=True) as client:
+        response = client.post("/predict", json=prediction_payload)
+
+    assert response.status_code == 200

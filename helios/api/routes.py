@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from datetime import datetime, timezone
 
 import logging
@@ -7,7 +8,9 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse
 
+from helios.api.auth import verify_api_key
 from helios.api.rate_limit import enforce_rate_limit
+from helios.database.db import save_prediction_run
 from helios.lib.feedback import create_feedback, get_regional_insights
 from helios.schemas.inputs import FeedbackCreateRequest, PredictionRequest
 from helios.schemas.outputs import FeedbackResponse, HealthResponse, PredictionResponse, RegionalInsights
@@ -54,12 +57,15 @@ def health(request: Request) -> JSONResponse:
 
 @router.post("/predict", response_model=PredictionResponse)
 def predict(
+    http_request: Request,
     request: PredictionRequest,
     _: None = Depends(enforce_rate_limit),
+    __: None = Depends(verify_api_key),
     service: RecommendationService = Depends(_get_recommendation_service),
 ) -> PredictionResponse:
+    t_start = time.monotonic()
     try:
-        return service.predict_recommendation(request)
+        response = service.predict_recommendation(request)
     except HTTPException:
         raise
     except Exception:
@@ -69,11 +75,34 @@ def predict(
             detail="Prediction failed inside the service. Review server logs and retry.",
         ) from None
 
+    latency_ms = round((time.monotonic() - t_start) * 1000, 1)
+    request_id = getattr(http_request.state, "request_id", None)
+    logger.info(
+        "prediction completed",
+        extra={
+            "request_id": request_id,
+            "field_id": request.field_id,
+            "farm_id": request.farm_id,
+            "decision": response.decision,
+            "recommended_amount_mm": response.recommended_amount_mm,
+            "confidence_score": response.confidence_score,
+            "latency_ms": latency_ms,
+        },
+    )
+
+    try:
+        save_prediction_run(request, response)
+    except Exception:
+        logger.exception("Failed to persist prediction run — returning result to caller anyway")
+
+    return response
+
 
 @router.post("/api/feedback", response_model=FeedbackResponse, status_code=status.HTTP_201_CREATED)
 def submit_feedback(
     request: FeedbackCreateRequest,
     _: None = Depends(enforce_rate_limit),
+    __: None = Depends(verify_api_key),
 ) -> FeedbackResponse:
     try:
         feedback_id, duplicate_prevented = create_feedback(request)

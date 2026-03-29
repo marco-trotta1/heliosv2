@@ -39,6 +39,7 @@ class Settings:
     rate_limit_max_requests: int
     strict_model_startup: bool
     log_level: str
+    api_key: str
 
 
 @lru_cache(maxsize=1)
@@ -54,4 +55,5 @@ def get_settings() -> Settings:
         rate_limit_max_requests=_env_int("HELIOS_RATE_LIMIT_MAX_REQUESTS", 60),
         strict_model_startup=_env_bool("HELIOS_STRICT_MODEL_STARTUP", False),
         log_level=os.getenv("HELIOS_LOG_LEVEL", "INFO").upper(),
+        api_key=os.getenv("HELIOS_API_KEY", ""),
     )

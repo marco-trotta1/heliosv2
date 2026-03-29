@@ -5,7 +5,6 @@ from pathlib import Path
 
 from helios.data.feature_engineering import build_inference_features
 from helios.data.ingestion import request_to_feature_frame
-from helios.database.db import save_prediction_run
 from helios.lib.feedback import adjust_recommendation, get_regional_insights
 from helios.models.moisture_model import MoistureForecastModel
 from helios.optimizer.irrigation_optimizer import OptimizationInputs, SOIL_THRESHOLDS, generate_irrigation_plan
@@ -117,7 +116,6 @@ class RecommendationService:
             adjustment_factor=adjustment_data["adjustment_factor"],
             reason=adjustment_data["reason"],
         )
-        save_prediction_run(request, response)
         return response
 
     def _compute_stress_probability(

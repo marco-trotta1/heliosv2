@@ -23,12 +23,7 @@ def test_recommendation_service_applies_feedback_adjustment(
     monkeypatch,
 ) -> None:
     request = PredictionRequest(**prediction_payload)
-    saved_runs: list[tuple[str, float]] = []
 
-    monkeypatch.setattr(
-        "helios.services.recommendation_service.save_prediction_run",
-        lambda req, response: saved_runs.append((req.field_id, response.recommended_amount_mm)),
-    )
     monkeypatch.setattr(
         "helios.services.recommendation_service.get_regional_insights",
         lambda **_: {
@@ -60,7 +55,6 @@ def test_recommendation_service_applies_feedback_adjustment(
     assert response.recommendation_adjustment is not None
     assert response.recommendation_adjustment.adjustment_factor == 1.08
     assert response.regional_insights is not None
-    assert saved_runs[0][0] == "field-001"
 
 
 def test_recommendation_service_does_not_reload_model_on_each_prediction(

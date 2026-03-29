@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 from typing import Iterable
 
 import pandas as pd
 
 from helios.utils.evapotranspiration import estimate_reference_et_mm
+
+logger = logging.getLogger(__name__)
 
 
 TARGET_COLUMNS = [
@@ -65,6 +68,25 @@ def prepare_feature_matrix(df: pd.DataFrame, feature_columns: Iterable[str] | No
     matrix = df.copy()
     if feature_columns is None:
         return matrix
+
+    training_set = set(feature_columns)
+    inference_set = set(matrix.columns)
+
+    unseen = inference_set - training_set
+    if unseen:
+        logger.warning(
+            "Inference features contain columns not seen during training — these will be ignored. "
+            "This may indicate a new crop type or schema change.",
+            extra={"unseen_columns": sorted(unseen)},
+        )
+
+    missing = training_set - inference_set
+    if missing:
+        logger.warning(
+            "Training columns are missing from inference features — filling with 0.0. "
+            "Predictions may be degraded for affected inputs.",
+            extra={"missing_columns": sorted(missing)},
+        )
 
     ordered = pd.DataFrame(index=matrix.index)
     for column in feature_columns:

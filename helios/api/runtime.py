@@ -18,23 +18,23 @@ class AppRuntime:
     recommendation_service: RecommendationService | None = None
     database_ready: bool = False
     startup_issues: list[str] = field(default_factory=list)
+    rate_limiter: InMemoryRateLimiter | None = None
 
     @property
     def ready(self) -> bool:
         return self.database_ready and self.recommendation_service is not None
 
-    @property
-    def rate_limiter(self) -> InMemoryRateLimiter:
-        return InMemoryRateLimiter(
-            RateLimitPolicy(
-                window_seconds=self.settings.rate_limit_window_seconds,
-                max_requests=self.settings.rate_limit_max_requests,
-            )
-        )
-
 
 def build_runtime(settings: Settings) -> AppRuntime:
-    runtime = AppRuntime(settings=settings)
+    runtime = AppRuntime(
+        settings=settings,
+        rate_limiter=InMemoryRateLimiter(
+            RateLimitPolicy(
+                window_seconds=settings.rate_limit_window_seconds,
+                max_requests=settings.rate_limit_max_requests,
+            )
+        ),
+    )
 
     try:
         init_db()

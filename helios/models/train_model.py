@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
 
 import joblib
 import pandas as pd
-from lightgbm import LGBMRegressor, early_stopping
+from xgboost import XGBRegressor
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold, train_test_split
 from sklearn.multioutput import MultiOutputRegressor
@@ -25,17 +26,16 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _build_estimator(n_estimators: int, learning_rate: float) -> LGBMRegressor:
-    return LGBMRegressor(
-        objective="regression",
-        metric="rmse",
+def _build_estimator(n_estimators: int, learning_rate: float) -> XGBRegressor:
+    return XGBRegressor(
+        objective="reg:squarederror",
         n_estimators=n_estimators,
         learning_rate=learning_rate,
-        num_leaves=31,
+        max_depth=6,
         subsample=0.9,
         colsample_bytree=0.9,
         random_state=42,
-        verbosity=-1,
+        verbosity=0,
     )
 
 
@@ -69,7 +69,8 @@ def _cross_validate(
                 y_train_inner[target_name],
                 eval_set=[(x_val, y_val[target_name])],
                 eval_metric="rmse",
-                callbacks=[early_stopping(stopping_rounds=25, verbose=False)],
+                early_stopping_rounds=25,
+                verbose=False,
             )
             predictions = estimator.predict(x_test_fold)
             target_rmse[target_name] = float(mean_squared_error(y_test_fold[target_name], predictions, squared=False))
@@ -100,7 +101,8 @@ def _fit_final_model(
             y_train[target_name],
             eval_set=[(x_val, y_val[target_name])],
             eval_metric="rmse",
-            callbacks=[early_stopping(stopping_rounds=25, verbose=False)],
+            early_stopping_rounds=25,
+            verbose=False,
         )
         model.estimators_.append(estimator)
     model.n_features_in_ = x_train.shape[1]
@@ -125,6 +127,9 @@ def train_model(data_path: str, model_path: str, metadata_path: str, n_estimator
     Path(metadata_path).parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(model, model_path)
 
+    model_hash = hashlib.sha256(Path(model_path).read_bytes()).hexdigest()
+    data_hash = hashlib.sha256(Path(data_path).read_bytes()).hexdigest()
+
     metadata = {
         "trained_at": datetime.now(timezone.utc).isoformat(),
         "feature_columns": feature_columns,
@@ -133,9 +138,13 @@ def train_model(data_path: str, model_path: str, metadata_path: str, n_estimator
         "cv_rmse_by_target": rmse_by_target,
         "validation_rmse": validation_rmse,
         "model_params": {
+            "estimator": "XGBRegressor",
             "n_estimators": n_estimators,
             "learning_rate": learning_rate,
-            "objective": "regression",
+            "max_depth": 6,
+            "objective": "reg:squarederror",
+            "subsample": 0.9,
+            "colsample_bytree": 0.9,
         },
         "categorical_mappings": {
             "growth_stage": ["emergence", "vegetative", "flowering", "grain_fill", "maturity"],
@@ -144,6 +153,9 @@ def train_model(data_path: str, model_path: str, metadata_path: str, n_estimator
             "irrigation_type": ["pivot", "drip", "flood"],
         },
         "fold_metrics": fold_metrics,
+        "model_hash": model_hash,
+        "training_data_hash": data_hash,
+        "training_rows": len(data_frame),
     }
     Path(metadata_path).write_text(json.dumps(metadata, indent=2))
 

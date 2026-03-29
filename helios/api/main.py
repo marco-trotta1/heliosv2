@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from helios.api.routes import router
 from helios.api.runtime import build_runtime
@@ -38,6 +40,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
 
+    class RequestIdMiddleware(BaseHTTPMiddleware):
+        async def dispatch(self, request: Request, call_next):
+            request_id = str(uuid.uuid4())
+            request.state.request_id = request_id
+            response = await call_next(request)
+            response.headers["X-Request-Id"] = request_id
+            return response
+
+    app.add_middleware(RequestIdMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=list(resolved_settings.cors_allowed_origins),
@@ -63,6 +74,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         detail = exc.detail if isinstance(exc.detail, str) else "Request failed."
         error_code = {
             400: "bad_request",
+            401: "unauthorized",
             404: "not_found",
             429: "rate_limited",
             503: "service_unavailable",

@@ -85,18 +85,6 @@ class RecommendationService:
             stress_probability=stress_probability,
             estimated_et=estimated_et,
         )
-        response = PredictionResponse(
-            decision=plan["decision"],
-            recommended_amount_mm=plan["recommended_amount_mm"],
-            timing_window=plan["timing_window"],
-            confidence_score=plan["confidence_score"],
-            explanation=RecommendationExplanation(
-                predicted_moisture_48h=predicted["moisture_48h"],
-                stress_probability=stress_probability,
-                drivers=drivers,
-            ),
-            predicted_moisture=MoistureForecast(**predicted),
-        )
         insights_data = get_regional_insights(
             lat=request.location_lat,
             lon=request.location_lon,
@@ -108,13 +96,25 @@ class RecommendationService:
             season_month=request.soil_moisture_readings[-1].timestamp.month,
         )
         adjustment_data = adjust_recommendation(plan["recommended_amount_mm"], insights_data)
-        response.recommended_amount_mm = adjustment_data["adjusted_recommendation_mm"]
-        response.regional_insights = RegionalInsights(**insights_data)
-        response.recommendation_adjustment = RecommendationAdjustment(
-            base_recommendation_mm=plan["recommended_amount_mm"],
-            adjusted_recommendation_mm=adjustment_data["adjusted_recommendation_mm"],
-            adjustment_factor=adjustment_data["adjustment_factor"],
-            reason=adjustment_data["reason"],
+
+        response = PredictionResponse(
+            decision=plan["decision"],
+            recommended_amount_mm=adjustment_data["adjusted_recommendation_mm"],
+            timing_window=plan["timing_window"],
+            confidence_score=plan["confidence_score"],
+            explanation=RecommendationExplanation(
+                predicted_moisture_48h=predicted["moisture_48h"],
+                stress_probability=stress_probability,
+                drivers=drivers,
+            ),
+            predicted_moisture=MoistureForecast(**predicted),
+            regional_insights=RegionalInsights(**insights_data),
+            recommendation_adjustment=RecommendationAdjustment(
+                base_recommendation_mm=plan["recommended_amount_mm"],
+                adjusted_recommendation_mm=adjustment_data["adjusted_recommendation_mm"],
+                adjustment_factor=adjustment_data["adjustment_factor"],
+                reason=adjustment_data["reason"],
+            ),
         )
         return response
 

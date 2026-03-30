@@ -9,7 +9,7 @@ from pathlib import Path
 import joblib
 import pandas as pd
 from xgboost import XGBRegressor
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import root_mean_squared_error
 from sklearn.model_selection import KFold, train_test_split
 from sklearn.multioutput import MultiOutputRegressor
 
@@ -73,7 +73,7 @@ def _cross_validate(
                 verbose=False,
             )
             predictions = estimator.predict(x_test_fold)
-            target_rmse[target_name] = float(mean_squared_error(y_test_fold[target_name], predictions, squared=False))
+            target_rmse[target_name] = float(root_mean_squared_error(y_test_fold[target_name], predictions))
 
         target_rmse["rmse_mean"] = float(sum(target_rmse.values()) / len(TARGET_COLUMNS))
         fold_metrics.append(target_rmse)
@@ -93,8 +93,10 @@ def _fit_final_model(
 ) -> MultiOutputRegressor:
     x_train, x_val, y_train, y_val = train_test_split(features, targets, test_size=0.1, random_state=42)
     model = MultiOutputRegressor(_build_estimator(n_estimators=n_estimators, learning_rate=learning_rate))
-    model.estimators_ = []
-    for target_name in TARGET_COLUMNS:
+    # Initialize sklearn wrapper state properly
+    model.fit(x_train, y_train)
+    # Now replace estimators with early-stopped versions
+    for i, target_name in enumerate(TARGET_COLUMNS):
         estimator = _build_estimator(n_estimators=n_estimators, learning_rate=learning_rate)
         estimator.fit(
             x_train,
@@ -104,8 +106,7 @@ def _fit_final_model(
             early_stopping_rounds=25,
             verbose=False,
         )
-        model.estimators_.append(estimator)
-    model.n_features_in_ = x_train.shape[1]
+        model.estimators_[i] = estimator
     return model
 
 
@@ -120,7 +121,7 @@ def train_model(data_path: str, model_path: str, metadata_path: str, n_estimator
     x_train, x_val, y_train, y_val = train_test_split(features, targets, test_size=0.1, random_state=42)
     model = _fit_final_model(features, targets, n_estimators, learning_rate)
     val_predictions = model.predict(x_val)
-    validation_rmse = float(mean_squared_error(y_val, val_predictions, squared=False))
+    validation_rmse = float(root_mean_squared_error(y_val, val_predictions))
 
     artifacts_dir = Path(model_path).parent
     artifacts_dir.mkdir(parents=True, exist_ok=True)

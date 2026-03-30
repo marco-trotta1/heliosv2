@@ -7,7 +7,9 @@ import {
   THEME_KEY,
 } from "./constants.js";
 import { serializeRunForCopy } from "./domain.js";
-// renderApp is imported lazily (at call time) to break the circular dep with ui.js
+// NOTE: This creates a circular dependency with ui.js. It works because renderApp
+// is only called inside function bodies (never at top-level evaluation time).
+// Do NOT call renderApp at the module top level.
 import { renderApp } from "./ui.js";
 
 // ── Runtime config ─────────────────────────────────────────────────────────────
@@ -53,6 +55,7 @@ export function normalizeRun(run) {
     moisture48h: 0,
     moisture72h: 0,
   };
+  const hadMissingId = !run.id;
   const normalized = {
     id: run.id || `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
     title: run.title || `${inputSnapshot.fieldName} • Run Analysis`,
@@ -73,6 +76,9 @@ export function normalizeRun(run) {
     sourceLabel: run.sourceLabel || "",
   };
   normalized.copyText = run.copyText || serializeRunForCopy(normalized);
+  if (hadMissingId) {
+    console.warn("[helios] normalizeRun: run was missing id, generated fallback:", normalized.id);
+  }
   return normalized;
 }
 
@@ -138,7 +144,7 @@ export function storeRun(run) {
   state.feedbackForm.yieldDelta = "";
   state.feedbackForm.notes = "";
   state.runHistory.unshift(run);
-  state.runHistory = state.runHistory.slice(0, 50);
+  state.runHistory = dedupeRuns(state.runHistory).slice(0, 50);
   if (state.form.autoSave) {
     state.savedRuns.unshift(run);
     state.savedRuns = dedupeRuns(state.savedRuns).slice(0, 50);

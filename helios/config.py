@@ -50,7 +50,7 @@ def get_settings() -> Settings:
         database_path=Path(os.getenv("HELIOS_DATABASE_PATH", "data/helios.db")),
         model_path=Path(os.getenv("HELIOS_MODEL_PATH", "artifacts/moisture_model.pkl")),
         metadata_path=Path(os.getenv("HELIOS_METADATA_PATH", "artifacts/model_metadata.json")),
-        cors_allowed_origins=_env_csv("HELIOS_CORS_ALLOW_ORIGINS", ("*",)),
+        cors_allowed_origins=_env_csv("HELIOS_CORS_ALLOW_ORIGINS", ("http://localhost", "http://localhost:5173")),
         rate_limit_window_seconds=_env_int("HELIOS_RATE_LIMIT_WINDOW_SECONDS", 60),
         rate_limit_max_requests=_env_int("HELIOS_RATE_LIMIT_MAX_REQUESTS", 60),
         strict_model_startup=_env_bool("HELIOS_STRICT_MODEL_STARTUP", False),

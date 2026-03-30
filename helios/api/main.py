@@ -25,6 +25,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
 
+    if "*" in resolved_settings.cors_allowed_origins:
+        logger.warning("CORS is set to wildcard (*). Restrict HELIOS_CORS_ALLOW_ORIGINS for production.")
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         runtime = build_runtime(resolved_settings)

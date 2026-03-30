@@ -24,7 +24,8 @@ export function formatPercent(value) {
 }
 
 export function formatWindow(value) {
-  return value.replaceAll("_", " ");
+  const words = value.replaceAll("_", " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 export function formatTimestamp(value) {
@@ -146,12 +147,13 @@ export function selectTimingWindow(waterWindows, energyWindows, needsWater) {
   return "next available permitted window";
 }
 
-export function scoreConfidence({ forecast48h, dryThreshold, timingWindow }) {
-  const base = Math.max(0.2, 1 - Math.min(0.12, 0.35) / 0.35);
+export function scoreConfidence({ forecast48h, dryThreshold, timingWindow, modelRmse = 0.12, sensorCount = 1 }) {
+  const base = Math.max(0.2, 1 - Math.min(modelRmse, 0.35) / 0.35);
   const thresholdMargin = Math.abs(forecast48h - dryThreshold);
   const marginBonus = Math.min(0.2, thresholdMargin / 0.15);
+  const sensorPenalty = sensorCount >= 4 ? 0 : 0.08;
   const timingPenalty = timingWindow === "next available permitted window" ? 0.05 : 0;
-  return round(clip(base + marginBonus - timingPenalty, 0.05, 0.99), 3);
+  return round(clip(base + marginBonus - sensorPenalty - timingPenalty, 0.05, 0.99), 3);
 }
 
 export function generateIrrigationPlan(inputs, predicted, stressProbability, estimatedEtMm) {
@@ -194,7 +196,8 @@ export function buildDrivers(inputs, predicted, stressProbability, estimatedEtMm
   if (estimatedEtMm >= 5.5) {
     drivers.push("High evapotranspiration is pulling moisture down quickly.");
   }
-  if (inputs.currentMoisture <= SOIL_THRESHOLDS[inputs.soilTexture].dry + 0.04) {
+  const thresholds = SOIL_THRESHOLDS[inputs.soilTexture] ?? SOIL_THRESHOLDS.loam;
+  if (inputs.currentMoisture <= thresholds.dry + 0.04) {
     drivers.push("Current soil moisture is already near the crop stress band.");
   }
   if (inputs.precipitationMm < 1.5) {

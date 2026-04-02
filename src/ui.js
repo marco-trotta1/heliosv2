@@ -436,7 +436,7 @@ function dashboardRunItem(run) {
           <p class="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">${formatTimestamp(run.timestamp)}</p>
           <div class="mt-3 flex flex-wrap justify-end gap-2">
             <span class="rounded-full px-3 py-1 text-xs font-medium ${tone.pill}">${run.decision.toUpperCase()}</span>
-            <span class="rounded-full bg-[var(--panel)] px-3 py-1 text-xs font-medium text-[var(--text-muted)]">${run.recommendedAmountIn.toFixed(2)} in</span>
+            <span class="rounded-full bg-[var(--panel)] px-3 py-1 text-xs font-medium text-[var(--text-muted)]">${(run.recommendedAmountIn ?? 0).toFixed(2)} in</span>
           </div>
         </div>
       </div>
@@ -556,7 +556,7 @@ function DashboardHeroStatus() {
               ${run.decision === "water" ? "Water now" : "Hold"}
             </span>
           </div>
-          <h2 class="mt-4 text-3xl font-semibold tracking-tight text-[var(--text)]">${run.decision === "water" ? `Apply ${run.recommendedAmountIn.toFixed(2)} in ${escapeHtml(formatWindow(run.timingWindow)).toLowerCase()}` : "Hold irrigation for now"}</h2>
+          <h2 class="mt-4 text-3xl font-semibold tracking-tight text-[var(--text)]">${run.decision === "water" ? `Apply ${(run.recommendedAmountIn ?? 0).toFixed(2)} in ${escapeHtml(formatWindow(run.timingWindow)).toLowerCase()}` : "Hold irrigation for now"}</h2>
           <p class="mt-3 text-sm leading-7 text-[var(--text-muted)]">${escapeHtml(run.summary)}</p>
         </div>
         <div class="grid gap-3 sm:grid-cols-2 xl:min-w-[320px] xl:grid-cols-1">
@@ -657,7 +657,7 @@ export function ResultCard(run, inspectorMode = false) {
         <div class="rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] p-4">
           <p class="text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">Recommendation amount</p>
           <div class="mt-2 flex items-end gap-2">
-            <span class="text-3xl font-semibold tracking-tight ${tone.amount}">${run.recommendedAmountIn.toFixed(2)}</span>
+            <span class="text-3xl font-semibold tracking-tight ${tone.amount}">${(run.recommendedAmountIn ?? 0).toFixed(2)}</span>
             <span class="pb-1 text-sm font-medium text-[var(--text-muted)]">in</span>
           </div>
         </div>
@@ -977,7 +977,7 @@ export function RecommendationSpotlight() {
         <div class="rounded-3xl border border-[var(--border)] bg-[var(--panel)] p-5">
           <p class="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">Recommended amount</p>
           <div class="mt-3 flex items-end gap-3">
-            <span class="text-5xl font-semibold tracking-tight ${tone.amount}">${run.recommendedAmountIn.toFixed(2)}</span>
+            <span class="text-5xl font-semibold tracking-tight ${tone.amount}">${(run.recommendedAmountIn ?? 0).toFixed(2)}</span>
             <span class="pb-1 text-lg font-medium text-[var(--text-muted)]">in</span>
           </div>
           <p class="mt-4 text-sm text-[var(--text-muted)]">This is the number the operator should notice first.</p>

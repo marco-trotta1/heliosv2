@@ -43,8 +43,12 @@ export function formatTimestamp(value) {
 
 // ── ET₀ (FAO-56 Penman-Monteith) ──────────────────────────────────────────────
 
-export function estimateReferenceEtMm({ temperatureC, humidityPct, windMps, solarRadiationMjM2, elevationM = 800.0 }) {
-  // Simplified FAO-56 Penman-Monteith reference ET₀ (mm/day)
+export function estimateReferenceEtIn({ temperatureF, humidityPct, windMph, solarRadiationMjM2, elevationM = 800.0 }) {
+  // Simplified FAO-56 Penman-Monteith reference ET₀ (in/day)
+  // Convert imperial inputs to metric for internal calculation
+  const temperatureC = (temperatureF - 32.0) * 5.0 / 9.0;
+  const windMps = windMph / 2.23694;
+
   // Psychrometric constant (kPa/°C)
   const atmosphericPressure = 101.3 * Math.pow((293.0 - 0.0065 * elevationM) / 293.0, 5.26);
   const gamma = 0.000665 * atmosphericPressure;
@@ -68,13 +72,14 @@ export function estimateReferenceEtMm({ temperatureC, humidityPct, windMps, sola
   const numerator = (0.408 * delta * rn) + (gamma * (900.0 / (temperatureC + 273.0)) * windMps * vpd);
   const denominator = delta + gamma * (1.0 + 0.34 * windMps);
 
-  const et0 = denominator > 0 ? numerator / denominator : 0.0;
-  return round(Math.max(0.0, et0), 3);
+  const et0Mm = denominator > 0 ? numerator / denominator : 0.0;
+  const et0In = Math.max(0.0, et0Mm) * 0.039370;
+  return round(et0In, 4);
 }
 
 // ── Moisture trajectory ────────────────────────────────────────────────────────
 
-export function predictMoistureTrajectory(inputs, etMm) {
+export function predictMoistureTrajectory(inputs, etIn) {
   const retention = TEXTURE_RETENTION[inputs.soilTexture] ?? 1;
   const drainage = DRAINAGE_FACTOR[inputs.drainageClass] ?? 1;
   const irrigationEfficiency = IRRIGATION_EFFICIENCY[inputs.irrigationType] ?? 0.82;
@@ -83,17 +88,17 @@ export function predictMoistureTrajectory(inputs, etMm) {
   const trendMomentum = trendOne * 0.55 + trendTwo * 0.25;
   const stageLoad = (GROWTH_STAGE_MODIFIER[inputs.growthStage] ?? 0.1) * 0.05;
   const drynessPulse =
-    etMm * 0.0052 +
-    Math.max(0, inputs.temperatureC - 30) * 0.0013 +
-    inputs.windMps * 0.0009 +
+    etIn * 0.13208 +                                              // was etMm * 0.0052 (× 25.4)
+    Math.max(0, inputs.temperatureF - 86) * 0.000722 +           // was (°C - 30) * 0.0013 (÷ 1.8)
+    inputs.windMph * 0.000402 +                                   // was windMps * 0.0009 (÷ 2.23694)
     inputs.slopePct * 0.0011 +
     stageLoad;
   const recharge =
-    inputs.precipitationMm * 0.0032 +
-    inputs.recentIrrigation24h * irrigationEfficiency * 0.0024 +
-    inputs.recentIrrigation72h * irrigationEfficiency * 0.0009;
+    inputs.precipitationIn * 0.08128 +                           // was precipitationMm * 0.0032 (× 25.4)
+    inputs.recentIrrigation24h * irrigationEfficiency * 0.06096 + // was * 0.0024 (× 25.4)
+    inputs.recentIrrigation72h * irrigationEfficiency * 0.02286;  // was * 0.0009 (× 25.4)
   const effectiveDrying = (drynessPulse * drainage) / retention;
-  const resilience = (inputs.infiltrationRate / 24) * 0.0006;
+  const resilience = (inputs.infiltrationRate / 24) * 0.015240;  // was * 0.0006 (× 25.4)
 
   return {
     moisture24h: round(
@@ -113,20 +118,20 @@ export function predictMoistureTrajectory(inputs, etMm) {
 
 // ── Stress probability ─────────────────────────────────────────────────────────
 
-export function computeStressProbability({ predictedMoisture48h, dryThreshold, estimatedEtMm, precipitationMm, growthStage }) {
+export function computeStressProbability({ predictedMoisture48h, dryThreshold, estimatedEtIn, precipitationIn, growthStage }) {
   const stageModifier = GROWTH_STAGE_MODIFIER[growthStage] ?? 0.1;
   const moistureGap = dryThreshold - predictedMoisture48h;
-  const score = moistureGap * 18 + estimatedEtMm * 0.12 - precipitationMm * 0.08 + stageModifier;
+  const score = moistureGap * 18 + estimatedEtIn * 3.048 - precipitationIn * 2.032 + stageModifier;
   return round(clip(1 / (1 + Math.exp(-score)), 0.01, 0.99), 3);
 }
 
 // ── Irrigation plan ────────────────────────────────────────────────────────────
 
-export function computeBudgetCap(fieldAreaHa, budgetDollars) {
-  if (fieldAreaHa <= 0) {
+export function computeBudgetCap(fieldAreaAcres, budgetDollars) {
+  if (fieldAreaAcres <= 0) {
     return 0;
   }
-  return budgetDollars / (8 * fieldAreaHa);
+  return budgetDollars / (82.25 * fieldAreaAcres);
 }
 
 export function allowedHours(waterWindows) {
@@ -156,28 +161,28 @@ export function scoreConfidence({ forecast48h, dryThreshold, timingWindow, model
   return round(clip(base + marginBonus - sensorPenalty - timingPenalty, 0.05, 0.99), 3);
 }
 
-export function generateIrrigationPlan(inputs, predicted, stressProbability, estimatedEtMm) {
+export function generateIrrigationPlan(inputs, predicted, stressProbability, estimatedEtIn) {
   const thresholds = SOIL_THRESHOLDS[inputs.soilTexture] ?? SOIL_THRESHOLDS.loam;
   const predicted48h = predicted.moisture48h;
   const needsWater = predicted48h < thresholds.dry;
   const timingWindow = selectTimingWindow(inputs.waterWindow, inputs.energyWindow, needsWater);
-  const targetMoisture = Math.min(thresholds.wet, thresholds.dry + 0.08 + estimatedEtMm * 0.002);
+  const targetMoisture = Math.min(thresholds.wet, thresholds.dry + 0.08 + estimatedEtIn * 0.0508);
   const deficit = Math.max(0, targetMoisture - predicted48h);
-  const rawAmountMm = Math.max(
+  const rawAmountIn = Math.max(
     0,
-    deficit * (ROOT_ZONE_FACTORS[inputs.soilTexture] ?? ROOT_ZONE_FACTORS.loam) - inputs.precipitationMm * 0.7,
+    deficit * (ROOT_ZONE_FACTORS[inputs.soilTexture] ?? ROOT_ZONE_FACTORS.loam) - inputs.precipitationIn * 0.7,
   );
-  const recommendedAmountMm = Math.min(
-    rawAmountMm,
+  const recommendedAmountIn = Math.min(
+    rawAmountIn,
     inputs.maxIrrigationVolume,
     inputs.pumpCapacity * allowedHours(inputs.waterWindow),
-    computeBudgetCap(inputs.fieldAreaHa, inputs.budgetDollars),
+    computeBudgetCap(inputs.fieldAreaAcres, inputs.budgetDollars),
     inputs.infiltrationRate * 2.5,
   );
 
   return {
     decision: needsWater ? "water" : "wait",
-    recommendedAmountMm: round(needsWater ? recommendedAmountMm : 0, 1),
+    recommendedAmountIn: round(needsWater ? recommendedAmountIn : 0, 2),
     timingWindow,
     confidenceScore: scoreConfidence({
       forecast48h: predicted48h,
@@ -191,16 +196,16 @@ export function generateIrrigationPlan(inputs, predicted, stressProbability, est
 
 // ── Narrative builders ─────────────────────────────────────────────────────────
 
-export function buildDrivers(inputs, predicted, stressProbability, estimatedEtMm) {
+export function buildDrivers(inputs, predicted, stressProbability, estimatedEtIn) {
   const drivers = [];
-  if (estimatedEtMm >= 5.5) {
+  if (estimatedEtIn >= 0.217) {  // ~5.5 mm/day in inches
     drivers.push("High evapotranspiration is pulling moisture down quickly.");
   }
   const thresholds = SOIL_THRESHOLDS[inputs.soilTexture] ?? SOIL_THRESHOLDS.loam;
   if (inputs.currentMoisture <= thresholds.dry + 0.04) {
     drivers.push("Current soil moisture is already near the crop stress band.");
   }
-  if (inputs.precipitationMm < 1.5) {
+  if (inputs.precipitationIn < 0.059) {  // ~1.5 mm in inches
     drivers.push("Very little forecast rain is expected to refill the root zone.");
   }
   if (inputs.waterWindow.length <= 1) {
@@ -220,7 +225,7 @@ export function buildDrivers(inputs, predicted, stressProbability, estimatedEtMm
 export function buildSummary(inputs, predicted, plan) {
   const action =
     plan.decision === "water"
-      ? `Apply ${plan.recommendedAmountMm.toFixed(1)} mm during ${formatWindow(plan.timingWindow)}.`
+      ? `Apply ${plan.recommendedAmountIn.toFixed(2)} in during ${formatWindow(plan.timingWindow)}.`
       : "Hold irrigation and reassess after the next weather update.";
   return `${inputs.fieldName} is forecast to move from ${inputs.currentMoisture.toFixed(2)} now to ${predicted.moisture48h.toFixed(2)} in 48 hours. ${action}`;
 }
@@ -248,11 +253,11 @@ export function serializeRunForCopy(run) {
     `Run: ${run.title}`,
     `Timestamp: ${formatTimestamp(run.timestamp)}`,
     `Decision: ${run.decision.toUpperCase()}`,
-    `Recommended amount: ${run.recommendedAmountMm.toFixed(1)} mm`,
+    `Recommended amount: ${run.recommendedAmountIn.toFixed(2)} in`,
     `Timing window: ${formatWindow(run.timingWindow)}`,
     `Heuristic confidence: ${formatPercent(run.confidenceScore)}`,
     `Stress probability: ${formatPercent(run.stressProbability)}`,
-    `Reference ET: ${run.estimatedEtMm.toFixed(1)} mm/day`,
+    `Reference ET: ${run.estimatedEtIn.toFixed(2)} in/day`,
     `Forecast 24h: ${run.predicted.moisture24h.toFixed(2)}`,
     `Forecast 48h: ${run.predicted.moisture48h.toFixed(2)}`,
     `Forecast 72h: ${run.predicted.moisture72h.toFixed(2)}`,
@@ -265,7 +270,7 @@ export function serializeRunForCopy(run) {
   ];
   if (run.recommendationAdjustment) {
     lines.push("");
-    lines.push(`Base recommendation: ${run.recommendationAdjustment.baseRecommendationMm.toFixed(1)} mm`);
+    lines.push(`Base recommendation: ${run.recommendationAdjustment.baseRecommendationIn.toFixed(2)} in`);
     lines.push(`Adjustment factor: ${run.recommendationAdjustment.adjustmentFactor.toFixed(2)}x`);
     lines.push(`Adjustment reason: ${run.recommendationAdjustment.reason}`);
   }

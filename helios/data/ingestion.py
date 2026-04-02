@@ -17,7 +17,7 @@ def soil_moisture_series_to_frame(readings: list[SoilMoistureReading]) -> pd.Dat
 def irrigation_events_to_frame(events: list[IrrigationEventInput]) -> pd.DataFrame:
     frame = pd.DataFrame([event.model_dump() for event in events])
     if frame.empty:
-        return pd.DataFrame(columns=["timestamp", "applied_mm"])
+        return pd.DataFrame(columns=["timestamp", "applied_in"])
     return frame.sort_values("timestamp").reset_index(drop=True)
 
 
@@ -47,45 +47,45 @@ def request_to_feature_frame(request: PredictionRequest) -> pd.DataFrame:
         irrigation_24h = float(
             irrigation_df.loc[
                 irrigation_df["timestamp"] >= latest_timestamp - pd.Timedelta(hours=24),
-                "applied_mm",
+                "applied_in",
             ].sum()
         )
         irrigation_72h = float(
             irrigation_df.loc[
                 irrigation_df["timestamp"] >= latest_timestamp - pd.Timedelta(hours=72),
-                "applied_mm",
+                "applied_in",
             ].sum()
         )
 
     record: dict[str, Any] = {
         "field_id": request.field_id,
         "forecast_horizon_hours": request.forecast_horizon_hours,
-        "temperature_c": request.weather.temperature_c,
+        "temperature_f": request.weather.temperature_f,
         "humidity_pct": request.weather.humidity_pct,
-        "wind_mps": request.weather.wind_mps,
-        "precipitation_mm": request.weather.precipitation_mm,
+        "wind_mph": request.weather.wind_mph,
+        "precipitation_in": request.weather.precipitation_in,
         "solar_radiation_mj_m2": request.weather.solar_radiation_mj_m2,
-        "rolling_temp_mean": request.weather.temperature_c,
+        "rolling_temp_mean": request.weather.temperature_f,
         "rolling_humidity_mean": request.weather.humidity_pct,
-        "rolling_precip_mm": request.weather.precipitation_mm,
+        "rolling_precip_in": request.weather.precipitation_in,
         "rolling_solar_mean": request.weather.solar_radiation_mj_m2,
         "current_soil_moisture": current_moisture,
         "soil_moisture_lag_1": lag_1,
         "soil_moisture_lag_2": lag_2,
         "soil_moisture_delta_1": current_moisture - lag_1,
         "soil_moisture_delta_2": lag_1 - lag_2,
-        "pump_capacity_mm_per_hour": request.irrigation_system.pump_capacity_mm_per_hour,
+        "pump_capacity_in_per_hour": request.irrigation_system.pump_capacity_in_per_hour,
         "water_rights_schedule_count": len(request.irrigation_system.water_rights_schedule),
         "energy_window_count": len(request.irrigation_system.energy_price_window),
         "irrigation_type": request.irrigation_system.irrigation_type,
         "soil_texture": request.soil_properties.soil_texture,
-        "infiltration_rate_mm_per_hour": request.soil_properties.infiltration_rate_mm_per_hour,
+        "infiltration_rate_in_per_hour": request.soil_properties.infiltration_rate_in_per_hour,
         "slope_pct": request.soil_properties.slope_pct,
         "drainage_class": request.soil_properties.drainage_class,
         "crop_type": request.crop.crop_type,
         "growth_stage": request.crop.growth_stage,
-        "max_irrigation_volume_mm": request.operational.max_irrigation_volume_mm,
-        "field_area_ha": request.operational.field_area_ha,
+        "max_irrigation_volume_in": request.operational.max_irrigation_volume_in,
+        "field_area_acres": request.operational.field_area_acres,
         "budget_dollars": request.operational.budget_dollars,
         "cumulative_irrigation_24h": irrigation_24h,
         "cumulative_irrigation_72h": irrigation_72h,

@@ -5,9 +5,9 @@ export const SOIL_THRESHOLDS = {
 };
 
 export const ROOT_ZONE_FACTORS = {
-  sand: 110,
-  loam: 135,
-  clay: 155,
+  sand: 4.331,  // inches (was 110 mm)
+  loam: 5.315,  // inches (was 135 mm)
+  clay: 6.102,  // inches (was 155 mm)
 };
 
 export const IRRIGATION_EFFICIENCY = {
@@ -76,29 +76,29 @@ export const DEFAULT_FORM = {
   includeNotes: true,
   farmId: "north-pivot-7",
   fieldName: "North Pivot 7",
-  fieldAreaHa: 24,
+  fieldAreaAcres: 59.3,         // was 24 ha
   cropType: "corn",
   growthStage: "flowering",
   soilTexture: "loam",
   drainageClass: "moderate",
-  infiltrationRate: 12,
+  infiltrationRate: 0.47,       // in/hr (was 12 mm/hr)
   slopePct: 2.5,
   locationLat: 43.615,
   locationLon: -116.202,
   currentMoisture: 0.2,
   lagOneMoisture: 0.21,
   lagTwoMoisture: 0.22,
-  temperatureC: 31,
+  temperatureF: 87.8,           // was 31 °C
   humidityPct: 38,
-  windMps: 3.8,
-  precipitationMm: 0,
+  windMph: 8.5,                 // was 3.8 m/s
+  precipitationIn: 0,           // was 0 mm
   solarRadiationMjM2: 24,
   irrigationType: "pivot",
-  pumpCapacity: 6,
-  maxIrrigationVolume: 18,
+  pumpCapacity: 0.24,           // in/hr (was 6 mm/hr)
+  maxIrrigationVolume: 0.71,    // in (was 18 mm)
   budgetDollars: 2800,
-  recentIrrigation24h: 8,
-  recentIrrigation72h: 12,
+  recentIrrigation24h: 0.31,    // in (was 8 mm)
+  recentIrrigation72h: 0.47,    // in (was 12 mm)
   waterWindow: ["tonight", "tomorrow_morning"],
   energyWindow: ["tonight", "tomorrow_night"],
 };
@@ -112,16 +112,16 @@ export const PRESETS = {
     fieldName: "North Pivot 7",
     locationLat: 43.615,
     locationLon: -116.202,
-    temperatureC: 34,
+    temperatureF: 93.2,         // was 34 °C
     humidityPct: 26,
-    windMps: 4.6,
-    precipitationMm: 0,
+    windMph: 10.3,              // was 4.6 m/s
+    precipitationIn: 0,
     solarRadiationMjM2: 28,
     currentMoisture: 0.2,
     lagOneMoisture: 0.21,
     lagTwoMoisture: 0.22,
-    recentIrrigation24h: 6,
-    recentIrrigation72h: 10,
+    recentIrrigation24h: 0.24,  // in (was 6 mm)
+    recentIrrigation72h: 0.39,  // in (was 10 mm)
     budgetDollars: 3000,
     waterWindow: ["tonight", "tomorrow_morning"],
     energyWindow: ["tonight"],
@@ -135,23 +135,23 @@ export const PRESETS = {
     fieldName: "South Bench 2",
     locationLat: 43.601,
     locationLon: -116.145,
-    fieldAreaHa: 18,
+    fieldAreaAcres: 44.5,       // was 18 ha
     cropType: "soybean",
     growthStage: "vegetative",
     irrigationType: "drip",
     currentMoisture: 0.27,
     lagOneMoisture: 0.275,
     lagTwoMoisture: 0.278,
-    temperatureC: 27,
+    temperatureF: 80.6,         // was 27 °C
     humidityPct: 52,
-    windMps: 2.8,
-    precipitationMm: 2.8,
+    windMph: 6.3,               // was 2.8 m/s
+    precipitationIn: 0.11,      // was 2.8 mm
     solarRadiationMjM2: 21,
-    pumpCapacity: 4.5,
-    maxIrrigationVolume: 12,
+    pumpCapacity: 0.18,         // in/hr (was 4.5 mm/hr)
+    maxIrrigationVolume: 0.47,  // in (was 12 mm)
     budgetDollars: 2200,
-    recentIrrigation24h: 2,
-    recentIrrigation72h: 5,
+    recentIrrigation24h: 0.08,  // in (was 2 mm)
+    recentIrrigation72h: 0.20,  // in (was 5 mm)
     waterWindow: ["tomorrow_morning", "tomorrow_night"],
     energyWindow: ["tomorrow_morning"],
   },
@@ -164,26 +164,26 @@ export const PRESETS = {
     fieldName: "Creek Flat 3",
     locationLat: 43.589,
     locationLon: -116.248,
-    fieldAreaHa: 31,
+    fieldAreaAcres: 76.6,       // was 31 ha
     cropType: "potato",
     growthStage: "grain_fill",
     soilTexture: "clay",
     drainageClass: "poor",
-    infiltrationRate: 7,
+    infiltrationRate: 0.28,     // in/hr (was 7 mm/hr)
     slopePct: 1.2,
     currentMoisture: 0.31,
     lagOneMoisture: 0.305,
     lagTwoMoisture: 0.298,
-    temperatureC: 23,
+    temperatureF: 73.4,         // was 23 °C
     humidityPct: 66,
-    windMps: 2.2,
-    precipitationMm: 11,
+    windMph: 4.9,               // was 2.2 m/s
+    precipitationIn: 0.43,      // was 11 mm
     solarRadiationMjM2: 16,
-    pumpCapacity: 5.8,
-    maxIrrigationVolume: 16,
+    pumpCapacity: 0.23,         // in/hr (was 5.8 mm/hr)
+    maxIrrigationVolume: 0.63,  // in (was 16 mm)
     budgetDollars: 3200,
     recentIrrigation24h: 0,
-    recentIrrigation72h: 4,
+    recentIrrigation72h: 0.16,  // in (was 4 mm)
     waterWindow: ["tonight", "tomorrow_night"],
     energyWindow: ["tomorrow_night"],
   },

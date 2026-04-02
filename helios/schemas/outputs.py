@@ -24,19 +24,19 @@ class RegionalInsights(BaseModel):
     total_samples: int = Field(ge=0)
     weighted_samples: float = Field(ge=0)
     comparable_samples: int = Field(ge=0)
-    radius_km: float = Field(gt=0)
+    radius_miles: float = Field(gt=0)
 
 
 class RecommendationAdjustment(BaseModel):
-    base_recommendation_mm: float = Field(ge=0)
-    adjusted_recommendation_mm: float = Field(ge=0)
+    base_recommendation_in: float = Field(ge=0)
+    adjusted_recommendation_in: float = Field(ge=0)
     adjustment_factor: float = Field(gt=0)
     reason: str
 
 
 class PredictionResponse(BaseModel):
     decision: Literal["water", "wait"]
-    recommended_amount_mm: float = Field(ge=0)
+    recommended_amount_in: float = Field(ge=0)
     timing_window: str
     confidence_score: float = Field(ge=0, le=1)
     explanation: RecommendationExplanation

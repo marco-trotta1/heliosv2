@@ -10,7 +10,7 @@ SOIL_THRESHOLDS = {
     "clay": {"dry": 0.22, "wet": 0.40},
 }
 
-DEFAULT_COST_PER_MM_HECTARE = 8.0
+DEFAULT_COST_PER_IN_ACRE = 82.25  # $/in/acre (converted from $8/mm/ha)
 
 
 @dataclass
@@ -18,15 +18,15 @@ class OptimizationInputs:
     predicted_moisture: dict[str, float]
     stress_probability: float
     soil_texture: str
-    infiltration_rate_mm_per_hour: float
-    pump_capacity_mm_per_hour: float
+    infiltration_rate_in_per_hour: float
+    pump_capacity_in_per_hour: float
     water_rights_schedule: list[str]
     energy_price_window: list[str]
-    max_irrigation_volume_mm: float
-    field_area_ha: float
+    max_irrigation_volume_in: float
+    field_area_acres: float
     budget_dollars: float
-    estimated_et_mm: float
-    recent_precipitation_mm: float
+    estimated_et_in: float
+    recent_precipitation_in: float
     model_rmse: float
     sensor_count: int
 
@@ -46,10 +46,10 @@ def _select_timing_window(water_rights_schedule: list[str], energy_price_window:
     return "next available permitted window"
 
 
-def _compute_budget_cap(field_area_ha: float, budget_dollars: float) -> float:
-    if field_area_ha <= 0:
+def _compute_budget_cap(field_area_acres: float, budget_dollars: float) -> float:
+    if field_area_acres <= 0:
         return 0.0
-    return budget_dollars / (DEFAULT_COST_PER_MM_HECTARE * field_area_ha)
+    return budget_dollars / (DEFAULT_COST_PER_IN_ACRE * field_area_acres)
 
 
 def _confidence_score(inputs: OptimizationInputs, dry_threshold: float, timing_window: str) -> float:
@@ -75,20 +75,20 @@ def generate_irrigation_plan(inputs: OptimizationInputs) -> dict[str, Any]:
         needs_water=needs_water,
     )
 
-    target_moisture = min(wet_threshold, dry_threshold + 0.08 + inputs.estimated_et_mm * 0.002)
+    target_moisture = min(wet_threshold, dry_threshold + 0.08 + inputs.estimated_et_in * 0.0508)
     deficit = max(0.0, target_moisture - predicted_48h)
-    root_zone_factor = {"sand": 110.0, "loam": 135.0, "clay": 155.0}.get(inputs.soil_texture, 135.0)
-    raw_amount_mm = deficit * root_zone_factor
-    precip_adjustment = max(0.0, inputs.recent_precipitation_mm * 0.7)
-    raw_amount_mm = max(0.0, raw_amount_mm - precip_adjustment)
+    root_zone_factor = {"sand": 4.331, "loam": 5.315, "clay": 6.102}.get(inputs.soil_texture, 5.315)
+    raw_amount_in = deficit * root_zone_factor
+    precip_adjustment = max(0.0, inputs.recent_precipitation_in * 0.7)
+    raw_amount_in = max(0.0, raw_amount_in - precip_adjustment)
 
-    pump_cap = inputs.pump_capacity_mm_per_hour * _allowed_hours(inputs.water_rights_schedule)
-    budget_cap = _compute_budget_cap(inputs.field_area_ha, inputs.budget_dollars)
-    infiltration_soft_cap = inputs.infiltration_rate_mm_per_hour * 2.5
+    pump_cap = inputs.pump_capacity_in_per_hour * _allowed_hours(inputs.water_rights_schedule)
+    budget_cap = _compute_budget_cap(inputs.field_area_acres, inputs.budget_dollars)
+    infiltration_soft_cap = inputs.infiltration_rate_in_per_hour * 2.5
 
     recommended_amount = min(
-        raw_amount_mm,
-        inputs.max_irrigation_volume_mm,
+        raw_amount_in,
+        inputs.max_irrigation_volume_in,
         pump_cap,
         budget_cap,
         infiltration_soft_cap,
@@ -99,7 +99,7 @@ def generate_irrigation_plan(inputs: OptimizationInputs) -> dict[str, Any]:
     confidence = _confidence_score(inputs, dry_threshold=dry_threshold, timing_window=timing_window)
     return {
         "decision": "water" if needs_water else "wait",
-        "recommended_amount_mm": round(max(0.0, recommended_amount), 1),
+        "recommended_amount_in": round(max(0.0, recommended_amount), 2),
         "timing_window": timing_window,
         "confidence_score": confidence,
         "soil_dry_threshold": dry_threshold,

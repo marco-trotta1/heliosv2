@@ -179,7 +179,7 @@ function feedbackSummary(run) {
     run.regionalInsights.avgYieldDelta == null
       ? "Yield change data is still limited."
       : `Average yield change: ${Number(run.regionalInsights.avgYieldDelta).toFixed(1)}%.`;
-  return `${Math.round(run.regionalInsights.successRate * 100)}% success across ${run.regionalInsights.totalSamples} nearby farms within ${Math.round(run.regionalInsights.radiusKm || 50)} km. Filters require the same crop, soil texture, and irrigation type. ${yieldText}`;
+  return `${Math.round(run.regionalInsights.successRate * 100)}% success across ${run.regionalInsights.totalSamples} nearby farms within ${Math.round(run.regionalInsights.radiusMiles || 31.07)} miles. Filters require the same crop, soil texture, and irrigation type. ${yieldText}`;
 }
 
 // ── Component helpers ──────────────────────────────────────────────────────────
@@ -436,7 +436,7 @@ function dashboardRunItem(run) {
           <p class="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">${formatTimestamp(run.timestamp)}</p>
           <div class="mt-3 flex flex-wrap justify-end gap-2">
             <span class="rounded-full px-3 py-1 text-xs font-medium ${tone.pill}">${run.decision.toUpperCase()}</span>
-            <span class="rounded-full bg-[var(--panel)] px-3 py-1 text-xs font-medium text-[var(--text-muted)]">${run.recommendedAmountMm.toFixed(1)} mm</span>
+            <span class="rounded-full bg-[var(--panel)] px-3 py-1 text-xs font-medium text-[var(--text-muted)]">${run.recommendedAmountIn.toFixed(2)} in</span>
           </div>
         </div>
       </div>
@@ -556,7 +556,7 @@ function DashboardHeroStatus() {
               ${run.decision === "water" ? "Water now" : "Hold"}
             </span>
           </div>
-          <h2 class="mt-4 text-3xl font-semibold tracking-tight text-[var(--text)]">${run.decision === "water" ? `Apply ${run.recommendedAmountMm.toFixed(1)} mm ${escapeHtml(formatWindow(run.timingWindow)).toLowerCase()}` : "Hold irrigation for now"}</h2>
+          <h2 class="mt-4 text-3xl font-semibold tracking-tight text-[var(--text)]">${run.decision === "water" ? `Apply ${run.recommendedAmountIn.toFixed(2)} in ${escapeHtml(formatWindow(run.timingWindow)).toLowerCase()}` : "Hold irrigation for now"}</h2>
           <p class="mt-3 text-sm leading-7 text-[var(--text-muted)]">${escapeHtml(run.summary)}</p>
         </div>
         <div class="grid gap-3 sm:grid-cols-2 xl:min-w-[320px] xl:grid-cols-1">
@@ -657,8 +657,8 @@ export function ResultCard(run, inspectorMode = false) {
         <div class="rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] p-4">
           <p class="text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">Recommendation amount</p>
           <div class="mt-2 flex items-end gap-2">
-            <span class="text-3xl font-semibold tracking-tight ${tone.amount}">${run.recommendedAmountMm.toFixed(1)}</span>
-            <span class="pb-1 text-sm font-medium text-[var(--text-muted)]">mm</span>
+            <span class="text-3xl font-semibold tracking-tight ${tone.amount}">${run.recommendedAmountIn.toFixed(2)}</span>
+            <span class="pb-1 text-sm font-medium text-[var(--text-muted)]">in</span>
           </div>
         </div>
         <div class="flex flex-wrap content-start gap-2">
@@ -757,7 +757,7 @@ function FieldProfileSection() {
     `<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
       ${inputGroup("Field name", textInput("fieldName", state.form.fieldName))}
       ${inputGroup("Farm ID", textInput("farmId", state.form.farmId))}
-      ${inputGroup("Field area (ha)", numericInput("fieldAreaHa", state.form.fieldAreaHa, "1"))}
+      ${inputGroup("Field area (ac)", numericInput("fieldAreaAcres", state.form.fieldAreaAcres, "1"))}
       ${inputGroup("Latitude", numericInput("locationLat", state.form.locationLat, "-90", "0.0001", "90"))}
       ${inputGroup("Longitude", numericInput("locationLon", state.form.locationLon, "-180", "0.0001", "180"))}
       ${inputGroup("Crop type", selectInput("cropType", state.form.cropType, [
@@ -784,7 +784,7 @@ function FieldProfileSection() {
         { value: "moderate", label: "Moderate" },
         { value: "well", label: "Well drained" },
       ]))}
-      ${inputGroup("Infiltration rate (mm/hr)", numericInput("infiltrationRate", state.form.infiltrationRate, "1"))}
+      ${inputGroup("Infiltration rate (in/hr)", numericInput("infiltrationRate", state.form.infiltrationRate, "0.01"))}
       ${inputGroup("Slope (%)", numericInput("slopePct", state.form.slopePct, "0"))}
     </div>`,
   );
@@ -798,10 +798,10 @@ function SensorFeedSection() {
       ${inputGroup("Current soil moisture", numericInput("currentMoisture", state.form.currentMoisture, "0.05", "0.01", "0.6"))}
       ${inputGroup("6h ago moisture", numericInput("lagOneMoisture", state.form.lagOneMoisture, "0.05", "0.01", "0.6"))}
       ${inputGroup("12h ago moisture", numericInput("lagTwoMoisture", state.form.lagTwoMoisture, "0.05", "0.01", "0.6"))}
-      ${inputGroup("Temperature (C)", numericInput("temperatureC", state.form.temperatureC, "-5"))}
+      ${inputGroup("Temperature (°F)", numericInput("temperatureF", state.form.temperatureF, "-58"))}
       ${inputGroup("Humidity (%)", numericInput("humidityPct", state.form.humidityPct, "0", "1", "100"))}
-      ${inputGroup("Wind (m/s)", numericInput("windMps", state.form.windMps, "0"))}
-      ${inputGroup("Forecast precipitation (mm)", numericInput("precipitationMm", state.form.precipitationMm, "0"))}
+      ${inputGroup("Wind (mph)", numericInput("windMph", state.form.windMph, "0"))}
+      ${inputGroup("Forecast precipitation (in)", numericInput("precipitationIn", state.form.precipitationIn, "0"))}
       ${inputGroup("Solar radiation (MJ/m²)", numericInput("solarRadiationMjM2", state.form.solarRadiationMjM2, "0"))}
     </div>`,
   );
@@ -817,11 +817,11 @@ function OperationsSection() {
         { value: "drip", label: "Drip" },
         { value: "flood", label: "Flood" },
       ]))}
-      ${inputGroup("Pump capacity (mm/hr)", numericInput("pumpCapacity", state.form.pumpCapacity, "0.5"))}
-      ${inputGroup("Max irrigation volume (mm)", numericInput("maxIrrigationVolume", state.form.maxIrrigationVolume, "0"))}
+      ${inputGroup("Pump capacity (in/hr)", numericInput("pumpCapacity", state.form.pumpCapacity, "0.01"))}
+      ${inputGroup("Max irrigation volume (in)", numericInput("maxIrrigationVolume", state.form.maxIrrigationVolume, "0"))}
       ${inputGroup("Budget ($)", numericInput("budgetDollars", state.form.budgetDollars, "0", "1"))}
-      ${inputGroup("Irrigation last 24h (mm)", numericInput("recentIrrigation24h", state.form.recentIrrigation24h, "0"))}
-      ${inputGroup("Irrigation last 72h (mm)", numericInput("recentIrrigation72h", state.form.recentIrrigation72h, "0"))}
+      ${inputGroup("Irrigation last 24h (in)", numericInput("recentIrrigation24h", state.form.recentIrrigation24h, "0"))}
+      ${inputGroup("Irrigation last 72h (in)", numericInput("recentIrrigation72h", state.form.recentIrrigation72h, "0"))}
     </div>
     <div class="mt-5 grid gap-4">
       ${checkboxGroup("Water rights schedule", "waterWindow", [
@@ -977,8 +977,8 @@ export function RecommendationSpotlight() {
         <div class="rounded-3xl border border-[var(--border)] bg-[var(--panel)] p-5">
           <p class="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">Recommended amount</p>
           <div class="mt-3 flex items-end gap-3">
-            <span class="text-5xl font-semibold tracking-tight ${tone.amount}">${run.recommendedAmountMm.toFixed(1)}</span>
-            <span class="pb-1 text-lg font-medium text-[var(--text-muted)]">mm</span>
+            <span class="text-5xl font-semibold tracking-tight ${tone.amount}">${run.recommendedAmountIn.toFixed(2)}</span>
+            <span class="pb-1 text-lg font-medium text-[var(--text-muted)]">in</span>
           </div>
           <p class="mt-4 text-sm text-[var(--text-muted)]">This is the number the operator should notice first.</p>
         </div>

@@ -23,7 +23,7 @@ prediction_runs = Table(
     Column("request_json", JSON, nullable=False),
     Column("response_json", JSON, nullable=False),
     Column("decision", String, nullable=False),
-    Column("recommended_amount_mm", Float, nullable=False),
+    Column("recommended_amount_in", Float, nullable=False),
     Column("confidence_score", Float, nullable=False),
 )
 
@@ -118,7 +118,7 @@ def save_prediction_run(request: PredictionRequest, response: PredictionResponse
                 request_json=request.model_dump(mode="json"),
                 response_json=response.model_dump(mode="json"),
                 decision=response.decision,
-                recommended_amount_mm=response.recommended_amount_mm,
+                recommended_amount_in=response.recommended_amount_in,
                 confidence_score=response.confidence_score,
             )
         )

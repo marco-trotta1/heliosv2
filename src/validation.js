@@ -38,19 +38,19 @@ export function validateForm(form) {
   }
 
   // Weather
-  const tempC = Number(form.temperatureC);
-  if (Number.isNaN(tempC) || tempC < -50 || tempC > 70) {
-    return "Temperature must be between -50 °C and 70 °C.";
+  const tempF = Number(form.temperatureF);
+  if (Number.isNaN(tempF) || tempF < -58 || tempF > 158) {
+    return "Temperature must be between -58 °F and 158 °F.";
   }
   const humidity = Number(form.humidityPct);
   if (Number.isNaN(humidity) || humidity < 0 || humidity > 100) {
     return "Relative humidity must be between 0% and 100%.";
   }
-  const wind = Number(form.windMps);
-  if (Number.isNaN(wind) || wind < 0 || wind > 75) {
-    return "Wind speed must be between 0 and 75 m/s.";
+  const wind = Number(form.windMph);
+  if (Number.isNaN(wind) || wind < 0 || wind > 167.8) {
+    return "Wind speed must be between 0 and 167.8 mph.";
   }
-  const precip = Number(form.precipitationMm);
+  const precip = Number(form.precipitationIn);
   if (Number.isNaN(precip) || precip < 0) {
     return "Precipitation cannot be negative.";
   }
@@ -60,7 +60,7 @@ export function validateForm(form) {
   }
 
   // Operational
-  const fieldArea = Number(form.fieldAreaHa);
+  const fieldArea = Number(form.fieldAreaAcres);
   if (Number.isNaN(fieldArea) || fieldArea <= 0) {
     return "Field area must be a positive number.";
   }

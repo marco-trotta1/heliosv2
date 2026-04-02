@@ -13,7 +13,7 @@ from helios.schemas.inputs import FeedbackCreateRequest
 
 
 DUPLICATE_WINDOW_MINUTES = 30
-DEFAULT_RADIUS_KM = 50.0
+DEFAULT_RADIUS_MILES = 31.07  # ~50 km in miles
 
 
 def create_feedback(payload: FeedbackCreateRequest) -> tuple[int, bool]:
@@ -39,7 +39,7 @@ def get_regional_insights(
     irrigation_type: str,
     growth_stage: str,
     season_month: int,
-    radius_km: float = DEFAULT_RADIUS_KM,
+    radius_miles: float = DEFAULT_RADIUS_MILES,
 ) -> dict[str, float | int | None]:
     rows = get_feedback_rows(
         crop_type=crop_type,
@@ -51,7 +51,7 @@ def get_regional_insights(
         rows,
         origin_lat=lat,
         origin_lon=lon,
-        radius_km=radius_km,
+        radius_miles=radius_miles,
         growth_stage=growth_stage,
         season_month=season_month,
     )
@@ -68,7 +68,7 @@ def adjust_recommendation(
         or insights.get("weighted_samples", 0.0) < 2.5
     ):
         return {
-            "adjusted_recommendation_mm": round(base_recommendation, 1),
+            "adjusted_recommendation_in": round(base_recommendation, 2),
             "adjustment_factor": 1.0,
             "reason": "Not enough comparable nearby feedback to safely adjust the base recommendation.",
         }
@@ -86,9 +86,9 @@ def adjust_recommendation(
         factor = 1.0
         reason = "Comparable nearby feedback was mixed, so the base recommendation was left unchanged."
 
-    adjusted = max(0.0, round(base_recommendation * factor, 1))
+    adjusted = max(0.0, round(base_recommendation * factor, 2))
     return {
-        "adjusted_recommendation_mm": adjusted,
+        "adjusted_recommendation_in": adjusted,
         "adjustment_factor": round(factor, 3),
         "reason": reason,
     }

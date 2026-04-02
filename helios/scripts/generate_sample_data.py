@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from helios.utils.evapotranspiration import estimate_reference_et_mm
+from helios.utils.evapotranspiration import estimate_reference_et_in
 
 
 SOIL_TEXTURES = ["sand", "loam", "clay"]
@@ -24,11 +24,11 @@ CROP_KC = {
     "maturity": 0.5,
 }
 
-# Root zone depth by soil texture (mm)
-ROOT_ZONE_DEPTH_MM = {
-    "sand": 300.0,
-    "loam": 450.0,
-    "clay": 500.0,
+# Root zone depth by soil texture (inches)
+ROOT_ZONE_DEPTH_IN = {
+    "sand": 11.811,  # 300 mm
+    "loam": 17.717,  # 450 mm
+    "clay": 19.685,  # 500 mm
 }
 
 # Irrigation system efficiency (fraction of applied water entering root zone)
@@ -71,24 +71,31 @@ def generate_sample_data(rows: int, output_path: str, seed: int) -> pd.DataFrame
         growth_stage = _choose_category(rng, GROWTH_STAGES)
         crop_type = _choose_category(rng, CROP_TYPES)
 
-        temperature_c = float(rng.normal(27.0, 6.0))
+        # Temperature in °F (27°C = 80.6°F, std dev 6°C × 1.8 = 10.8°F)
+        temperature_f = float(rng.normal(80.6, 10.8))
         humidity_pct = float(np.clip(rng.normal(48.0, 18.0), 15.0, 95.0))
-        wind_mps = float(np.clip(rng.normal(3.2, 1.4), 0.3, 9.0))
-        precipitation_mm = float(np.clip(rng.gamma(1.2, 2.5) - 1.0, 0.0, 18.0))
+        # Wind in mph (3.2 m/s = 7.16 mph, std 1.4 m/s = 3.13 mph)
+        wind_mph = float(np.clip(rng.normal(7.16, 3.13), 0.67, 20.13))
+        # Precipitation in inches (scale from mm distribution)
+        precipitation_in = float(np.clip(rng.gamma(1.2, 0.098) - 0.039, 0.0, 0.709))
         solar_radiation_mj_m2 = float(np.clip(rng.normal(22.0, 5.0), 8.0, 34.0))
-        rolling_temp_mean = float(temperature_c + rng.normal(0, 1.0))
+        rolling_temp_mean = float(temperature_f + rng.normal(0, 1.8))
         rolling_humidity_mean = float(np.clip(humidity_pct + rng.normal(0, 4.0), 10.0, 100.0))
-        rolling_precip_mm = float(max(0.0, precipitation_mm + rng.normal(0, 1.0)))
+        rolling_precip_in = float(max(0.0, precipitation_in + rng.normal(0, 0.039)))
         rolling_solar_mean = float(np.clip(solar_radiation_mj_m2 + rng.normal(0, 1.5), 8.0, 35.0))
-        pump_capacity_mm_per_hour = float(np.clip(rng.normal(6.5, 2.0), 1.5, 12.0))
-        max_irrigation_volume_mm = float(np.clip(rng.normal(18.0, 5.0), 6.0, 30.0))
-        field_area_ha = float(np.clip(rng.normal(28.0, 10.0), 4.0, 60.0))
+        # Pump capacity in in/hr (6.5 mm/hr = 0.256 in/hr, std 2.0 → 0.079)
+        pump_capacity_in_per_hour = float(np.clip(rng.normal(0.256, 0.079), 0.059, 0.472))
+        # Max irrigation volume in inches (18 mm = 0.709 in)
+        max_irrigation_volume_in = float(np.clip(rng.normal(0.709, 0.197), 0.236, 1.181))
+        # Field area in acres (28 ha = 69.2 ac, std 10 ha = 24.7 ac)
+        field_area_acres = float(np.clip(rng.normal(69.2, 24.7), 9.9, 148.3))
         budget_dollars = float(np.clip(rng.normal(600.0, 180.0), 100.0, 1200.0))
-        infiltration_rate_mm_per_hour = float(
+        # Infiltration rate in in/hr (sand: 24→0.945, loam: 13→0.512, clay: 7→0.276)
+        infiltration_rate_in_per_hour = float(
             np.clip(
-                {"sand": 24.0, "loam": 13.0, "clay": 7.0}[soil_texture] + rng.normal(0, 1.8),
-                3.0,
-                30.0,
+                {"sand": 0.945, "loam": 0.512, "clay": 0.276}[soil_texture] + rng.normal(0, 0.071),
+                0.118,
+                1.181,
             )
         )
         slope_pct = float(np.clip(rng.normal(2.6, 1.4), 0.0, 9.0))
@@ -99,19 +106,24 @@ def generate_sample_data(rows: int, output_path: str, seed: int) -> pd.DataFrame
         soil_moisture_lag_2 = float(np.clip(soil_moisture_lag_1 + rng.normal(0, 0.015), 0.08, 0.5))
         soil_moisture_delta_1 = current_soil_moisture - soil_moisture_lag_1
         soil_moisture_delta_2 = soil_moisture_lag_1 - soil_moisture_lag_2
-        cumulative_irrigation_24h = float(np.clip(rng.choice([0, 0, 0, 6, 9, 12, 15]) + rng.normal(0, 0.8), 0.0, 16.0))
-        cumulative_irrigation_72h = float(
-            np.clip(cumulative_irrigation_24h + rng.choice([0, 4, 8, 12]) + rng.normal(0, 1.2), 0.0, 26.0)
-        )
+        # Cumulative irrigation in inches ([0,0,0,6,9,12,15] mm → inches)
+        cumulative_irrigation_24h = float(np.clip(
+            rng.choice([0, 0, 0, 0.236, 0.354, 0.472, 0.591]) + rng.normal(0, 0.031),
+            0.0, 0.630,
+        ))
+        cumulative_irrigation_72h = float(np.clip(
+            cumulative_irrigation_24h + rng.choice([0, 0.157, 0.315, 0.472]) + rng.normal(0, 0.047),
+            0.0, 1.024,
+        ))
         forecast_horizon_hours = int(rng.choice([24, 48, 72]))
         sensor_count = int(rng.integers(3, 8))
         water_rights_schedule_count = int(rng.integers(1, 4))
         energy_window_count = int(rng.integers(1, 3))
 
-        reference_et_mm = estimate_reference_et_mm(
-            temperature_c=rolling_temp_mean,
+        reference_et_in = estimate_reference_et_in(
+            temperature_f=rolling_temp_mean,
             humidity_pct=rolling_humidity_mean,
-            wind_mps=wind_mps,
+            wind_mph=wind_mph,
             solar_radiation_mj_m2=rolling_solar_mean,
         )
 
@@ -119,13 +131,13 @@ def generate_sample_data(rows: int, output_path: str, seed: int) -> pd.DataFrame
         # This breaks the circular dependency: targets are physics-grounded, not
         # derived from the same heuristics the optimizer uses.
         kc = CROP_KC[growth_stage]
-        root_depth = ROOT_ZONE_DEPTH_MM[soil_texture]
+        root_depth = ROOT_ZONE_DEPTH_IN[soil_texture]
         eff = IRRIGATION_EFFICIENCY[irrigation_type]
         drainage = DRAINAGE_FACTOR[drainage_class]
         infiltration_efficiency = 0.90  # fraction of precipitation entering root zone
 
         def _step(moisture: float, precip: float, irrigation: float) -> float:
-            et_depletion = (reference_et_mm * kc * drainage) / root_depth
+            et_depletion = (reference_et_in * kc * drainage) / root_depth
             precip_gain = precip * infiltration_efficiency / root_depth
             irrigation_gain = irrigation * eff / root_depth
             return float(np.clip(
@@ -133,45 +145,45 @@ def generate_sample_data(rows: int, output_path: str, seed: int) -> pd.DataFrame
                 0.05, 0.50,
             ))
 
-        target_24h = _step(current_soil_moisture, precipitation_mm, cumulative_irrigation_24h)
-        target_48h = _step(target_24h, precipitation_mm * 0.5, 0.0)
+        target_24h = _step(current_soil_moisture, precipitation_in, cumulative_irrigation_24h)
+        target_48h = _step(target_24h, precipitation_in * 0.5, 0.0)
         target_72h = _step(target_48h, 0.0, cumulative_irrigation_72h - cumulative_irrigation_24h)
 
         records.append(
             {
                 "field_id": f"field-{idx % 48:03d}",
                 "forecast_horizon_hours": forecast_horizon_hours,
-                "temperature_c": round(temperature_c, 3),
+                "temperature_f": round(temperature_f, 3),
                 "humidity_pct": round(humidity_pct, 3),
-                "wind_mps": round(wind_mps, 3),
-                "precipitation_mm": round(precipitation_mm, 3),
+                "wind_mph": round(wind_mph, 3),
+                "precipitation_in": round(precipitation_in, 4),
                 "solar_radiation_mj_m2": round(solar_radiation_mj_m2, 3),
                 "rolling_temp_mean": round(rolling_temp_mean, 3),
                 "rolling_humidity_mean": round(rolling_humidity_mean, 3),
-                "rolling_precip_mm": round(rolling_precip_mm, 3),
+                "rolling_precip_in": round(rolling_precip_in, 4),
                 "rolling_solar_mean": round(rolling_solar_mean, 3),
                 "current_soil_moisture": round(current_soil_moisture, 4),
                 "soil_moisture_lag_1": round(soil_moisture_lag_1, 4),
                 "soil_moisture_lag_2": round(soil_moisture_lag_2, 4),
                 "soil_moisture_delta_1": round(soil_moisture_delta_1, 4),
                 "soil_moisture_delta_2": round(soil_moisture_delta_2, 4),
-                "pump_capacity_mm_per_hour": round(pump_capacity_mm_per_hour, 3),
+                "pump_capacity_in_per_hour": round(pump_capacity_in_per_hour, 4),
                 "water_rights_schedule_count": water_rights_schedule_count,
                 "energy_window_count": energy_window_count,
                 "irrigation_type": irrigation_type,
                 "soil_texture": soil_texture,
-                "infiltration_rate_mm_per_hour": round(infiltration_rate_mm_per_hour, 3),
+                "infiltration_rate_in_per_hour": round(infiltration_rate_in_per_hour, 4),
                 "slope_pct": round(slope_pct, 3),
                 "drainage_class": drainage_class,
                 "crop_type": crop_type,
                 "growth_stage": growth_stage,
-                "max_irrigation_volume_mm": round(max_irrigation_volume_mm, 3),
-                "field_area_ha": round(field_area_ha, 3),
+                "max_irrigation_volume_in": round(max_irrigation_volume_in, 4),
+                "field_area_acres": round(field_area_acres, 3),
                 "budget_dollars": round(budget_dollars, 3),
-                "cumulative_irrigation_24h": round(cumulative_irrigation_24h, 3),
-                "cumulative_irrigation_72h": round(cumulative_irrigation_72h, 3),
+                "cumulative_irrigation_24h": round(cumulative_irrigation_24h, 4),
+                "cumulative_irrigation_72h": round(cumulative_irrigation_72h, 4),
                 "sensor_count": sensor_count,
-                "reference_et_mm": round(reference_et_mm, 3),
+                "reference_et_in": round(reference_et_in, 4),
                 "target_moisture_24h": round(target_24h, 4),
                 "target_moisture_48h": round(target_48h, 4),
                 "target_moisture_72h": round(target_72h, 4),

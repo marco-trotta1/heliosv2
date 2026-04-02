@@ -142,16 +142,16 @@ curl -X POST http://127.0.0.1:8000/predict \
     "farm_id": "farm-001",
     "forecast_horizon_hours": 72,
     "weather": {
-      "temperature_c": 31.0,
+      "temperature_f": 87.8,
       "humidity_pct": 38.0,
-      "wind_mps": 3.8,
-      "precipitation_mm": 0.0,
+      "wind_mph": 8.5,
+      "precipitation_in": 0.0,
       "solar_radiation_mj_m2": 24.0,
       "forecast_horizon_hours": 72
     },
     "irrigation_system": {
       "irrigation_type": "pivot",
-      "pump_capacity_mm_per_hour": 6.0,
+      "pump_capacity_in_per_hour": 0.236,
       "water_rights_schedule": ["tonight", "tomorrow_morning"],
       "energy_price_window": ["tonight"]
     },
@@ -174,7 +174,7 @@ curl -X POST http://127.0.0.1:8000/predict \
     ],
     "soil_properties": {
       "soil_texture": "loam",
-      "infiltration_rate_mm_per_hour": 12.0,
+      "infiltration_rate_in_per_hour": 0.472,
       "slope_pct": 2.5,
       "drainage_class": "moderate"
     },
@@ -183,8 +183,8 @@ curl -X POST http://127.0.0.1:8000/predict \
       "growth_stage": "flowering"
     },
     "operational": {
-      "max_irrigation_volume_mm": 18.0,
-      "field_area_ha": 24.0,
+      "max_irrigation_volume_in": 0.709,
+      "field_area_acres": 59.3,
       "budget_dollars": 2800.0
     },
     "location_lat": 43.615,
@@ -192,7 +192,7 @@ curl -X POST http://127.0.0.1:8000/predict \
     "recent_irrigation_events": [
       {
         "timestamp": "2026-03-16T06:00:00Z",
-        "applied_mm": 8.0
+        "applied_in": 0.315
       }
     ]
   }'

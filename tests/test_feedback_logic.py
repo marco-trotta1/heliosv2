@@ -28,7 +28,7 @@ def test_aggregate_feedback_applies_distance_and_comparability_weights() -> None
         rows,
         origin_lat=43.615,
         origin_lon=-116.202,
-        radius_km=50,
+        radius_miles=31.07,   # ~50 km
         growth_stage="flowering",
         season_month=7,
     )
@@ -41,7 +41,7 @@ def test_aggregate_feedback_applies_distance_and_comparability_weights() -> None
 
 def test_adjust_recommendation_requires_enough_comparable_samples() -> None:
     adjustment = adjust_recommendation(
-        12.0,
+        0.472,  # ~12 mm in inches
         {
             "success_rate": 0.9,
             "avg_yield_delta": 8.0,
@@ -51,13 +51,13 @@ def test_adjust_recommendation_requires_enough_comparable_samples() -> None:
         },
     )
 
-    assert adjustment["adjusted_recommendation_mm"] == 12.0
+    assert adjustment["adjusted_recommendation_in"] == round(0.472, 2)
     assert adjustment["adjustment_factor"] == 1.0
 
 
 def test_adjust_recommendation_reinforces_and_reduces_conservatively() -> None:
     stronger = adjust_recommendation(
-        10.0,
+        0.394,  # ~10 mm in inches
         {
             "success_rate": 0.82,
             "avg_yield_delta": 6.0,
@@ -67,7 +67,7 @@ def test_adjust_recommendation_reinforces_and_reduces_conservatively() -> None:
         },
     )
     weaker = adjust_recommendation(
-        10.0,
+        0.394,  # ~10 mm in inches
         {
             "success_rate": 0.25,
             "avg_yield_delta": -8.0,
@@ -77,5 +77,5 @@ def test_adjust_recommendation_reinforces_and_reduces_conservatively() -> None:
         },
     )
 
-    assert stronger["adjusted_recommendation_mm"] == 10.8
-    assert weaker["adjusted_recommendation_mm"] == 8.8
+    assert stronger["adjusted_recommendation_in"] == round(0.394 * 1.08, 2)
+    assert weaker["adjusted_recommendation_in"] == round(0.394 * 0.88, 2)

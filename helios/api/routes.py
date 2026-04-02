@@ -84,7 +84,7 @@ def predict(
             "field_id": request.field_id,
             "farm_id": request.farm_id,
             "decision": response.decision,
-            "recommended_amount_mm": response.recommended_amount_mm,
+            "recommended_amount_in": response.recommended_amount_in,
             "confidence_score": response.confidence_score,
             "latency_ms": latency_ms,
         },
@@ -126,7 +126,7 @@ def submit_feedback(
 def nearby_feedback(
     lat: float = Query(..., ge=-90, le=90),
     lon: float = Query(..., ge=-180, le=180),
-    radius: float = Query(50, gt=0, le=500),
+    radius: float = Query(31.07, gt=0, le=310.7),
     crop_type: str | None = Query(default=None),
     recommendation_type: str | None = Query(default=None),
     soil_texture: str | None = Query(default=None),
@@ -145,7 +145,7 @@ def nearby_feedback(
             irrigation_type=irrigation_type or "",
             growth_stage=growth_stage or "",
             season_month=season_month or datetime.now(timezone.utc).month,
-            radius_km=radius,
+            radius_miles=radius,
         )
         return RegionalInsights(**insights)
     except Exception:

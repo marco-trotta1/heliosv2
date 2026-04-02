@@ -10,10 +10,10 @@ ALLOWED_HORIZONS = {24, 48, 72}
 
 
 class WeatherInput(BaseModel):
-    temperature_c: float
+    temperature_f: float
     humidity_pct: float = Field(ge=0, le=100)
-    wind_mps: float = Field(ge=0)
-    precipitation_mm: float = Field(ge=0)
+    wind_mph: float = Field(ge=0)
+    precipitation_in: float = Field(ge=0)
     solar_radiation_mj_m2: float = Field(ge=0)
     forecast_horizon_hours: int
 
@@ -27,7 +27,7 @@ class WeatherInput(BaseModel):
 
 class IrrigationSystemInput(BaseModel):
     irrigation_type: Literal["pivot", "drip", "flood"]
-    pump_capacity_mm_per_hour: float = Field(gt=0)
+    pump_capacity_in_per_hour: float = Field(gt=0)
     water_rights_schedule: list[str] = Field(min_length=1)
     energy_price_window: list[str] = Field(default_factory=list)
 
@@ -40,7 +40,7 @@ class SoilMoistureReading(BaseModel):
 
 class SoilPropertiesInput(BaseModel):
     soil_texture: Literal["sand", "loam", "clay"]
-    infiltration_rate_mm_per_hour: float = Field(gt=0)
+    infiltration_rate_in_per_hour: float = Field(gt=0)
     slope_pct: float = Field(ge=0)
     drainage_class: Literal["poor", "moderate", "well"]
 
@@ -51,14 +51,14 @@ class CropInput(BaseModel):
 
 
 class OperationalConstraintsInput(BaseModel):
-    max_irrigation_volume_mm: float = Field(ge=0)
-    field_area_ha: float = Field(gt=0)
+    max_irrigation_volume_in: float = Field(ge=0)
+    field_area_acres: float = Field(gt=0)
     budget_dollars: float = Field(ge=0)
 
 
 class IrrigationEventInput(BaseModel):
     timestamp: datetime
-    applied_mm: float = Field(ge=0)
+    applied_in: float = Field(ge=0)
 
 
 class PredictionRequest(BaseModel):
@@ -140,7 +140,7 @@ class FeedbackCreateRequest(BaseModel):
 class NearbyFeedbackQuery(BaseModel):
     lat: float = Field(ge=-90, le=90)
     lon: float = Field(ge=-180, le=180)
-    radius_km: float = Field(default=50, gt=0, le=500)
+    radius_miles: float = Field(default=31.07, gt=0, le=310.7)
     crop_type: str | None = None
     recommendation_type: str | None = None
     soil_texture: Literal["sand", "loam", "clay"] | None = None

@@ -32,13 +32,13 @@ def test_recommendation_service_applies_feedback_adjustment(
             "total_samples": 6,
             "weighted_samples": 4.1,
             "comparable_samples": 4,
-            "radius_km": 50.0,
+            "radius_miles": 31.07,
         },
     )
     monkeypatch.setattr(
         "helios.services.recommendation_service.adjust_recommendation",
         lambda base_recommendation, insights: {
-            "adjusted_recommendation_mm": round(base_recommendation * 1.08, 1),
+            "adjusted_recommendation_in": round(base_recommendation * 1.08, 2),
             "adjustment_factor": 1.08,
             "reason": "Comparable nearby feedback was consistently positive, so the recommendation was modestly reinforced.",
         },

@@ -5,7 +5,7 @@ from typing import Iterable
 
 import pandas as pd
 
-from helios.utils.evapotranspiration import estimate_reference_et_mm
+from helios.utils.evapotranspiration import estimate_reference_et_in
 
 logger = logging.getLogger(__name__)
 
@@ -32,12 +32,12 @@ def _one_hot_encode(df: pd.DataFrame) -> pd.DataFrame:
 
 def _ensure_reference_et(df: pd.DataFrame) -> pd.DataFrame:
     enriched = df.copy()
-    if "reference_et_mm" not in enriched.columns:
-        enriched["reference_et_mm"] = enriched.apply(
-            lambda row: estimate_reference_et_mm(
-                temperature_c=float(row["rolling_temp_mean"]),
+    if "reference_et_in" not in enriched.columns:
+        enriched["reference_et_in"] = enriched.apply(
+            lambda row: estimate_reference_et_in(
+                temperature_f=float(row["rolling_temp_mean"]),
                 humidity_pct=float(row["rolling_humidity_mean"]),
-                wind_mps=float(row["wind_mps"]),
+                wind_mph=float(row["wind_mph"]),
                 solar_radiation_mj_m2=float(row["rolling_solar_mean"]),
             ),
             axis=1,

@@ -1,6 +1,6 @@
 import { PAGE_TITLES, SOIL_THRESHOLDS } from "./constants.js";
 import {
-  estimateReferenceEtMm,
+  estimateReferenceEtIn,
   predictMoistureTrajectory,
   computeStressProbability,
   generateIrrigationPlan,
@@ -41,16 +41,16 @@ export function buildPredictionRequest(inputs) {
     farm_id: inputs.farmId || fieldId,
     forecast_horizon_hours: 72,
     weather: {
-      temperature_c: Number(inputs.temperatureC),
+      temperature_f: Number(inputs.temperatureF),
       humidity_pct: Number(inputs.humidityPct),
-      wind_mps: Number(inputs.windMps),
-      precipitation_mm: Number(inputs.precipitationMm),
+      wind_mph: Number(inputs.windMph),
+      precipitation_in: Number(inputs.precipitationIn),
       solar_radiation_mj_m2: Number(inputs.solarRadiationMjM2),
       forecast_horizon_hours: 72,
     },
     irrigation_system: {
       irrigation_type: inputs.irrigationType,
-      pump_capacity_mm_per_hour: Number(inputs.pumpCapacity),
+      pump_capacity_in_per_hour: Number(inputs.pumpCapacity),
       water_rights_schedule: inputs.waterWindow,
       energy_price_window: inputs.energyWindow,
     },
@@ -73,7 +73,7 @@ export function buildPredictionRequest(inputs) {
     ],
     soil_properties: {
       soil_texture: inputs.soilTexture,
-      infiltration_rate_mm_per_hour: Number(inputs.infiltrationRate),
+      infiltration_rate_in_per_hour: Number(inputs.infiltrationRate),
       slope_pct: Number(inputs.slopePct),
       drainage_class: inputs.drainageClass,
     },
@@ -82,8 +82,8 @@ export function buildPredictionRequest(inputs) {
       growth_stage: inputs.growthStage,
     },
     operational: {
-      max_irrigation_volume_mm: Number(inputs.maxIrrigationVolume),
-      field_area_ha: Number(inputs.fieldAreaHa),
+      max_irrigation_volume_in: Number(inputs.maxIrrigationVolume),
+      field_area_acres: Number(inputs.fieldAreaAcres),
       budget_dollars: Number(inputs.budgetDollars),
     },
     location_lat: Number(inputs.locationLat),
@@ -91,11 +91,11 @@ export function buildPredictionRequest(inputs) {
     recent_irrigation_events: [
       {
         timestamp: new Date(now.getTime() - (24 * 60 * 60 * 1000)).toISOString(),
-        applied_mm: Number(inputs.recentIrrigation24h),
+        applied_in: Number(inputs.recentIrrigation24h),
       },
       {
         timestamp: new Date(now.getTime() - (72 * 60 * 60 * 1000)).toISOString(),
-        applied_mm: Number(inputs.recentIrrigation72h),
+        applied_in: Number(inputs.recentIrrigation72h),
       },
     ],
   };
@@ -106,7 +106,7 @@ export function buildPredictionRequest(inputs) {
 function buildApiSummary(inputs, response) {
   const action =
     response.decision === "water"
-      ? `Apply ${response.recommended_amount_mm.toFixed(1)} mm during ${formatWindow(response.timing_window)}.`
+      ? `Apply ${Number(response.recommended_amount_in).toFixed(2)} in during ${formatWindow(response.timing_window)}.`
       : "Hold irrigation and check again after the next weather update.";
   if (response.regional_insights?.total_samples) {
     return `${inputs.fieldName} is being compared with ${response.regional_insights.total_samples} comparable nearby feedback reports. ${action}`;
@@ -115,18 +115,18 @@ function buildApiSummary(inputs, response) {
 }
 
 export function mapApiRun(inputs, response) {
-  const estimatedEtMm = estimateReferenceEtMm(inputs);
+  const estimatedEtIn = estimateReferenceEtIn(inputs);
   const run = {
     id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
     title: `${inputs.fieldName} • ${PAGE_TITLES["run-analysis"]}`,
     timestamp: new Date().toISOString(),
     prompt: inputs.analysisPrompt,
     decision: response.decision,
-    recommendedAmountMm: Number(response.recommended_amount_mm || 0),
+    recommendedAmountIn: Number(response.recommended_amount_in || 0),
     timingWindow: response.timing_window,
     confidenceScore: Number(response.confidence_score || 0),
     stressProbability: Number(response.explanation?.stress_probability || 0),
-    estimatedEtMm,
+    estimatedEtIn,
     predicted: {
       moisture24h: Number(response.predicted_moisture?.moisture_24h || 0),
       moisture48h: Number(response.predicted_moisture?.moisture_48h || 0),
@@ -141,13 +141,13 @@ export function mapApiRun(inputs, response) {
           avgYieldDelta: response.regional_insights.avg_yield_delta,
           totalSamples: Number(response.regional_insights.total_samples || 0),
           weightedSamples: Number(response.regional_insights.weighted_samples || 0),
-          radiusKm: Number(response.regional_insights.radius_km || 50),
+          radiusMiles: Number(response.regional_insights.radius_miles || 31.07),
         }
       : null,
     recommendationAdjustment: response.recommendation_adjustment
       ? {
-          baseRecommendationMm: Number(response.recommendation_adjustment.base_recommendation_mm || response.recommended_amount_mm || 0),
-          adjustedRecommendationMm: Number(response.recommendation_adjustment.adjusted_recommendation_mm || response.recommended_amount_mm || 0),
+          baseRecommendationIn: Number(response.recommendation_adjustment.base_recommendation_in || response.recommended_amount_in || 0),
+          adjustedRecommendationIn: Number(response.recommendation_adjustment.adjusted_recommendation_in || response.recommended_amount_in || 0),
           adjustmentFactor: Number(response.recommendation_adjustment.adjustment_factor || 1),
           reason: response.recommendation_adjustment.reason || "No adjustment reason returned.",
         }
@@ -160,37 +160,37 @@ export function mapApiRun(inputs, response) {
 }
 
 export function buildLocalRun(inputs) {
-  const estimatedEtMm = estimateReferenceEtMm(inputs);
-  const predicted = predictMoistureTrajectory(inputs, estimatedEtMm);
+  const estimatedEtIn = estimateReferenceEtIn(inputs);
+  const predicted = predictMoistureTrajectory(inputs, estimatedEtIn);
   const thresholds = SOIL_THRESHOLDS[inputs.soilTexture] ?? SOIL_THRESHOLDS.loam;
   const stressProbability = computeStressProbability({
     predictedMoisture48h: predicted.moisture48h,
     dryThreshold: thresholds.dry,
-    estimatedEtMm,
-    precipitationMm: inputs.precipitationMm,
+    estimatedEtIn,
+    precipitationIn: inputs.precipitationIn,
     growthStage: inputs.growthStage,
   });
-  const plan = generateIrrigationPlan(inputs, predicted, stressProbability, estimatedEtMm);
-  const drivers = buildDrivers(inputs, predicted, stressProbability, estimatedEtMm);
+  const plan = generateIrrigationPlan(inputs, predicted, stressProbability, estimatedEtIn);
+  const drivers = buildDrivers(inputs, predicted, stressProbability, estimatedEtIn);
   const run = {
     id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
     title: `${inputs.fieldName} • ${PAGE_TITLES["run-analysis"]}`,
     timestamp: new Date().toISOString(),
     prompt: inputs.analysisPrompt,
     decision: plan.decision,
-    recommendedAmountMm: plan.recommendedAmountMm,
+    recommendedAmountIn: plan.recommendedAmountIn,
     timingWindow: plan.timingWindow,
     confidenceScore: plan.confidenceScore,
     stressProbability: plan.stressProbability,
-    estimatedEtMm,
+    estimatedEtIn,
     predicted,
     drivers,
     summary: buildSummary(inputs, predicted, plan),
     inputSnapshot: inputs,
     regionalInsights: null,
     recommendationAdjustment: {
-      baseRecommendationMm: plan.recommendedAmountMm,
-      adjustedRecommendationMm: plan.recommendedAmountMm,
+      baseRecommendationIn: plan.recommendedAmountIn,
+      adjustedRecommendationIn: plan.recommendedAmountIn,
       adjustmentFactor: 1,
       reason: isLiveApiMode()
         ? "Live feedback service was unavailable, so this result uses the local prototype rules only."
@@ -215,7 +215,7 @@ export async function refreshRegionalInsights(run) {
   const params = new URLSearchParams({
     lat: String(run.inputSnapshot.locationLat),
     lon: String(run.inputSnapshot.locationLon),
-    radius: "50",
+    radius: "31.07",
     crop_type: run.inputSnapshot.cropType,
     recommendation_type: "irrigation",
     soil_texture: run.inputSnapshot.soilTexture,
@@ -233,7 +233,7 @@ export async function refreshRegionalInsights(run) {
     avgYieldDelta: result.avg_yield_delta,
     totalSamples: Number(result.total_samples || 0),
     weightedSamples: Number(result.weighted_samples || 0),
-    radiusKm: Number(result.radius_km || 50),
+    radiusMiles: Number(result.radius_miles || 31.07),
   };
   run.copyText = serializeRunForCopy(run);
 }
@@ -320,7 +320,7 @@ export async function submitFeedback() {
     irrigation_type: state.latestRun.inputSnapshot.irrigationType,
     growth_stage: state.latestRun.inputSnapshot.growthStage,
     recommendation_type: "irrigation",
-    recommendation_value: String(state.latestRun.recommendedAmountMm),
+    recommendation_value: String(state.latestRun.recommendedAmountIn),
     outcome: state.feedbackForm.outcome,
     yield_delta: state.feedbackForm.yieldDelta === "" ? null : Number(state.feedbackForm.yieldDelta),
     notes: state.feedbackForm.notes.trim() || null,

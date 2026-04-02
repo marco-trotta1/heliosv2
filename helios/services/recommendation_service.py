@@ -16,7 +16,7 @@ from helios.schemas.outputs import (
     RecommendationExplanation,
     RegionalInsights,
 )
-from helios.utils.evapotranspiration import estimate_reference_et_mm
+from helios.utils.evapotranspiration import estimate_reference_et_in
 
 
 class RecommendationService:
@@ -46,17 +46,17 @@ class RecommendationService:
         predicted = self.model.predict(features)
 
         thresholds = SOIL_THRESHOLDS.get(request.soil_properties.soil_texture, SOIL_THRESHOLDS["loam"])
-        estimated_et = estimate_reference_et_mm(
-            temperature_c=request.weather.temperature_c,
+        estimated_et = estimate_reference_et_in(
+            temperature_f=request.weather.temperature_f,
             humidity_pct=request.weather.humidity_pct,
-            wind_mps=request.weather.wind_mps,
+            wind_mph=request.weather.wind_mph,
             solar_radiation_mj_m2=request.weather.solar_radiation_mj_m2,
         )
         stress_probability = self._compute_stress_probability(
             predicted_moisture_48h=predicted["moisture_48h"],
             dry_threshold=thresholds["dry"],
             estimated_et=estimated_et,
-            precipitation_mm=request.weather.precipitation_mm,
+            precipitation_in=request.weather.precipitation_in,
             growth_stage=request.crop.growth_stage,
         )
 
@@ -65,15 +65,15 @@ class RecommendationService:
                 predicted_moisture=predicted,
                 stress_probability=stress_probability,
                 soil_texture=request.soil_properties.soil_texture,
-                infiltration_rate_mm_per_hour=request.soil_properties.infiltration_rate_mm_per_hour,
-                pump_capacity_mm_per_hour=request.irrigation_system.pump_capacity_mm_per_hour,
+                infiltration_rate_in_per_hour=request.soil_properties.infiltration_rate_in_per_hour,
+                pump_capacity_in_per_hour=request.irrigation_system.pump_capacity_in_per_hour,
                 water_rights_schedule=request.irrigation_system.water_rights_schedule,
                 energy_price_window=request.irrigation_system.energy_price_window,
-                max_irrigation_volume_mm=request.operational.max_irrigation_volume_mm,
-                field_area_ha=request.operational.field_area_ha,
+                max_irrigation_volume_in=request.operational.max_irrigation_volume_in,
+                field_area_acres=request.operational.field_area_acres,
                 budget_dollars=request.operational.budget_dollars,
-                estimated_et_mm=estimated_et,
-                recent_precipitation_mm=request.weather.precipitation_mm,
+                estimated_et_in=estimated_et,
+                recent_precipitation_in=request.weather.precipitation_in,
                 model_rmse=float(self.model.metadata.get("cv_rmse_mean", 0.12)),
                 sensor_count=len(request.soil_moisture_readings),
             )
@@ -95,11 +95,11 @@ class RecommendationService:
             growth_stage=request.crop.growth_stage,
             season_month=request.soil_moisture_readings[-1].timestamp.month,
         )
-        adjustment_data = adjust_recommendation(plan["recommended_amount_mm"], insights_data)
+        adjustment_data = adjust_recommendation(plan["recommended_amount_in"], insights_data)
 
         response = PredictionResponse(
             decision=plan["decision"],
-            recommended_amount_mm=adjustment_data["adjusted_recommendation_mm"],
+            recommended_amount_in=adjustment_data["adjusted_recommendation_in"],
             timing_window=plan["timing_window"],
             confidence_score=plan["confidence_score"],
             explanation=RecommendationExplanation(
@@ -110,8 +110,8 @@ class RecommendationService:
             predicted_moisture=MoistureForecast(**predicted),
             regional_insights=RegionalInsights(**insights_data),
             recommendation_adjustment=RecommendationAdjustment(
-                base_recommendation_mm=plan["recommended_amount_mm"],
-                adjusted_recommendation_mm=adjustment_data["adjusted_recommendation_mm"],
+                base_recommendation_in=plan["recommended_amount_in"],
+                adjusted_recommendation_in=adjustment_data["adjusted_recommendation_in"],
                 adjustment_factor=adjustment_data["adjustment_factor"],
                 reason=adjustment_data["reason"],
             ),
@@ -123,7 +123,7 @@ class RecommendationService:
         predicted_moisture_48h: float,
         dry_threshold: float,
         estimated_et: float,
-        precipitation_mm: float,
+        precipitation_in: float,
         growth_stage: str,
     ) -> float:
         stage_modifier = {
@@ -134,7 +134,8 @@ class RecommendationService:
             "maturity": 0.02,
         }.get(growth_stage, 0.1)
         moisture_gap = dry_threshold - predicted_moisture_48h
-        score = (moisture_gap * 18.0) + (estimated_et * 0.12) - (precipitation_mm * 0.08) + stage_modifier
+        # ET is in in/day; precipitation is in inches — scale coefficients accordingly
+        score = (moisture_gap * 18.0) + (estimated_et * 3.048) - (precipitation_in * 2.032) + stage_modifier
         probability = 1.0 / (1.0 + math.exp(-score))
         return round(min(0.99, max(0.01, probability)), 3)
 
@@ -147,11 +148,11 @@ class RecommendationService:
     ) -> list[str]:
         drivers: list[str] = []
         current_moisture = request.soil_moisture_readings[-1].volumetric_water_content
-        if estimated_et >= 5.5:
+        if estimated_et >= 0.217:  # ~5.5 mm/day in inches
             drivers.append("high evapotranspiration")
         if current_moisture <= SOIL_THRESHOLDS[request.soil_properties.soil_texture]["dry"] + 0.04:
             drivers.append("low soil moisture")
-        if request.weather.precipitation_mm < 1.5:
+        if request.weather.precipitation_in < 0.059:  # ~1.5 mm in inches
             drivers.append("limited forecast precipitation")
         if len(request.irrigation_system.water_rights_schedule) <= 1:
             drivers.append("restrictive water rights window")

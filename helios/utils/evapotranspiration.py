@@ -3,22 +3,26 @@ from __future__ import annotations
 import math
 
 
-def estimate_reference_et_mm(
-    temperature_c: float,
+def estimate_reference_et_in(
+    temperature_f: float,
     humidity_pct: float,
-    wind_mps: float,
+    wind_mph: float,
     solar_radiation_mj_m2: float,
     elevation_m: float = 800.0,
 ) -> float:
-    """Simplified FAO-56 Penman-Monteith reference ET₀ (mm/day).
+    """Simplified FAO-56 Penman-Monteith reference ET₀ (in/day).
 
     Assumes grass reference crop, daily timestep, and approximates
     net radiation from solar radiation. Soil heat flux is assumed
     negligible for daily calculations per FAO-56 guidelines.
 
-    Parameters use standard meteorological units matching NOAA/AgriMet
-    station output.
+    Inputs use imperial units; internal calculation uses metric per
+    FAO-56 standard, with output converted to inches/day.
     """
+    # Convert imperial inputs to metric for FAO-56 formula
+    temperature_c = (temperature_f - 32.0) * 5.0 / 9.0
+    wind_mps = wind_mph / 2.23694
+
     # Psychrometric constant (kPa/°C)
     atmospheric_pressure = 101.3 * ((293.0 - 0.0065 * elevation_m) / 293.0) ** 5.26
     gamma = 0.000665 * atmospheric_pressure
@@ -47,5 +51,6 @@ def estimate_reference_et_mm(
     numerator = (0.408 * delta * (rn - g)) + (gamma * (900.0 / (temperature_c + 273.0)) * wind_mps * vpd)
     denominator = delta + gamma * (1.0 + 0.34 * wind_mps)
 
-    et0 = numerator / denominator if denominator > 0 else 0.0
-    return round(max(0.0, et0), 3)
+    et0_mm = numerator / denominator if denominator > 0 else 0.0
+    et0_in = max(0.0, et0_mm) * 0.039370
+    return round(et0_in, 4)

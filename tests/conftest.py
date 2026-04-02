@@ -66,16 +66,16 @@ def prediction_payload() -> dict[str, Any]:
         "farm_id": "farm-001",
         "forecast_horizon_hours": 72,
         "weather": {
-            "temperature_c": 31.0,
+            "temperature_f": 87.8,
             "humidity_pct": 38.0,
-            "wind_mps": 3.8,
-            "precipitation_mm": 0.0,
+            "wind_mph": 8.5,
+            "precipitation_in": 0.0,
             "solar_radiation_mj_m2": 24.0,
             "forecast_horizon_hours": 72,
         },
         "irrigation_system": {
             "irrigation_type": "pivot",
-            "pump_capacity_mm_per_hour": 6.0,
+            "pump_capacity_in_per_hour": 0.236,
             "water_rights_schedule": ["tonight", "tomorrow_morning"],
             "energy_price_window": ["tonight"],
         },
@@ -98,7 +98,7 @@ def prediction_payload() -> dict[str, Any]:
         ],
         "soil_properties": {
             "soil_texture": "loam",
-            "infiltration_rate_mm_per_hour": 12.0,
+            "infiltration_rate_in_per_hour": 0.472,
             "slope_pct": 2.5,
             "drainage_class": "moderate",
         },
@@ -107,8 +107,8 @@ def prediction_payload() -> dict[str, Any]:
             "growth_stage": "flowering",
         },
         "operational": {
-            "max_irrigation_volume_mm": 18.0,
-            "field_area_ha": 24.0,
+            "max_irrigation_volume_in": 0.709,
+            "field_area_acres": 59.3,
             "budget_dollars": 2800.0,
         },
         "location_lat": 43.615,
@@ -116,7 +116,7 @@ def prediction_payload() -> dict[str, Any]:
         "recent_irrigation_events": [
             {
                 "timestamp": (timestamp - timedelta(hours=24)).isoformat(),
-                "applied_mm": 8.0,
+                "applied_in": 0.315,
             }
         ],
     }
@@ -159,7 +159,7 @@ def write_fake_model_artifacts(model_path: Path, metadata_path: Path) -> None:
 def make_prediction_response() -> PredictionResponse:
     return PredictionResponse(
         decision="water",
-        recommended_amount_mm=12.5,
+        recommended_amount_in=0.492,
         timing_window="tonight",
         confidence_score=0.74,
         explanation=RecommendationExplanation(
@@ -178,11 +178,11 @@ def make_prediction_response() -> PredictionResponse:
             total_samples=6,
             weighted_samples=4.2,
             comparable_samples=4,
-            radius_km=50.0,
+            radius_miles=31.07,
         ),
         recommendation_adjustment=RecommendationAdjustment(
-            base_recommendation_mm=11.8,
-            adjusted_recommendation_mm=12.5,
+            base_recommendation_in=0.465,
+            adjusted_recommendation_in=0.492,
             adjustment_factor=1.06,
             reason="Comparable nearby feedback was consistently positive, so the recommendation was modestly reinforced.",
         ),

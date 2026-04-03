@@ -1,6 +1,8 @@
 # Helios
 
-Helios is an early-stage irrigation decision-support system for reviewing soil-moisture forecasts, generating a conservative irrigation recommendation, and capturing operator feedback. It is a prototype workflow, not a production agronomic controller.
+[![CI](https://github.com/marco-trotta1/heliosv2/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/marco-trotta1/heliosv2/actions/workflows/ci.yml)
+
+Irrigant is an irrigation decision-support system that helps growers review conditions and make irrigation decisions, not automate irrigation. It is built for Idaho row crop farmers, especially potato, corn, and wheat operations. Technically, it combines soil moisture forecasting, ET-based water demand estimation, a rule-constrained optimizer, and a farmer feedback loop.
 
 ## Quick Start
 
@@ -49,6 +51,8 @@ FastAPI backend
   -> recommendation service + rule-based optimizer
   -> SQLite-backed feedback persistence
 ```
+
+- Reference ET computed using a simplified Penman-Monteith approach (FAO-56 parameters), Idaho-adjusted for arid high-desert conditions
 
 ## Repository Layout
 
@@ -364,11 +368,16 @@ Requests without a valid token return `401 Unauthorized`. When the env var is em
 
 ## Current Limitations
 
+- Helios should still be treated as a prototype decision-support workflow, not a production agronomic controller.
 - No production agronomic validation
 - No managed infrastructure templates
 - No background job system
 - SQLite is used for prototype persistence only
 - Browser demo mode intentionally diverges from the live backend path
+
+## Data & Validation Roadmap
+
+The current model is trained on synthetic data calibrated to Idaho loam and silt-loam profiles, representative of Snake River Plain conditions. Real-sensor validation is the next milestone. Priority partnerships include University of Idaho extension and the SnakeFlux ET monitoring network. We are actively seeking field data agreements with Idaho producers.
 
 ## Roadmap
 

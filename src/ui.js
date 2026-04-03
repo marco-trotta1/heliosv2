@@ -1110,7 +1110,7 @@ function AnalysisConsoleDisclosure() {
 export function AnalysisWorkspace() {
   return `
     <section class="space-y-6">
-      <form id="analysis-form" class="space-y-6">
+      <form id="analysis-form" novalidate class="space-y-6">
         ${PromptInput()}
         ${RecommendationSpotlight()}
         ${DataSection()}

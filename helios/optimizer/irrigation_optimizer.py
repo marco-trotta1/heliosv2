@@ -1,3 +1,11 @@
+"""
+Rule-constrained irrigation optimizer.
+
+Applies water-rights windows, pump capacity limits, infiltration rate constraints,
+and soil saturation ceilings to generate a conservative 48-hour irrigation recommendation.
+Designed to support — not replace — operator judgment.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

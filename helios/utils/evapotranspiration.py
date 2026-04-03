@@ -1,3 +1,11 @@
+"""
+Reference evapotranspiration estimation.
+
+Method: simplified Penman-Monteith (FAO-56).
+Parameters calibrated for arid high-desert conditions typical of the Snake River Plain, Idaho.
+Not a certified agronomic model. For decision support use only.
+"""
+
 from __future__ import annotations
 
 import math

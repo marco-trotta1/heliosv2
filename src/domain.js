@@ -154,13 +154,14 @@ export function selectTimingWindow(waterWindows, energyWindows, needsWater) {
   return "next available permitted window";
 }
 
-export function scoreConfidence({ forecast48h, dryThreshold, timingWindow, modelRmse = 0.12, sensorCount = 1 }) {
-  const base = Math.max(0.2, 1 - Math.min(modelRmse, 0.35) / 0.35);
+export function scoreConfidence({ forecast48h, dryThreshold, timingWindow, modelRmse = 0.12, sensorCount = 1, precipitationIn = 0 }) {
+  const base = Math.max(0.1, 1 - Math.min(modelRmse, 0.50) / 0.50);
   const thresholdMargin = Math.abs(forecast48h - dryThreshold);
-  const marginBonus = Math.min(0.2, thresholdMargin / 0.15);
-  const sensorPenalty = sensorCount >= 4 ? 0 : 0.08;
+  const marginBonus = Math.min(0.2, thresholdMargin / 0.30);
+  const sensorPenalty = Math.max(0, 0.12 - sensorCount * 0.03);
+  const precipPenalty = Math.min(0.10, precipitationIn * 0.20);
   const timingPenalty = timingWindow === "next available permitted window" ? 0.05 : 0;
-  return round(clip(base + marginBonus - sensorPenalty - timingPenalty, 0.05, 0.99), 3);
+  return round(clip(base + marginBonus - sensorPenalty - precipPenalty - timingPenalty, 0.05, 0.99), 3);
 }
 
 export function generateIrrigationPlan(inputs, predicted, stressProbability, estimatedEtIn) {
@@ -178,12 +179,13 @@ export function generateIrrigationPlan(inputs, predicted, stressProbability, est
   const efficiency = IRRIGATION_EFFICIENCY[inputs.irrigationType] || 0.82;
   const grossAmountNeeded = rawAmountIn / efficiency;
 
+  const windowHours = allowedHours(inputs.waterWindow);
   const constraints = {
     need: grossAmountNeeded,
     maxVolume: inputs.maxIrrigationVolume,
-    pumpCapacity: inputs.pumpCapacity * allowedHours(inputs.waterWindow),
+    pumpCapacity: inputs.pumpCapacity * windowHours,
     budget: computeBudgetCap(inputs.fieldAreaAcres, inputs.budgetDollars),
-    infiltration: inputs.infiltrationRate * 2.5,
+    infiltration: inputs.infiltrationRate * windowHours,
   };
   const recommendedAmountIn = Math.min(
     constraints.need,
@@ -207,6 +209,7 @@ export function generateIrrigationPlan(inputs, predicted, stressProbability, est
       timingWindow,
       modelRmse: inputs.modelRmse,
       sensorCount: inputs.sensorCount,
+      precipitationIn: inputs.precipitationIn,
     }),
     stressProbability,
     thresholds,

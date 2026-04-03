@@ -30,6 +30,12 @@ export const TEXTURE_RETENTION = {
   clay: 1.08,
 };
 
+export const INFILTRATION_RATE_BY_TEXTURE = {
+  sand: 1.00,   // in/hr — coarse, fast-draining
+  loam: 0.47,   // in/hr — typical (matches default)
+  clay: 0.20,   // in/hr — fine-grained, slow
+};
+
 export const DRAINAGE_FACTOR = {
   poor: 0.88,
   moderate: 1,

@@ -1,4 +1,4 @@
-import { NAV_ITEMS, PAGE_TITLES, PRESETS, BRAND_LOGOS } from "./constants.js";
+import { NAV_ITEMS, PAGE_TITLES, PRESETS, BRAND_LOGOS, INFILTRATION_RATE_BY_TEXTURE } from "./constants.js";
 import {
   round,
   formatPercent,
@@ -795,16 +795,15 @@ function SensorFeedSection() {
     "Sensor Feed",
     "Soil moisture and weather inputs",
     `<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-      ${inputGroup("Current soil moisture", numericInput("currentMoisture", state.form.currentMoisture, "0.05", "0.01", "0.6"))}
-      ${inputGroup("6h ago moisture", numericInput("lagOneMoisture", state.form.lagOneMoisture, "0.05", "0.01", "0.6"))}
-      ${inputGroup("12h ago moisture", numericInput("lagTwoMoisture", state.form.lagTwoMoisture, "0.05", "0.01", "0.6"))}
+      ${inputGroup("Current soil moisture (0–1 VWC)", numericInput("currentMoisture", state.form.currentMoisture, "0.05", "0.01", "0.6"))}
+      ${inputGroup("Moisture 6h ago (0–1 VWC)", numericInput("lagOneMoisture", state.form.lagOneMoisture, "0.05", "0.01", "0.6"))}
+      ${inputGroup("Moisture 12h ago (0–1 VWC)", numericInput("lagTwoMoisture", state.form.lagTwoMoisture, "0.05", "0.01", "0.6"))}
       ${inputGroup("Temperature (°F)", numericInput("temperatureF", state.form.temperatureF, "-58"))}
       ${inputGroup("Humidity (%)", numericInput("humidityPct", state.form.humidityPct, "0", "1", "100"))}
       ${inputGroup("Wind (mph)", numericInput("windMph", state.form.windMph, "0"))}
       ${inputGroup("Forecast precipitation (in)", numericInput("precipitationIn", state.form.precipitationIn, "0"))}
       ${inputGroup("Solar radiation (MJ/m²)", numericInput("solarRadiationMjM2", state.form.solarRadiationMjM2, "0"))}
-      ${inputGroup("Model RMSE", numericInput("modelRmse", state.form.modelRmse, "0.05", "0.01", "0.5"))}
-      ${inputGroup("Sensor count", numericInput("sensorCount", state.form.sensorCount, "0", "1", "10"))}
+      ${inputGroup("Soil moisture sensors", numericInput("sensorCount", state.form.sensorCount, "0", "1", "10"))}
     </div>`,
   );
 }
@@ -1218,6 +1217,14 @@ export function bindAppEvents() {
         }
       } else if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement) {
         updateFormField(target.name, parseFieldValue(target, state.form[target.name]));
+        if (target.name === "soilTexture") {
+          const defaultRate = INFILTRATION_RATE_BY_TEXTURE[target.value];
+          if (defaultRate != null) {
+            updateFormField("infiltrationRate", defaultRate);
+            const infiltInput = form.elements.namedItem("infiltrationRate");
+            if (infiltInput) infiltInput.value = defaultRate;
+          }
+        }
       }
 
       if (target instanceof HTMLTextAreaElement) {

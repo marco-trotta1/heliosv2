@@ -182,6 +182,7 @@ export function buildLocalRun(inputs) {
     timingWindow: plan.timingWindow,
     confidenceScore: plan.confidenceScore,
     stressProbability: plan.stressProbability,
+    bindingConstraint: plan.bindingConstraint,
     estimatedEtIn,
     predicted,
     drivers,
@@ -299,19 +300,6 @@ export async function submitFeedback() {
     return;
   }
 
-  if (!isLiveApiMode()) {
-    state.feedbackForm.status = "Live API mode is required to store feedback in the Helios database.";
-    state.feedbackForm.error = "";
-    state.feedbackForm.open = false;
-    renderApp();
-    return;
-  }
-
-  state.feedbackForm.submitting = true;
-  state.feedbackForm.error = "";
-  state.feedbackForm.status = "";
-  renderApp();
-
   const payload = {
     farm_id: state.latestRun.inputSnapshot.farmId,
     timestamp: new Date().toISOString(),
@@ -327,6 +315,23 @@ export async function submitFeedback() {
     location_lat: Number(state.latestRun.inputSnapshot.locationLat),
     location_lon: Number(state.latestRun.inputSnapshot.locationLon),
   };
+
+  if (!isLiveApiMode()) {
+    const FEEDBACK_QUEUE_KEY = "helios-feedback-queue";
+    const queue = JSON.parse(localStorage.getItem(FEEDBACK_QUEUE_KEY) || "[]");
+    queue.push({ ...payload, queued_at: new Date().toISOString() });
+    localStorage.setItem(FEEDBACK_QUEUE_KEY, JSON.stringify(queue));
+    state.feedbackForm.status = "Feedback stored locally and will be sent when the backend is available.";
+    state.feedbackForm.error = "";
+    state.feedbackForm.open = false;
+    renderApp();
+    return;
+  }
+
+  state.feedbackForm.submitting = true;
+  state.feedbackForm.error = "";
+  state.feedbackForm.status = "";
+  renderApp();
 
   try {
     const response = await fetch(apiUrl("/api/feedback"), {

@@ -803,6 +803,8 @@ function SensorFeedSection() {
       ${inputGroup("Wind (mph)", numericInput("windMph", state.form.windMph, "0"))}
       ${inputGroup("Forecast precipitation (in)", numericInput("precipitationIn", state.form.precipitationIn, "0"))}
       ${inputGroup("Solar radiation (MJ/m²)", numericInput("solarRadiationMjM2", state.form.solarRadiationMjM2, "0"))}
+      ${inputGroup("Model RMSE", numericInput("modelRmse", state.form.modelRmse, "0.05", "0.01", "0.5"))}
+      ${inputGroup("Sensor count", numericInput("sensorCount", state.form.sensorCount, "0", "1", "10"))}
     </div>`,
   );
 }
@@ -896,7 +898,7 @@ function PromptInput() {
         <div class="flex flex-1 flex-col gap-4">
           <div class="rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-3 text-sm text-[var(--text-muted)]">
             <p>${escapeHtml(state.analysis.status)}</p>
-            ${state.analysis.error ? `<p class="mt-2 text-[var(--accent-warm)]">${escapeHtml(state.analysis.error)}</p>` : ""}
+            <p id="form-error" style="${state.analysis.error ? "" : "display: none;"}" class="mt-2 text-[var(--accent-warm)]">${escapeHtml(state.analysis.error)}</p>
             <p class="mt-2">Prototype note: synthetic training data, approximate ET, heuristic confidence, and rule-based optimization.</p>
           </div>
           <div class="flex flex-1 flex-col gap-3 xl:flex-row xl:items-center">
@@ -981,6 +983,7 @@ export function RecommendationSpotlight() {
             <span class="pb-1 text-lg font-medium text-[var(--text-muted)]">in</span>
           </div>
           <p class="mt-4 text-sm text-[var(--text-muted)]">This is the number the operator should notice first.</p>
+          ${run.bindingConstraint ? `<p class="mt-2 text-xs text-[var(--text-muted)]">Limited by: ${escapeHtml({ need: "Water deficit", maxVolume: "System volume limit", pumpCapacity: "Pump throughput", budget: "Budget cap", infiltration: "Infiltration rate" }[run.bindingConstraint] || run.bindingConstraint)}</p>` : ""}
         </div>
         <div class="rounded-3xl border border-[var(--border)] bg-[var(--panel)] p-5">
           <p class="text-xs uppercase tracking-[0.18em] text-[var(--text-muted)]">Best timing</p>
@@ -1006,13 +1009,9 @@ export function RecommendationSpotlight() {
           <button
             type="button"
             id="feedback-toggle"
-            ${isLiveApiMode() ? "" : "disabled"}
-            class="${classNames(
-              "inline-flex items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2 text-sm font-medium text-[var(--text)] transition-all duration-200",
-              isLiveApiMode() ? "hover:border-[var(--accent)]" : "cursor-not-allowed opacity-60",
-            )}"
+            class="inline-flex items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2 text-sm font-medium text-[var(--text)] transition-all duration-200 hover:border-[var(--accent)]"
           >
-            ${isLiveApiMode() ? "Submit Feedback" : "Live API required"}
+            Submit Feedback
           </button>
         </div>
         ${state.feedbackForm.open ? `
@@ -1027,6 +1026,7 @@ export function RecommendationSpotlight() {
           <div class="mt-4">
             ${inputGroup("Notes", `<textarea id="feedback-notes" class="min-h-[96px] w-full rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2.5 text-sm text-[var(--text)] outline-none transition-all duration-200 focus:border-[var(--accent)]">${escapeHtml(state.feedbackForm.notes)}</textarea>`)}
           </div>
+          ${!isLiveApiMode() ? `<p class="mt-3 text-xs text-[var(--text-muted)]">Your feedback is stored locally and will be sent when the backend is available.</p>` : ""}
           <div class="mt-4 flex flex-wrap items-center gap-3">
             <button
               type="button"
@@ -1190,11 +1190,17 @@ export function bindAppEvents() {
       event.preventDefault();
       syncFormState(form);
       const validationError = validateForm(state.form);
+      const formErrorEl = document.querySelector("#form-error");
       if (validationError) {
-        state.analysis.error = validationError;
-        state.analysis.status = "Please fix the input errors before running.";
-        renderApp();
+        if (formErrorEl) {
+          formErrorEl.textContent = validationError;
+          formErrorEl.style.display = "block";
+        }
         return;
+      }
+      if (formErrorEl) {
+        formErrorEl.textContent = "";
+        formErrorEl.style.display = "none";
       }
       evaluateScenario();
     });

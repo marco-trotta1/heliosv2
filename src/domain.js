@@ -131,7 +131,9 @@ export function computeBudgetCap(fieldAreaAcres, budgetDollars) {
   if (fieldAreaAcres <= 0) {
     return 0;
   }
-  return budgetDollars / (82.25 * fieldAreaAcres);
+  // Typical irrigation cost $50-$100/acre ÷ 12 in/year × 20 events ≈ $83/in-acre
+  const BUDGET_CONSTANT = 82.25; // $/in-acre
+  return budgetDollars / (BUDGET_CONSTANT * fieldAreaAcres);
 }
 
 export function allowedHours(waterWindows) {
@@ -172,12 +174,27 @@ export function generateIrrigationPlan(inputs, predicted, stressProbability, est
     0,
     deficit * (ROOT_ZONE_FACTORS[inputs.soilTexture] ?? ROOT_ZONE_FACTORS.loam) - inputs.precipitationIn * 0.7,
   );
+  // Flood (68%) requires more gross water than pivot (82%) to deliver same net amount to roots
+  const efficiency = IRRIGATION_EFFICIENCY[inputs.irrigationType] || 0.82;
+  const grossAmountNeeded = rawAmountIn / efficiency;
+
+  const constraints = {
+    need: grossAmountNeeded,
+    maxVolume: inputs.maxIrrigationVolume,
+    pumpCapacity: inputs.pumpCapacity * allowedHours(inputs.waterWindow),
+    budget: computeBudgetCap(inputs.fieldAreaAcres, inputs.budgetDollars),
+    infiltration: inputs.infiltrationRate * 2.5,
+  };
   const recommendedAmountIn = Math.min(
-    rawAmountIn,
-    inputs.maxIrrigationVolume,
-    inputs.pumpCapacity * allowedHours(inputs.waterWindow),
-    computeBudgetCap(inputs.fieldAreaAcres, inputs.budgetDollars),
-    inputs.infiltrationRate * 2.5,
+    constraints.need,
+    constraints.maxVolume,
+    constraints.pumpCapacity,
+    constraints.budget,
+    constraints.infiltration,
+  );
+  const bindingConstraint = Object.entries(constraints).reduce((min, curr) => curr[1] < min[1] ? curr : min)[0];
+  const gaps = Object.fromEntries(
+    Object.entries(constraints).map(([k, v]) => [k, round(v - recommendedAmountIn, 3)]),
   );
 
   return {
@@ -188,9 +205,14 @@ export function generateIrrigationPlan(inputs, predicted, stressProbability, est
       forecast48h: predicted48h,
       dryThreshold: thresholds.dry,
       timingWindow,
+      modelRmse: inputs.modelRmse,
+      sensorCount: inputs.sensorCount,
     }),
     stressProbability,
     thresholds,
+    bindingConstraint,
+    constraints,
+    gaps,
   };
 }
 

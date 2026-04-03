@@ -101,6 +101,8 @@ export const DEFAULT_FORM = {
   recentIrrigation72h: 0.47,    // in (was 12 mm)
   waterWindow: ["tonight", "tomorrow_morning"],
   energyWindow: ["tonight", "tomorrow_night"],
+  modelRmse: 0.12,
+  sensorCount: 1,
 };
 
 export const PRESETS = {

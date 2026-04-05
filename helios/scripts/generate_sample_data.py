@@ -51,6 +51,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rows", type=int, default=2500)
     parser.add_argument("--output-path", default="data/sample_training_data.csv")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--openet-csv",
+        default=None,
+        help="Path to OpenET monthly ET CSV (columns: date, openet_et_mm). "
+             "When provided, each generated row receives the real satellite ET "
+             "for its sampled irrigation-season month.",
+    )
     return parser.parse_args()
 
 
@@ -58,9 +65,36 @@ def _choose_category(rng: np.random.Generator, values: list[str]) -> str:
     return str(rng.choice(values))
 
 
-def generate_sample_data(rows: int, output_path: str, seed: int) -> pd.DataFrame:
+def _load_openet_monthly_et(openet_csv: str | None) -> dict[int, float]:
+    """Return a month → ET (in/day) lookup from an OpenET monthly CSV.
+
+    The CSV must have columns ``date`` (YYYY-MM-DD) and ``openet_et_mm``
+    (cumulative monthly ET in millimetres). Values are converted to daily
+    averages in inches so they are on the same scale as ``reference_et_in``.
+    Returns an empty dict when no CSV is provided.
+    """
+    if openet_csv is None:
+        return {}
+    df = pd.read_csv(openet_csv, parse_dates=["date"])
+    lookup: dict[int, float] = {}
+    for _, row in df.iterrows():
+        month = int(row["date"].month)
+        days_in_month = row["date"].days_in_month
+        monthly_mm = float(row["openet_et_mm"])
+        daily_in = (monthly_mm / days_in_month) * 0.039370
+        lookup[month] = round(daily_in, 4)
+    return lookup
+
+
+def generate_sample_data(
+    rows: int,
+    output_path: str,
+    seed: int,
+    openet_csv: str | None = None,
+) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     records: list[dict[str, float | str | int]] = []
+    openet_monthly_et: dict[int, float] = _load_openet_monthly_et(openet_csv)
 
     texture_to_retention = {"sand": -0.04, "loam": 0.0, "clay": 0.05}
 
@@ -120,12 +154,18 @@ def generate_sample_data(rows: int, output_path: str, seed: int) -> pd.DataFrame
         water_rights_schedule_count = int(rng.integers(1, 4))
         energy_window_count = int(rng.integers(1, 3))
 
+        # Irrigation season month (April–September). Used to attach real OpenET values.
+        season_month = int(rng.choice([4, 5, 5, 6, 6, 7, 7, 7, 8, 8, 9]))
+
         reference_et_in = estimate_reference_et_in(
             temperature_f=rolling_temp_mean,
             humidity_pct=rolling_humidity_mean,
             wind_mph=wind_mph,
             solar_radiation_mj_m2=rolling_solar_mean,
         )
+
+        # Real satellite ET for this month (in/day). Zero when no OpenET data provided.
+        openet_monthly_et_in = openet_monthly_et.get(season_month, 0.0)
 
         # Soil water balance targets derived from FAO-56 ET₀ and crop coefficients.
         # This breaks the circular dependency: targets are physics-grounded, not
@@ -183,6 +223,8 @@ def generate_sample_data(rows: int, output_path: str, seed: int) -> pd.DataFrame
                 "cumulative_irrigation_24h": round(cumulative_irrigation_24h, 4),
                 "cumulative_irrigation_72h": round(cumulative_irrigation_72h, 4),
                 "sensor_count": sensor_count,
+                "season_month": season_month,
+                "openet_monthly_et_in": openet_monthly_et_in,
                 "reference_et_in": round(reference_et_in, 4),
                 "target_moisture_24h": round(target_24h, 4),
                 "target_moisture_48h": round(target_48h, 4),
@@ -199,7 +241,12 @@ def generate_sample_data(rows: int, output_path: str, seed: int) -> pd.DataFrame
 
 def main() -> None:
     args = parse_args()
-    generate_sample_data(rows=args.rows, output_path=args.output_path, seed=args.seed)
+    generate_sample_data(
+        rows=args.rows,
+        output_path=args.output_path,
+        seed=args.seed,
+        openet_csv=args.openet_csv,
+    )
 
 
 if __name__ == "__main__":

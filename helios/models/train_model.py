@@ -29,11 +29,13 @@ def parse_args() -> argparse.Namespace:
 def _build_estimator(n_estimators: int, learning_rate: float) -> XGBRegressor:
     return XGBRegressor(
         objective="reg:squarederror",
+        eval_metric="rmse",
         n_estimators=n_estimators,
         learning_rate=learning_rate,
         max_depth=6,
         subsample=0.9,
         colsample_bytree=0.9,
+        early_stopping_rounds=25,
         random_state=42,
         verbosity=0,
     )
@@ -68,8 +70,6 @@ def _cross_validate(
                 x_train_inner,
                 y_train_inner[target_name],
                 eval_set=[(x_val, y_val[target_name])],
-                eval_metric="rmse",
-                early_stopping_rounds=25,
                 verbose=False,
             )
             predictions = estimator.predict(x_test_fold)
@@ -93,20 +93,17 @@ def _fit_final_model(
 ) -> MultiOutputRegressor:
     x_train, x_val, y_train, y_val = train_test_split(features, targets, test_size=0.1, random_state=42)
     model = MultiOutputRegressor(_build_estimator(n_estimators=n_estimators, learning_rate=learning_rate))
-    # Initialize sklearn wrapper state properly
-    model.fit(x_train, y_train)
-    # Now replace estimators with early-stopped versions
-    for i, target_name in enumerate(TARGET_COLUMNS):
+    model.estimators_ = []
+    for target_name in TARGET_COLUMNS:
         estimator = _build_estimator(n_estimators=n_estimators, learning_rate=learning_rate)
         estimator.fit(
             x_train,
             y_train[target_name],
             eval_set=[(x_val, y_val[target_name])],
-            eval_metric="rmse",
-            early_stopping_rounds=25,
             verbose=False,
         )
-        model.estimators_[i] = estimator
+        model.estimators_.append(estimator)
+    model.n_features_in_ = x_train.shape[1]
     return model
 
 

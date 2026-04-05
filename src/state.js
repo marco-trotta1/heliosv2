@@ -115,6 +115,9 @@ export const state = {
     autoFields: {},
   },
   analysisConsoleOpen: false,
+  acknowledgement: {
+    pendingRun: null,
+  },
 };
 
 if (state.runHistory.length > 0) {

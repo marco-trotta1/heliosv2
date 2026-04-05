@@ -193,6 +193,13 @@ class FeedbackCreateRequest(BaseModel):
         return self
 
 
+class AcknowledgementRequest(BaseModel):
+    field_id: str = Field(min_length=1)
+    farm_id: str = Field(min_length=1)
+    timestamp: datetime
+    recommendation_summary: str = Field(max_length=2000)
+
+
 class NearbyFeedbackQuery(BaseModel):
     lat: float = Field(ge=-90, le=90)
     lon: float = Field(ge=-180, le=180)

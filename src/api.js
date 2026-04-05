@@ -9,7 +9,7 @@ import {
   serializeRunForCopy,
   formatWindow,
 } from "./domain.js";
-import { state, runtimeConfig, isLiveApiMode, storeRun, persistState } from "./state.js";
+import { state, runtimeConfig, isLiveApiMode, persistState } from "./state.js";
 // renderApp imported lazily to break circular dep with ui.js
 import { renderApp } from "./ui.js";
 
@@ -321,6 +321,43 @@ export async function refreshRegionalInsights(run) {
   run.copyText = serializeRunForCopy(run);
 }
 
+// ── Acknowledgement logging ────────────────────────────────────────────────────
+
+const HELIOS_ACKNOWLEDGEMENTS_KEY = "helios_acknowledgements";
+
+export async function logAcknowledgement(run) {
+  const fieldId = run.inputSnapshot?.farmId || run.inputSnapshot?.fieldName || "";
+  const farmId = run.inputSnapshot?.farmId || "";
+  const timestamp = new Date().toISOString();
+  const recommendationSummary = run.summary || "";
+
+  if (!isLiveApiMode()) {
+    try {
+      const stored = JSON.parse(localStorage.getItem(HELIOS_ACKNOWLEDGEMENTS_KEY) || "[]");
+      stored.push({ field_id: fieldId, timestamp, recommendation_summary: recommendationSummary });
+      localStorage.setItem(HELIOS_ACKNOWLEDGEMENTS_KEY, JSON.stringify(stored));
+    } catch {
+      // Non-blocking
+    }
+    return;
+  }
+
+  try {
+    await fetch(apiUrl("/api/acknowledgements"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        field_id: fieldId,
+        farm_id: farmId,
+        timestamp,
+        recommendation_summary: recommendationSummary,
+      }),
+    });
+  } catch {
+    console.error("[helios] Failed to log acknowledgement — proceeding anyway");
+  }
+}
+
 // ── Scenario evaluation ────────────────────────────────────────────────────────
 
 export async function evaluateScenario() {
@@ -337,7 +374,7 @@ export async function evaluateScenario() {
 
   if (!isLiveApiMode()) {
     const run = buildLocalRun(inputs);
-    storeRun(run);
+    state.acknowledgement.pendingRun = run;
     state.analysis.source = "demo";
     state.analysis.status = runtimeConfig.disclaimer;
     state.analysis.submitting = false;
@@ -358,14 +395,14 @@ export async function evaluateScenario() {
       throw new Error(result.detail || "Unable to run the recommendation service.");
     }
     const run = mapApiRun(inputs, result);
-    storeRun(run);
+    state.acknowledgement.pendingRun = run;
     state.analysis.source = "api";
     state.analysis.status = run.regionalInsights?.totalSamples
       ? `Recommendation updated using ${run.regionalInsights.totalSamples} nearby feedback reports.`
       : "Recommendation completed. No nearby feedback reports were available yet.";
   } catch (error) {
     const run = buildLocalRun(inputs);
-    storeRun(run);
+    state.acknowledgement.pendingRun = run;
     state.analysis.source = "local";
     state.analysis.error = error instanceof Error ? error.message : "Unable to reach the recommendation service.";
     state.analysis.status = "Showing the local demo estimate because the live API could not be reached.";

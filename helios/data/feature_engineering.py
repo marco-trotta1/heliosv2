@@ -49,8 +49,18 @@ def _drop_non_feature_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df.drop(columns=[col for col in ["field_id"] if col in df.columns], errors="ignore")
 
 
-def build_training_features(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+def build_training_features(
+    df: pd.DataFrame,
+    openet_df: pd.DataFrame | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     working = _drop_non_feature_columns(df.copy())
+
+    if openet_df is not None and not openet_df.empty:
+        working = working.merge(openet_df[["date", "openet_et_mm"]], on="date", how="left")
+        working["et_source"] = working["openet_et_mm"].apply(
+            lambda v: "openet" if pd.notna(v) else "fao56"
+        )
+
     working = _ensure_reference_et(working)
     targets = working[TARGET_COLUMNS].copy()
     features = working.drop(columns=TARGET_COLUMNS, errors="ignore")

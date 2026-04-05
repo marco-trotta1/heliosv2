@@ -18,7 +18,7 @@ import {
   updateFormField,
   updateArrayField,
 } from "./state.js";
-import { evaluateScenario, submitFeedback } from "./api.js";
+import { evaluateScenario, fetchNOAAWeather, submitFeedback } from "./api.js";
 import { validateForm } from "./validation.js";
 
 // ── Utility ────────────────────────────────────────────────────────────────────
@@ -35,6 +35,15 @@ export function escapeHtml(value) {
 export function classNames(...items) {
   return items.filter(Boolean).join(" ");
 }
+
+const AUTO_WEATHER_FIELDS = [
+  "temperatureF",
+  "humidityPct",
+  "windMph",
+  "precipitationIn",
+  "solarRadiationMjM2",
+];
+let weatherAutofillTimer = null;
 
 export function icon(name, className = "h-5 w-5") {
   const icons = {
@@ -233,10 +242,13 @@ function fieldCard(title, description, content) {
   `;
 }
 
-function inputGroup(label, control) {
+function inputGroup(label, control, meta = "") {
   return `
     <label class="block">
-      <span class="mb-2 block text-sm font-medium text-[var(--text-muted)]">${label}</span>
+      <span class="mb-2 flex items-center gap-2 text-sm font-medium text-[var(--text-muted)]">
+        <span>${label}</span>
+        ${meta}
+      </span>
       ${control}
     </label>
   `;
@@ -254,6 +266,13 @@ function numericInput(name, value, min, step = "0.1", max = "") {
       class="w-full rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2.5 text-sm text-[var(--text)] outline-none transition-all duration-200 focus:border-[var(--accent)]"
     />
   `;
+}
+
+function autoWeatherTag(name) {
+  if (!state.weatherAutofill.autoFields[name]) {
+    return "";
+  }
+  return `<span class="rounded-full border border-[var(--border)] bg-[var(--panel)] px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)]">(auto)</span>`;
 }
 
 function textInput(name, value) {
@@ -798,11 +817,11 @@ function SensorFeedSection() {
       ${inputGroup("Current soil moisture (0–1 VWC)", numericInput("currentMoisture", state.form.currentMoisture, "0.05", "0.01", "0.6"))}
       ${inputGroup("Moisture 6h ago (0–1 VWC)", numericInput("lagOneMoisture", state.form.lagOneMoisture, "0.05", "0.01", "0.6"))}
       ${inputGroup("Moisture 12h ago (0–1 VWC)", numericInput("lagTwoMoisture", state.form.lagTwoMoisture, "0.05", "0.01", "0.6"))}
-      ${inputGroup("Temperature (°F)", numericInput("temperatureF", state.form.temperatureF, "-58"))}
-      ${inputGroup("Humidity (%)", numericInput("humidityPct", state.form.humidityPct, "0", "1", "100"))}
-      ${inputGroup("Wind (mph)", numericInput("windMph", state.form.windMph, "0"))}
-      ${inputGroup("Forecast precipitation (in)", numericInput("precipitationIn", state.form.precipitationIn, "0"))}
-      ${inputGroup("Solar radiation (MJ/m²)", numericInput("solarRadiationMjM2", state.form.solarRadiationMjM2, "0"))}
+      ${inputGroup("Temperature (°F)", numericInput("temperatureF", state.form.temperatureF, "-58"), autoWeatherTag("temperatureF"))}
+      ${inputGroup("Humidity (%)", numericInput("humidityPct", state.form.humidityPct, "0", "1", "100"), autoWeatherTag("humidityPct"))}
+      ${inputGroup("Wind (mph)", numericInput("windMph", state.form.windMph, "0"), autoWeatherTag("windMph"))}
+      ${inputGroup("Forecast precipitation (in)", numericInput("precipitationIn", state.form.precipitationIn, "0"), autoWeatherTag("precipitationIn"))}
+      ${inputGroup("Solar radiation (MJ/m²)", numericInput("solarRadiationMjM2", state.form.solarRadiationMjM2, "0"), autoWeatherTag("solarRadiationMjM2"))}
       ${inputGroup("Soil moisture sensors", numericInput("sensorCount", state.form.sensorCount, "0", "1", "10"))}
     </div>`,
   );
@@ -1139,6 +1158,57 @@ function renderPage() {
   return AnalysisWorkspace();
 }
 
+function validCoordinates(lat, lon) {
+  return Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+}
+
+async function runWeatherAutofill() {
+  const form = document.querySelector("#analysis-form");
+  const lat = Number(state.form.locationLat);
+  const lon = Number(state.form.locationLon);
+  if (!form || state.activePage !== "run-analysis" || !validCoordinates(lat, lon)) {
+    return;
+  }
+
+  const requestKey = `${lat.toFixed(4)},${lon.toFixed(4)}`;
+  if (state.weatherAutofill.loading && state.weatherAutofill.requestKey === requestKey) {
+    return;
+  }
+  if (state.weatherAutofill.appliedKey === requestKey) {
+    return;
+  }
+
+  state.weatherAutofill.loading = true;
+  state.weatherAutofill.requestKey = requestKey;
+  state.weatherAutofill.autoFields = {};
+
+  const weather = await fetchNOAAWeather(lat, lon);
+  if (!weather || state.weatherAutofill.requestKey !== requestKey) {
+    state.weatherAutofill.loading = false;
+    return;
+  }
+
+  AUTO_WEATHER_FIELDS.forEach((fieldName) => {
+    updateFormField(fieldName, weather[fieldName]);
+    const input = form.elements.namedItem(fieldName);
+    if (input instanceof HTMLInputElement) {
+      input.value = String(weather[fieldName]);
+    }
+  });
+
+  state.weatherAutofill.loading = false;
+  state.weatherAutofill.appliedKey = requestKey;
+  state.weatherAutofill.autoFields = Object.fromEntries(AUTO_WEATHER_FIELDS.map((fieldName) => [fieldName, true]));
+  renderApp();
+}
+
+function scheduleWeatherAutofill(delayMs = 0) {
+  window.clearTimeout(weatherAutofillTimer);
+  weatherAutofillTimer = window.setTimeout(() => {
+    runWeatherAutofill();
+  }, delayMs);
+}
+
 export function renderApp() {
   const showResultsPanel = state.activePage !== "run-analysis";
   app.innerHTML = `
@@ -1158,6 +1228,7 @@ export function renderApp() {
   window.tailwind?.refresh?.();
   bindAppEvents();
   resizePromptInput();
+  scheduleWeatherAutofill();
 }
 
 // ── Event binding ──────────────────────────────────────────────────────────────
@@ -1224,6 +1295,11 @@ export function bindAppEvents() {
             const infiltInput = form.elements.namedItem("infiltrationRate");
             if (infiltInput) infiltInput.value = defaultRate;
           }
+        }
+        if (target.name === "locationLat" || target.name === "locationLon") {
+          state.weatherAutofill.appliedKey = "";
+          state.weatherAutofill.autoFields = {};
+          scheduleWeatherAutofill(400);
         }
       }
 

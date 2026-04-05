@@ -11,9 +11,11 @@ class DummyRecommendationService:
     def __init__(self, response: PredictionResponse) -> None:
         self.response = response
         self.calls = 0
+        self.last_request = None
 
     def predict_recommendation(self, request) -> PredictionResponse:
         self.calls += 1
+        self.last_request = request
         return self.response
 
 
@@ -201,3 +203,58 @@ def test_predict_works_without_header_when_api_key_unset(
         response = client.post("/predict", json=prediction_payload)
 
     assert response.status_code == 200
+
+
+def test_predict_uses_caller_supplied_weather_without_noaa(
+    app_factory, monkeypatch, prediction_payload, prediction_response
+) -> None:
+    service = DummyRecommendationService(prediction_response)
+
+    def fail_noaa(*_args, **_kwargs):
+        raise AssertionError("NOAA fetch should not run when the caller supplied all weather fields.")
+
+    monkeypatch.setattr("helios.api.routes.fetch_noaa_weather", fail_noaa)
+
+    with app_factory(recommendation_service=service, database_ready=True) as client:
+        response = client.post("/predict", json=prediction_payload)
+
+    assert response.status_code == 200
+    assert service.last_request.weather.temperature_f == prediction_payload["weather"]["temperature_f"]
+    assert service.last_request.weather.solar_radiation_mj_m2 == prediction_payload["weather"]["solar_radiation_mj_m2"]
+
+
+def test_predict_backfills_missing_weather_from_noaa(
+    app_factory, monkeypatch, prediction_payload, prediction_response
+) -> None:
+    service = DummyRecommendationService(prediction_response)
+    payload = dict(prediction_payload)
+    payload["weather"] = dict(prediction_payload["weather"])
+    payload["weather"]["temperature_f"] = None
+    payload["weather"]["solar_radiation_mj_m2"] = None
+    del payload["weather"]["wind_mph"]
+
+    noaa_calls: list[tuple[float, float]] = []
+
+    def fake_noaa(lat: float, lon: float) -> dict[str, float | int]:
+        noaa_calls.append((lat, lon))
+        return {
+            "temperature_f": 79.0,
+            "humidity_pct": 55.0,
+            "wind_mph": 6.5,
+            "precipitation_in": 0.1,
+            "solar_radiation_mj_m2": 20.0,
+            "forecast_horizon_hours": 72,
+        }
+
+    monkeypatch.setattr("helios.api.routes.fetch_noaa_weather", fake_noaa)
+
+    with app_factory(recommendation_service=service, database_ready=True) as client:
+        response = client.post("/predict", json=payload)
+
+    assert response.status_code == 200
+    assert noaa_calls == [(payload["location_lat"], payload["location_lon"])]
+    assert service.last_request.weather.temperature_f == 79.0
+    assert service.last_request.weather.wind_mph == 6.5
+    assert service.last_request.weather.solar_radiation_mj_m2 == 20.0
+    assert service.last_request.weather.humidity_pct == prediction_payload["weather"]["humidity_pct"]
+    assert service.last_request.weather.precipitation_in == prediction_payload["weather"]["precipitation_in"]

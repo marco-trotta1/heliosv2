@@ -957,28 +957,72 @@ function PromptInput() {
 function AcknowledgementGate(run) {
   const fieldId = escapeHtml(run.inputSnapshot?.farmId || run.inputSnapshot?.fieldName || "Unknown field");
   const cropType = escapeHtml(run.inputSnapshot?.cropType || "Unknown crop");
-  const decision = run.decision === "water" ? "Irrigate now" : "Hold irrigation";
+  const decision = run.decision === "water" ? "Irrigate Now" : "Hold Irrigation";
+  const decisionSubtext = run.decision === "water" ? "Active irrigation call" : "No water needed yet";
   const moisture48h = typeof run.predicted?.moisture48h === "number"
     ? `${(run.predicted.moisture48h * 100).toFixed(1)}% VWC`
     : "—";
   const timingWindow = escapeHtml(formatWindow(run.timingWindow));
-  return `
-    <section style="border-left: 4px solid #d97706;" class="rounded-[28px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
-      <p class="text-sm font-medium uppercase tracking-[0.18em]" style="color: #d97706;">Review Required</p>
-      <h3 class="mt-2 text-xl font-semibold text-[var(--text)]">Review before proceeding</h3>
-      <div class="mt-4 space-y-2 text-sm text-[var(--text-muted)]">
-        <p><span class="font-medium text-[var(--text)]">Field:</span> ${fieldId}</p>
-        <p><span class="font-medium text-[var(--text)]">Crop:</span> ${cropType}</p>
-        <p><span class="font-medium text-[var(--text)]">Decision:</span> ${decision}</p>
-        <p><span class="font-medium text-[var(--text)]">48h forecast window:</span> ${timingWindow} — ${moisture48h}</p>
+
+  // Individual stat tile — large label + value, matching DashboardMetric weight
+  function statTile(label, value, subtext = "") {
+    return `
+      <div class="flex flex-col gap-1.5 rounded-3xl border border-[var(--border)] bg-[var(--panel-muted)] px-5 py-4">
+        <p class="text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">${label}</p>
+        <p class="text-2xl font-semibold tracking-tight text-[var(--text)] leading-tight">${value}</p>
+        ${subtext ? `<p class="text-xs text-[var(--text-muted)]">${subtext}</p>` : ""}
       </div>
-      <button
-        type="button"
-        id="acknowledge-proceed-btn"
-        class="mt-6 inline-flex items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-2.5 text-sm font-medium text-[var(--text)] transition-all duration-200 hover:border-[var(--accent)]"
-      >
-        I've reviewed this — proceed
-      </button>
+    `;
+  }
+
+  return `
+    <section class="fade-in rounded-[28px] border border-[#d97706]/30 bg-[var(--panel)] shadow-[var(--shadow)]" style="border-left: 5px solid #d97706;">
+      <!-- Amber accent header strip -->
+      <div class="rounded-t-[26px] border-b border-[#d97706]/20 bg-[#d97706]/[0.07] px-7 py-5">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#d97706]/20">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </span>
+            <p class="text-sm font-semibold uppercase tracking-[0.18em]" style="color: #d97706;">Review Required</p>
+          </div>
+          <span class="rounded-full border border-[#d97706]/30 px-3 py-1 text-xs font-medium" style="color: #d97706; background: rgba(217,119,6,0.08);">Action pending your review</span>
+        </div>
+        <h3 class="mt-4 text-2xl font-semibold tracking-tight text-[var(--text)] sm:text-3xl">Before You Proceed</h3>
+        <p class="mt-2 text-sm leading-6 text-[var(--text-muted)]">
+          Read the summary below. When you are satisfied, tap the button to confirm and log your decision.
+        </p>
+      </div>
+
+      <!-- Stat tiles -->
+      <div class="p-7">
+        <div class="grid gap-3 sm:grid-cols-2">
+          ${statTile("Field", fieldId, "Active field")}
+          ${statTile("Crop Type", cropType.charAt(0).toUpperCase() + cropType.slice(1), "Current season")}
+          ${statTile("Irrigation Decision", decision, decisionSubtext)}
+          ${statTile("48h Moisture Forecast", moisture48h, timingWindow ? `Window: ${timingWindow}` : "Forecasted soil VWC")}
+        </div>
+
+        <!-- Primary CTA — visually dominant, impossible to miss -->
+        <div class="mt-8">
+          <button
+            type="button"
+            id="acknowledge-proceed-btn"
+            class="flex w-full items-center justify-center gap-3 rounded-2xl px-6 py-5 text-base font-semibold tracking-tight text-white shadow-lg transition-all duration-150 hover:brightness-110 active:scale-[0.985]"
+            style="background: linear-gradient(135deg, #d97706, #b45309); box-shadow: 0 8px 32px rgba(217,119,6,0.28);"
+          >
+            <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m5 13 4 4L19 7"/>
+            </svg>
+            I've reviewed this — proceed
+          </button>
+          <p class="mt-3 text-center text-xs text-[var(--text-muted)]">This action will be logged with a timestamp.</p>
+        </div>
+      </div>
     </section>
   `;
 }

@@ -25,6 +25,24 @@ class WeatherInput(BaseModel):
         return value
 
 
+class WeatherInputPatch(BaseModel):
+    temperature_f: float | None = None
+    humidity_pct: float | None = Field(default=None, ge=0, le=100)
+    wind_mph: float | None = Field(default=None, ge=0)
+    precipitation_in: float | None = Field(default=None, ge=0)
+    solar_radiation_mj_m2: float | None = Field(default=None, ge=0)
+    forecast_horizon_hours: int | None = None
+
+    @field_validator("forecast_horizon_hours")
+    @classmethod
+    def validate_horizon(cls, value: int | None) -> int | None:
+        if value is None:
+            return value
+        if value not in ALLOWED_HORIZONS:
+            raise ValueError("forecast_horizon_hours must be one of 24, 48, or 72")
+        return value
+
+
 class IrrigationSystemInput(BaseModel):
     irrigation_type: Literal["pivot", "drip", "flood"]
     pump_capacity_in_per_hour: float = Field(gt=0)
@@ -93,6 +111,44 @@ class PredictionRequest(BaseModel):
     def validate_consistency(self) -> "PredictionRequest":
         if self.weather.forecast_horizon_hours != self.forecast_horizon_hours:
             raise ValueError("weather.forecast_horizon_hours must match forecast_horizon_hours")
+        field_ids = {reading.field_id for reading in self.soil_moisture_readings}
+        if field_ids != {self.field_id}:
+            raise ValueError("all soil moisture readings must match field_id")
+        if self.farm_id is None:
+            self.farm_id = self.field_id
+        return self
+
+
+class PredictionRequestPayload(BaseModel):
+    field_id: str = Field(min_length=1)
+    farm_id: str | None = Field(default=None, min_length=1)
+    forecast_horizon_hours: int
+    weather: WeatherInputPatch | None = None
+    irrigation_system: IrrigationSystemInput
+    soil_moisture_readings: list[SoilMoistureReading]
+    soil_properties: SoilPropertiesInput
+    crop: CropInput
+    operational: OperationalConstraintsInput
+    location_lat: float = Field(ge=-90, le=90)
+    location_lon: float = Field(ge=-180, le=180)
+    recent_irrigation_events: list[IrrigationEventInput] = Field(default_factory=list)
+
+    @field_validator("forecast_horizon_hours")
+    @classmethod
+    def validate_horizon(cls, value: int) -> int:
+        if value not in ALLOWED_HORIZONS:
+            raise ValueError("forecast_horizon_hours must be one of 24, 48, or 72")
+        return value
+
+    @field_validator("soil_moisture_readings")
+    @classmethod
+    def validate_readings(cls, value: list[SoilMoistureReading]) -> list[SoilMoistureReading]:
+        if len(value) < 3:
+            raise ValueError("at least 3 soil moisture readings are required")
+        return value
+
+    @model_validator(mode="after")
+    def validate_consistency(self) -> "PredictionRequestPayload":
         field_ids = {reading.field_id for reading in self.soil_moisture_readings}
         if field_ids != {self.field_id}:
             raise ValueError("all soil moisture readings must match field_id")

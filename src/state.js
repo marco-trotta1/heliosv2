@@ -108,6 +108,12 @@ export const state = {
     error: "",
     submitting: false,
   },
+  weatherAutofill: {
+    requestKey: "",
+    appliedKey: "",
+    loading: false,
+    autoFields: {},
+  },
   analysisConsoleOpen: false,
 };
 

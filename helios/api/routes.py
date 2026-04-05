@@ -12,13 +12,21 @@ from helios.api.auth import verify_api_key
 from helios.api.rate_limit import enforce_rate_limit
 from helios.database.db import save_prediction_run
 from helios.lib.feedback import create_feedback, get_regional_insights
-from helios.schemas.inputs import FeedbackCreateRequest, PredictionRequest
+from helios.schemas.inputs import FeedbackCreateRequest, PredictionRequest, PredictionRequestPayload
 from helios.schemas.outputs import FeedbackResponse, HealthResponse, PredictionResponse, RegionalInsights
 from helios.services.recommendation_service import RecommendationService
+from helios.utils.weather_api import fetch_noaa_weather
 
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+WEATHER_FIELD_NAMES = (
+    "temperature_f",
+    "humidity_pct",
+    "wind_mph",
+    "precipitation_in",
+    "solar_radiation_mj_m2",
+)
 
 
 def _get_recommendation_service(request: Request) -> RecommendationService:
@@ -30,6 +38,54 @@ def _get_recommendation_service(request: Request) -> RecommendationService:
             detail="Recommendation service is unavailable. Train the model artifacts and restart the API.",
         )
     return service
+
+
+def _build_prediction_request(payload: PredictionRequestPayload, request_id: str | None) -> PredictionRequest:
+    raw_weather = payload.weather.model_dump(exclude_none=False) if payload.weather is not None else {}
+    weather_horizon = raw_weather.get("forecast_horizon_hours") or payload.forecast_horizon_hours
+    caller_supplied_weather = all(raw_weather.get(field_name) is not None for field_name in WEATHER_FIELD_NAMES)
+
+    if caller_supplied_weather:
+        logger.info(
+            "prediction weather source selected",
+            extra={
+                "request_id": request_id,
+                "field_id": payload.field_id,
+                "weather_source": "caller-supplied",
+            },
+        )
+        merged_weather = {
+            field_name: raw_weather[field_name]
+            for field_name in WEATHER_FIELD_NAMES
+        }
+    else:
+        fetched_weather = fetch_noaa_weather(payload.location_lat, payload.location_lon)
+        merged_weather = {
+            **fetched_weather,
+            **{field_name: raw_weather[field_name] for field_name in WEATHER_FIELD_NAMES if raw_weather.get(field_name) is not None},
+        }
+        logger.info(
+            "prediction weather source selected",
+            extra={
+                "request_id": request_id,
+                "field_id": payload.field_id,
+                "weather_source": "noaa-fetched",
+            },
+        )
+
+    try:
+        return PredictionRequest(
+            **payload.model_dump(exclude={"weather"}),
+            weather={
+                **merged_weather,
+                "forecast_horizon_hours": weather_horizon,
+            },
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"Request validation failed after weather enrichment: {exc}",
+        ) from exc
 
 
 @router.get("/livez")
@@ -58,14 +114,26 @@ def health(request: Request) -> JSONResponse:
 @router.post("/predict", response_model=PredictionResponse)
 def predict(
     http_request: Request,
-    request: PredictionRequest,
+    request: PredictionRequestPayload,
     _: None = Depends(enforce_rate_limit),
     __: None = Depends(verify_api_key),
     service: RecommendationService = Depends(_get_recommendation_service),
 ) -> PredictionResponse:
     t_start = time.monotonic()
+    request_id = getattr(http_request.state, "request_id", None)
     try:
-        response = service.predict_recommendation(request)
+        hydrated_request = _build_prediction_request(request, request_id)
+    except HTTPException:
+        raise
+    except RuntimeError as exc:
+        logger.exception("NOAA weather enrichment failed")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(exc),
+        ) from exc
+
+    try:
+        response = service.predict_recommendation(hydrated_request)
     except HTTPException:
         raise
     except Exception:
@@ -76,13 +144,12 @@ def predict(
         ) from None
 
     latency_ms = round((time.monotonic() - t_start) * 1000, 1)
-    request_id = getattr(http_request.state, "request_id", None)
     logger.info(
         "prediction completed",
         extra={
             "request_id": request_id,
-            "field_id": request.field_id,
-            "farm_id": request.farm_id,
+            "field_id": hydrated_request.field_id,
+            "farm_id": hydrated_request.farm_id,
             "decision": response.decision,
             "recommended_amount_in": response.recommended_amount_in,
             "confidence_score": response.confidence_score,
@@ -91,7 +158,7 @@ def predict(
     )
 
     try:
-        save_prediction_run(request, response)
+        save_prediction_run(hydrated_request, response)
     except Exception:
         logger.exception("Failed to persist prediction run — returning result to caller anyway")
 

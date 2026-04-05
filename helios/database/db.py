@@ -36,6 +36,16 @@ sensor_snapshots = Table(
     Column("volumetric_water_content", Float, nullable=False),
 )
 
+acknowledgements = Table(
+    "acknowledgements",
+    metadata,
+    Column("id", Integer, primary_key=True),
+    Column("field_id", String, nullable=False),
+    Column("farm_id", String, nullable=False),
+    Column("timestamp", DateTime(timezone=True), nullable=False),
+    Column("recommendation_summary", String, nullable=False),
+)
+
 feedback = Table(
     "feedback",
     metadata,
@@ -165,6 +175,20 @@ def insert_feedback(payload: FeedbackCreateRequest) -> int:
                 irrigation_type=payload.irrigation_type,
                 growth_stage=payload.growth_stage,
                 season_month=payload.timestamp.month,
+            )
+        )
+        return int(result.inserted_primary_key[0])
+
+
+def save_acknowledgement(field_id: str, farm_id: str, timestamp: datetime, recommendation_summary: str) -> int:
+    engine = get_engine()
+    with engine.begin() as connection:
+        result = connection.execute(
+            acknowledgements.insert().values(
+                field_id=field_id,
+                farm_id=farm_id,
+                timestamp=timestamp,
+                recommendation_summary=recommendation_summary,
             )
         )
         return int(result.inserted_primary_key[0])

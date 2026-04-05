@@ -10,9 +10,9 @@ from fastapi.responses import JSONResponse
 
 from helios.api.auth import verify_api_key
 from helios.api.rate_limit import enforce_rate_limit
-from helios.database.db import save_prediction_run
+from helios.database.db import save_acknowledgement, save_prediction_run
 from helios.lib.feedback import create_feedback, get_regional_insights
-from helios.schemas.inputs import FeedbackCreateRequest, PredictionRequest, PredictionRequestPayload
+from helios.schemas.inputs import AcknowledgementRequest, FeedbackCreateRequest, PredictionRequest, PredictionRequestPayload
 from helios.schemas.outputs import FeedbackResponse, HealthResponse, PredictionResponse, RegionalInsights
 from helios.services.recommendation_service import RecommendationService
 from helios.utils.weather_api import fetch_noaa_weather
@@ -163,6 +163,23 @@ def predict(
         logger.exception("Failed to persist prediction run — returning result to caller anyway")
 
     return response
+
+
+@router.post("/api/acknowledgements", status_code=status.HTTP_200_OK)
+def log_acknowledgement(
+    request: AcknowledgementRequest,
+    _: None = Depends(enforce_rate_limit),
+) -> dict:
+    try:
+        save_acknowledgement(
+            field_id=request.field_id,
+            farm_id=request.farm_id,
+            timestamp=request.timestamp,
+            recommendation_summary=request.recommendation_summary,
+        )
+    except Exception:
+        logger.exception("Failed to persist acknowledgement — not blocking caller")
+    return {"status": "ok"}
 
 
 @router.post("/api/feedback", response_model=FeedbackResponse, status_code=status.HTTP_201_CREATED)

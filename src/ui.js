@@ -15,10 +15,11 @@ import {
   toggleTheme,
   applyPreset,
   saveLatestRun,
+  storeRun,
   updateFormField,
   updateArrayField,
 } from "./state.js";
-import { evaluateScenario, fetchNOAAWeather, submitFeedback } from "./api.js";
+import { evaluateScenario, fetchNOAAWeather, submitFeedback, logAcknowledgement } from "./api.js";
 import { validateForm } from "./validation.js";
 
 // ── Utility ────────────────────────────────────────────────────────────────────
@@ -953,7 +954,40 @@ function PromptInput() {
   `;
 }
 
+function AcknowledgementGate(run) {
+  const fieldId = escapeHtml(run.inputSnapshot?.farmId || run.inputSnapshot?.fieldName || "Unknown field");
+  const cropType = escapeHtml(run.inputSnapshot?.cropType || "Unknown crop");
+  const decision = run.decision === "water" ? "Irrigate now" : "Hold irrigation";
+  const moisture48h = typeof run.predicted?.moisture48h === "number"
+    ? `${(run.predicted.moisture48h * 100).toFixed(1)}% VWC`
+    : "—";
+  const timingWindow = escapeHtml(formatWindow(run.timingWindow));
+  return `
+    <section style="border-left: 4px solid #d97706;" class="rounded-[28px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
+      <p class="text-sm font-medium uppercase tracking-[0.18em]" style="color: #d97706;">Review Required</p>
+      <h3 class="mt-2 text-xl font-semibold text-[var(--text)]">Review before proceeding</h3>
+      <div class="mt-4 space-y-2 text-sm text-[var(--text-muted)]">
+        <p><span class="font-medium text-[var(--text)]">Field:</span> ${fieldId}</p>
+        <p><span class="font-medium text-[var(--text)]">Crop:</span> ${cropType}</p>
+        <p><span class="font-medium text-[var(--text)]">Decision:</span> ${decision}</p>
+        <p><span class="font-medium text-[var(--text)]">48h forecast window:</span> ${timingWindow} — ${moisture48h}</p>
+      </div>
+      <button
+        type="button"
+        id="acknowledge-proceed-btn"
+        class="mt-6 inline-flex items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-2.5 text-sm font-medium text-[var(--text)] transition-all duration-200 hover:border-[var(--accent)]"
+      >
+        I've reviewed this — proceed
+      </button>
+    </section>
+  `;
+}
+
 export function RecommendationSpotlight() {
+  if (state.acknowledgement.pendingRun) {
+    return AcknowledgementGate(state.acknowledgement.pendingRun);
+  }
+
   if (!state.latestRun) {
     return `
       <section class="rounded-[28px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
@@ -1059,6 +1093,7 @@ export function RecommendationSpotlight() {
         ` : state.feedbackForm.status ? `<p class="mt-4 text-sm text-[var(--text-muted)]">${escapeHtml(state.feedbackForm.status)}</p>` : ""}
       </div>
     </section>
+    <p style="font-size: 0.85rem; font-style: italic; color: var(--text-muted); margin-top: 0.75rem;">This is decision support. Review with your own judgment before acting on any recommendation.</p>
   `;
 }
 
@@ -1308,6 +1343,17 @@ export function bindAppEvents() {
       }
     });
   }
+
+  document.querySelector("#acknowledge-proceed-btn")?.addEventListener("click", async () => {
+    const run = state.acknowledgement.pendingRun;
+    if (!run) {
+      return;
+    }
+    await logAcknowledgement(run);
+    storeRun(run);
+    state.acknowledgement.pendingRun = null;
+    renderApp();
+  });
 
   document.querySelector("#save-latest-run")?.addEventListener("click", saveLatestRun);
   document.querySelector("#analysis-console-toggle")?.addEventListener("click", () => {

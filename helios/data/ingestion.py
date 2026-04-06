@@ -6,6 +6,18 @@ import pandas as pd
 
 from helios.schemas.inputs import IrrigationEventInput, PredictionRequest, SoilMoistureReading
 
+# Per-month OpenET ensemble ET (in/day) matching the values embedded in training data.
+# Used as a fallback when live OpenET data is unavailable at inference time.
+# Months outside the irrigation season (Oct–Mar) default to the August value.
+_OPENET_MONTHLY_ET_FALLBACK: dict[int, float] = {
+    4: 0.1024,  # April
+    5: 0.0991,  # May
+    6: 0.1024,  # June
+    7: 0.1080,  # July (peak)
+    8: 0.0876,  # August
+    9: 0.0289,  # September
+}
+
 
 def soil_moisture_series_to_frame(readings: list[SoilMoistureReading]) -> pd.DataFrame:
     frame = pd.DataFrame([reading.model_dump() for reading in readings])
@@ -38,6 +50,10 @@ def request_to_feature_frame(request: PredictionRequest) -> pd.DataFrame:
     lag_2 = _safe_get(moisture_series, -3, lag_1)
 
     latest_timestamp = readings_df["timestamp"].iloc[-1]
+    latest_ts_dt = pd.to_datetime(latest_timestamp, utc=True)
+    season_month = latest_ts_dt.month
+    openet_monthly_et_in = _OPENET_MONTHLY_ET_FALLBACK.get(season_month, 0.0876)
+
     irrigation_24h = 0.0
     irrigation_72h = 0.0
     if not irrigation_df.empty:
@@ -90,5 +106,7 @@ def request_to_feature_frame(request: PredictionRequest) -> pd.DataFrame:
         "cumulative_irrigation_24h": irrigation_24h,
         "cumulative_irrigation_72h": irrigation_72h,
         "sensor_count": len(request.soil_moisture_readings),
+        "season_month": season_month,
+        "openet_monthly_et_in": openet_monthly_et_in,
     }
     return pd.DataFrame([record])

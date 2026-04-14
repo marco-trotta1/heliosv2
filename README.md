@@ -2,7 +2,52 @@
 
 [![CI](https://github.com/marco-trotta1/heliosv2/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/marco-trotta1/heliosv2/actions/workflows/ci.yml)
 
-Irrigant is an irrigation decision-support system that helps growers review conditions and make irrigation decisions, not automate irrigation. It is built for Idaho row crop farmers, especially potato, corn, and wheat operations. Technically, it combines soil moisture forecasting, ET-based water demand estimation, a rule-constrained optimizer, and a farmer feedback loop.
+Helios is an irrigation decision-support prototype for Idaho row crop operations. It helps growers review water stress risk, likely near-term soil moisture, and an operator-constrained irrigation recommendation. It is not an autonomous controller.
+
+The current repo combines:
+
+- a static frontend that can run in demo mode or call a live backend
+- a FastAPI backend with health checks, validation, and SQLite persistence
+- a moisture-forecast model trained on mixed synthetic + Mickelson-derived field history
+- ET-aware recommendation logic with hybrid OpenET runtime enrichment and fallback
+- a lightweight nearby-feedback loop that can modestly adjust recommendations
+
+## Current Status
+
+Helios is still a prototype operator aid.
+
+- The model is not trained on true measured future soil-moisture labels.
+- Mickelson Farms data improves realism, but many agronomic features still require conservative defaults.
+- Recommendation confidence is heuristic, not a calibrated uncertainty estimate.
+- The irrigation optimizer is rule-based, not a certified scheduling engine.
+- SQLite, in-memory rate limiting, and single-key auth are prototype choices, not production infrastructure.
+
+That said, this repo is no longer purely synthetic. The shipped artifact is trained from a combined dataset that blends:
+
+- synthetic water-balance rows generated from FAO-56 ET and irrigation constraints
+- Mickelson irrigation history parsed from the local workbook and enriched with rain, acreage, flow, and crop-aware Agrimet ET
+
+## How Helios Works
+
+At prediction time Helios:
+
+1. Accepts soil moisture readings, crop, soil, irrigation, operational, and location inputs.
+2. Uses caller-supplied weather or backfills missing weather from NOAA.
+3. Enriches the inference row with monthly ET:
+   - live OpenET monthly point ET when `OPENET_API_KEY` is available
+   - in-process cache reuse for repeated requests in the same area/month
+   - fallback to the baked-in monthly ET lookup when OpenET is unavailable
+4. Forecasts soil moisture at 24 h / 48 h / 72 h.
+5. Generates a conservative irrigation recommendation subject to pump, budget, infiltration, and water-window limits.
+6. Optionally nudges the recommendation using comparable nearby feedback already stored in SQLite.
+
+The external API remains:
+
+- `GET /livez`
+- `GET /health`
+- `POST /predict`
+- `POST /api/feedback`
+- `GET /api/feedback/nearby`
 
 ## Quick Start
 
@@ -15,258 +60,40 @@ python3 -m pytest
 uvicorn helios.api.main:app --reload
 ```
 
-Open `index.html` directly for the static demo frontend, or point `config.js` at a deployed backend for live API mode.
-
-## Project Status
-
-Helios should be treated as a prototype decision-support tool and operator aid only.
-
-- The model is trained on synthetic data.
-- Reference ET is approximate.
-- Recommendation confidence is heuristic, not calibrated.
-- The optimizer is rule-based, not a certified irrigation solver.
-- Feedback adjustment is conservative weighting logic, not causal agronomy.
-
-## Why It Matters
-
-Irrigation decisions combine weather pressure, soil conditions, equipment limits, and operational timing. Helios packages that workflow into a reviewable prototype with:
-
-- a static frontend that can run in demo mode or call a live API
-- a FastAPI backend with validation, health checks, and SQLite persistence
-- a trained moisture-forecast model plus rule-based recommendation logic
-- a lightweight farmer feedback loop for nearby recommendation adjustment
-
-## Architecture Overview
-
-```text
-Static frontend
-  -> config.js selects demo or live mode
-  -> demo mode runs browser-side fallback logic only
-  -> live mode calls the FastAPI backend
-
-FastAPI backend
-  -> request validation via Pydantic
-  -> startup/runtime health checks
-  -> cached model artifact loading
-  -> recommendation service + rule-based optimizer
-  -> SQLite-backed feedback persistence
-```
-
-- Reference ET computed using a simplified Penman-Monteith approach (FAO-56 parameters), Idaho-adjusted for arid high-desert conditions
+Open `index.html` directly for the static frontend, or point `config.js` at a deployed backend for live API mode.
 
 ## Repository Layout
 
 ```text
 helios/
   api/           FastAPI app, routes, runtime wiring
+  data/          feature/inference helpers and OpenET enrichment tools
   database/      SQLite helpers
   lib/           Feedback and aggregation logic
   models/        Training and model loading
   optimizer/     Rule-based irrigation planning
   schemas/       Request and response models
+  scripts/       Data-prep, parsing, and rebuild scripts
   services/      Recommendation orchestration
-  utils/         Shared domain utilities
+  utils/         Shared ET, weather, and OpenET utilities
 src/
-  constants.js   Shared UI constants (thresholds, defaults, presets)
-  domain.js      Pure functions (ET₀, moisture forecast, plan logic)
-  state.js       Application state and persistence
-  api.js         Fetch calls and response mapping
-  ui.js          All rendering and event binding
-  validation.js  Client-side form validation
-tests/           Backend and schema tests
-index.html       Static frontend entrypoint
-viewer.js        ES module entry point (~5 lines)
-styles.css       Frontend styles
+  constants.js
+  domain.js
+  state.js
+  api.js
+  ui.js
+  validation.js
+tests/
+index.html
+viewer.js
+styles.css
 ```
-
-## Local Setup
-
-Use Python 3.11 for the cleanest match with CI.
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python3 -m pip install --upgrade pip
-python3 -m pip install -r requirements-dev.txt
-```
-
-### Runtime dependencies
-
-- `requirements.txt`: backend and application runtime packages
-- `requirements-dev.txt`: runtime packages plus test and notebook tooling
-
-If you only need the backend runtime without tests or notebook tooling:
-
-```bash
-python3 -m pip install -r requirements.txt
-```
-
-## Running the Backend
-
-```bash
-uvicorn helios.api.main:app --reload
-```
-
-Primary endpoints:
-
-- `GET /livez`
-- `GET /health`
-- `POST /predict`
-- `POST /api/feedback`
-- `GET /api/feedback/nearby`
-
-### Health semantics
-
-- `/livez` checks whether the process is running.
-- `/health` is the readiness endpoint.
-- `/health` returns `200` when the database is ready and model artifacts loaded.
-- `/health` returns `503` when the app is degraded, such as when database initialization fails or model artifacts are missing.
-
-## API Examples
-
-Minimal liveness check:
-
-```bash
-curl http://127.0.0.1:8000/livez
-```
-
-Readiness check:
-
-```bash
-curl http://127.0.0.1:8000/health
-```
-
-Prediction request:
-
-```bash
-curl -X POST http://127.0.0.1:8000/predict \
-  -H "Content-Type: application/json" \
-  -d '{
-    "field_id": "field-001",
-    "farm_id": "farm-001",
-    "forecast_horizon_hours": 72,
-    "weather": {
-      "temperature_f": 87.8,
-      "humidity_pct": 38.0,
-      "wind_mph": 8.5,
-      "precipitation_in": 0.0,
-      "solar_radiation_mj_m2": 24.0,
-      "forecast_horizon_hours": 72
-    },
-    "irrigation_system": {
-      "irrigation_type": "pivot",
-      "pump_capacity_in_per_hour": 0.236,
-      "water_rights_schedule": ["tonight", "tomorrow_morning"],
-      "energy_price_window": ["tonight"]
-    },
-    "soil_moisture_readings": [
-      {
-        "timestamp": "2026-03-16T18:00:00Z",
-        "field_id": "field-001",
-        "volumetric_water_content": 0.22
-      },
-      {
-        "timestamp": "2026-03-17T00:00:00Z",
-        "field_id": "field-001",
-        "volumetric_water_content": 0.21
-      },
-      {
-        "timestamp": "2026-03-17T06:00:00Z",
-        "field_id": "field-001",
-        "volumetric_water_content": 0.20
-      }
-    ],
-    "soil_properties": {
-      "soil_texture": "loam",
-      "infiltration_rate_in_per_hour": 0.472,
-      "slope_pct": 2.5,
-      "drainage_class": "moderate"
-    },
-    "crop": {
-      "crop_type": "corn",
-      "growth_stage": "flowering"
-    },
-    "operational": {
-      "max_irrigation_volume_in": 0.709,
-      "field_area_acres": 59.3,
-      "budget_dollars": 2800.0
-    },
-    "location_lat": 43.615,
-    "location_lon": -116.202,
-    "recent_irrigation_events": [
-      {
-        "timestamp": "2026-03-16T06:00:00Z",
-        "applied_in": 0.315
-      }
-    ]
-  }'
-```
-
-Feedback submission:
-
-```bash
-curl -X POST http://127.0.0.1:8000/api/feedback \
-  -H "Content-Type: application/json" \
-  -d '{
-    "farm_id": "farm-001",
-    "timestamp": "2026-03-18T18:00:00Z",
-    "crop_type": "corn",
-    "soil_texture": "loam",
-    "irrigation_type": "pivot",
-    "growth_stage": "flowering",
-    "recommendation_type": "irrigation",
-    "recommendation_value": "12.5",
-    "outcome": "SUCCESS",
-    "yield_delta": 4.0,
-    "notes": "Recommendation performed as expected.",
-    "location_lat": 43.615,
-    "location_lon": -116.202
-  }'
-```
-
-## Frontend Deployment Modes
-
-The frontend reads `window.HELIOS_CONFIG` from `config.js`.
-
-### Demo / static mode
-
-This repo ships with `config.js` in demo mode:
-
-```js
-window.HELIOS_CONFIG = {
-  mode: "demo",
-  apiBaseUrl: "",
-  disclaimer:
-    "Demo mode uses browser-side prototype logic only. It does not call a live backend or store feedback in the project database.",
-};
-```
-
-Use this mode for GitHub Pages or local static previews. Recommendations are computed in the browser and feedback is not persisted.
-
-### Live / backend mode
-
-Copy the provided example and point it at a deployed API:
-
-```bash
-cp config.live.example.js config.js
-```
-
-```js
-window.HELIOS_CONFIG = {
-  mode: "live",
-  apiBaseUrl: "https://your-helios-api.example.com",
-  disclaimer:
-    "Live API mode sends requests to a hosted Helios backend. Recommendations are still prototype decision support and should be reviewed by the operator.",
-};
-```
-
-In live mode the frontend calls the backend, feedback is stored in SQLite, and nearby feedback can modestly adjust recommendations.
 
 ## Environment Variables
 
-Backend configuration is driven by environment variables. See [.env.example](.env.example) for a safe template.
+See [.env.example](.env.example) for the full template.
 
-Key variables:
+Key runtime settings:
 
 - `HELIOS_DATABASE_PATH`
 - `HELIOS_MODEL_PATH`
@@ -277,115 +104,135 @@ Key variables:
 - `HELIOS_STRICT_MODEL_STARTUP`
 - `HELIOS_LOG_LEVEL`
 - `HELIOS_API_KEY`
+- `OPENET_API_KEY`
 
 Notes:
 
-- `HELIOS_CORS_ALLOW_ORIGINS` is comma-separated.
-- `HELIOS_STRICT_MODEL_STARTUP=1` makes the API fail fast when model artifacts are missing.
-- `HELIOS_API_KEY`: when set, all `POST /predict` and `POST /api/feedback` requests must supply a matching `Authorization: Bearer <key>` header. Leave unset (or empty) to disable authentication in demo or internal deployments.
+- `HELIOS_API_KEY` protects `POST /predict` and `POST /api/feedback` when set.
+- `OPENET_API_KEY` enables live monthly OpenET enrichment during `/predict`.
+- When `OPENET_API_KEY` is missing or OpenET fails, runtime inference falls back to the baked-in monthly ET lookup so predictions still succeed.
 
-## Training the Prototype Model
+## Data Policy
 
-Generate synthetic sample data (uses a soil water balance simulation):
+This repo intentionally separates public code/artifacts from private farm data.
+
+- `artifacts/` contains the public model artifact and metadata used by the app.
+- Raw Mickelson workbook files are local/private inputs.
+- Derived `data/*.csv` files are kept out of the public repo.
+- Public commits should contain code, tests, docs, and refreshed artifacts/metadata, not raw or derived farm datasets.
+
+If you are rebuilding locally, expect to supply your own local copies of:
+
+- `data/Water_usage_2024.xlsx`
+- an OpenET monthly CSV such as `data/openet_sample.csv`
+
+## Rebuilding Training Data And Artifacts
+
+The reproducible local rebuild flow is:
+
+1. Parse Mickelson irrigation history from the workbook.
+2. Attach OpenET monthly ET where available.
+3. Regenerate synthetic rows with the same monthly ET context.
+4. Build the combined training dataset.
+5. Retrain the model artifact and metadata.
+
+Run the bundled rebuild script:
 
 ```bash
-python3 -m helios.scripts.generate_sample_data --rows 2500
+python3 -m helios.scripts.rebuild_training_bundle \
+  --mickelson-workbook data/Water_usage_2024.xlsx \
+  --openet-csv data/openet_sample.csv \
+  --synthetic-rows 5000
 ```
 
-Train the model:
+Outputs written locally:
 
-```bash
-python3 -m helios.models.train_model
-```
-
-Artifacts are written to:
-
+- `data/sample_training_data.csv`
+- `data/mickelson_training_data.csv`
+- `data/combined_training_data.csv`
 - `artifacts/moisture_model.pkl`
 - `artifacts/model_metadata.json`
 
-### Model provenance
+### Mickelson parsing details
 
-`model_metadata.json` records SHA-256 hashes of both the model artifact and the training data file used to produce it. These hashes are logged at startup and included in every `/health` response so you can verify the running artifact matches what was trained.
+The Mickelson parser uses the local workbook to extract:
 
-### Forecast model
+- weekly irrigation history from `Data`
+- weekly rain totals from `Rain Totals`
+- acreage from `ACRE FEET`
+- weekly flow where available from `Week *` sheets
+- crop-aware Agrimet ET from `Hamer Agrimet`
 
-The gradient boosting model is XGBoost (`XGBRegressor`, `reg:squarederror` objective). It predicts volumetric soil moisture at 24 h, 48 h, and 72 h horizons. Training targets are generated via a soil water balance simulation that combines FAO-56 reference ET₀, crop coefficients, infiltration efficiency, and drainage class.
+Where the workbook has no direct source, Helios still uses conservative defaults for soil class, drainage, slope, and probe-derived moisture features.
 
-### Reference ET₀
+### OpenET usage
 
-Both the Python backend and the browser-side fallback compute reference evapotranspiration using the FAO-56 Penman-Monteith equation:
+OpenET is used in two different places:
 
-- Psychrometric constant derived from elevation and atmospheric pressure
-- Saturation vapor pressure via the Tetens formula
-- Net radiation approximated as Rn ≈ 0.77 × Rs (grass albedo 0.23)
-- Soil heat flux G = 0 (daily time step)
+- training/data prep:
+  - synthetic rows can ingest local monthly OpenET CSV data
+  - Mickelson rows can attach monthly OpenET values by month when a CSV is provided
+- runtime prediction:
+  - live monthly OpenET point ET is fetched for the month of the latest soil-moisture reading
+  - the result is cached by rounded lat/lon and month
+  - fallback values are used when no key is present or the API is unavailable
 
-The same formula is implemented in `helios/utils/evapotranspiration.py` and `src/domain.js` so demo-mode results use the same math as live-API results.
+## Model Notes
 
-## Tests
+The forecast model is an XGBoost multi-output regressor that predicts volumetric soil moisture at 24 h, 48 h, and 72 h.
 
-The test suite lives under `tests/`.
+The current feature space includes:
 
-Run the local test suite with:
+- recent soil moisture levels and deltas
+- weather and ET features
+- irrigation-system and operational constraints
+- crop and growth stage
+- month/season context
+- monthly ET context from OpenET-style features
 
-```bash
-python3 -m pytest
-```
+The target-generation logic is still physics-informed and heuristic rather than true sensor-ground-truth supervision. Mickelson history improves realism, but Helios should still be treated as a prototype agronomic aid.
 
-GitHub Actions uses the same command on pushes and pull requests.
-
-## Deployment Notes
-
-### Static frontend only
-
-GitHub Pages can host the frontend in demo mode, but it cannot run the FastAPI backend. That means:
-
-- no live `/predict` requests
-- no persisted feedback
-- no nearby feedback aggregation
-- no backend health or readiness behavior
-
-### Full stack
-
-Pragmatic deployment patterns for this repo:
-
-1. GitHub Pages or another static host for the frontend in `live` mode
-2. A separately hosted FastAPI backend on a VM, container platform, or Python app host
-3. A single VM serving static files and the API under one domain
-
-## API Authentication
-
-When `HELIOS_API_KEY` is set, the `POST /predict` and `POST /api/feedback` endpoints require a bearer token:
+## Running Tests
 
 ```bash
-curl -X POST http://127.0.0.1:8000/predict \
-  -H "Authorization: Bearer your-key-here" \
-  -H "Content-Type: application/json" \
-  -d '{...}'
+python3 -m pytest -q
 ```
 
-Requests without a valid token return `401 Unauthorized`. When the env var is empty or unset, authentication is skipped — suitable for demo mode and local development.
+The test suite covers:
 
-## Current Limitations
+- schemas and API routes
+- OpenET integration and runtime fallback behavior
+- ET calculations
+- recommendation service behavior
+- feedback logic
+- model range regression guards
+- Mickelson parsing helpers
+- rebuild-pipeline smoke coverage
 
-- Helios should still be treated as a prototype decision-support workflow, not a production agronomic controller.
-- No production agronomic validation
-- No managed infrastructure templates
-- No background job system
-- SQLite is used for prototype persistence only
-- Browser demo mode intentionally diverges from the live backend path
+## Frontend Modes
 
-## Data & Validation Roadmap
+The frontend reads `window.HELIOS_CONFIG` from `config.js`.
 
-The current model is trained on synthetic data calibrated to Idaho loam and silt-loam profiles, representative of Snake River Plain conditions. Real-sensor validation is the next milestone. Priority partnerships include University of Idaho extension and the SnakeFlux ET monitoring network. We are actively seeking field data agreements with Idaho producers.
+### Demo mode
 
-## Roadmap
+Use this for GitHub Pages or static previews. Recommendations are browser-side only and no backend persistence occurs.
 
-Near-term improvements that fit the current prototype:
+### Live mode
 
-1. Better artifact/version management for trained models
-2. Containerized local dev and deployment examples
-3. Basic observability around request volume, degraded startup, and feedback ingestion
+Point the frontend at a deployed FastAPI backend. In this mode:
+
+- `/predict` calls the real backend
+- feedback is stored in SQLite
+- nearby feedback can adjust recommendations
+- runtime OpenET enrichment is available when `OPENET_API_KEY` is configured
+
+## Limitations
+
+- No true field-validated soil-moisture ground-truth training labels yet
+- No field-polygon OpenET or higher-frequency remote-sensing integration yet
+- No production auth, tenant isolation, or external rate-limit store
+- No production deployment template or managed observability stack
+- The browser demo path is still an approximation of the backend path
 
 ## License
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import math
 from pathlib import Path
 
@@ -17,6 +18,10 @@ from helios.schemas.outputs import (
     RegionalInsights,
 )
 from helios.utils.evapotranspiration import estimate_reference_et_in
+from helios.utils.openet import resolve_monthly_et_in
+
+
+logger = logging.getLogger(__name__)
 
 
 class RecommendationService:
@@ -41,7 +46,21 @@ class RecommendationService:
         return cls(model=model, model_path=model_path, metadata_path=metadata_path)
 
     def predict_recommendation(self, request: PredictionRequest) -> PredictionResponse:
-        raw_frame = request_to_feature_frame(request)
+        latest_timestamp = request.soil_moisture_readings[-1].timestamp
+        openet_monthly_et_in, openet_source = resolve_monthly_et_in(
+            longitude=request.location_lon,
+            latitude=request.location_lat,
+            observed_at=latest_timestamp,
+        )
+        logger.info(
+            "prediction openet source selected",
+            extra={
+                "field_id": request.field_id,
+                "openet_source": openet_source,
+            },
+        )
+
+        raw_frame = request_to_feature_frame(request, openet_monthly_et_in=openet_monthly_et_in)
         features = build_inference_features(raw_frame)
         predicted = self.model.predict(features)
 

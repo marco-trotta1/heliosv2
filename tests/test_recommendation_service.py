@@ -9,8 +9,10 @@ from helios.services.recommendation_service import RecommendationService
 class StubForecastModel:
     def __init__(self) -> None:
         self.metadata = {"cv_rmse_mean": 0.1}
+        self.last_features = None
 
     def predict(self, features) -> dict[str, float]:
+        self.last_features = features.copy()
         return {
             "moisture_24h": 0.22,
             "moisture_48h": 0.15,
@@ -76,3 +78,37 @@ def test_recommendation_service_does_not_reload_model_on_each_prediction(
 
     assert calls["count"] == 1
     assert service.model is fake_model
+
+
+def test_recommendation_service_uses_runtime_openet_value(
+    prediction_payload: dict,
+    monkeypatch,
+) -> None:
+    request = PredictionRequest(**prediction_payload)
+    model = StubForecastModel()
+
+    monkeypatch.setattr(
+        "helios.services.recommendation_service.resolve_monthly_et_in",
+        lambda **_: (0.1234, "openet-live"),
+    )
+    monkeypatch.setattr(
+        "helios.services.recommendation_service.get_regional_insights",
+        lambda **_: {
+            "success_rate": 0.0,
+            "avg_yield_delta": None,
+            "total_samples": 0,
+            "weighted_samples": 0.0,
+            "comparable_samples": 0,
+            "radius_miles": 31.07,
+        },
+    )
+
+    service = RecommendationService(
+        model=model,
+        model_path=Path("unused-model.pkl"),
+        metadata_path=Path("unused-metadata.json"),
+    )
+    service.predict_recommendation(request)
+
+    assert model.last_features is not None
+    assert float(model.last_features.iloc[0]["openet_monthly_et_in"]) == 0.1234

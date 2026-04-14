@@ -1,5 +1,5 @@
 {
-  "trained_at": "2026-04-14T05:20:30.069220+00:00",
+  "trained_at": "2026-04-14T20:24:48.391297+00:00",
   "feature_columns": [
     "forecast_horizon_hours",
     "temperature_f",
@@ -54,13 +54,13 @@
     "target_moisture_48h",
     "target_moisture_72h"
   ],
-  "cv_rmse_mean": 0.01467686343631312,
+  "cv_rmse_mean": 0.014826547578690213,
   "cv_rmse_by_target": {
-    "target_moisture_24h": 0.010715012102081268,
-    "target_moisture_48h": 0.014960525541099768,
-    "target_moisture_72h": 0.018355052665758324
+    "target_moisture_24h": 0.01080180209467715,
+    "target_moisture_48h": 0.015189571734182037,
+    "target_moisture_72h": 0.018488268907211454
   },
-  "validation_rmse": 0.014385792426764965,
+  "validation_rmse": 0.015169565565884113,
   "model_params": {
     "estimator": "XGBRegressor",
     "n_estimators": 400,
@@ -96,37 +96,37 @@
   },
   "fold_metrics": [
     {
-      "target_moisture_24h": 0.010508582426356553,
-      "target_moisture_48h": 0.014815737726204493,
-      "target_moisture_72h": 0.0179851455433248,
-      "rmse_mean": 0.014436488565295282
+      "target_moisture_24h": 0.01102635993583428,
+      "target_moisture_48h": 0.015241584679988512,
+      "target_moisture_72h": 0.018614664911106343,
+      "rmse_mean": 0.014960869842309711
     },
     {
-      "target_moisture_24h": 0.010548703007526902,
-      "target_moisture_48h": 0.014877765710844473,
-      "target_moisture_72h": 0.017967108467804034,
-      "rmse_mean": 0.014464525728725136
+      "target_moisture_24h": 0.010489704645843171,
+      "target_moisture_48h": 0.014843417889803364,
+      "target_moisture_72h": 0.01799752931002214,
+      "rmse_mean": 0.014443550615222893
     },
     {
-      "target_moisture_24h": 0.011111284227011476,
-      "target_moisture_48h": 0.015221977585477251,
-      "target_moisture_72h": 0.018934360524963306,
-      "rmse_mean": 0.015089207445817343
+      "target_moisture_24h": 0.010934925616190269,
+      "target_moisture_48h": 0.015266249594209788,
+      "target_moisture_72h": 0.01872614995972553,
+      "rmse_mean": 0.014975775056708529
     },
     {
-      "target_moisture_24h": 0.010367744233367615,
-      "target_moisture_48h": 0.014880178089428311,
-      "target_moisture_72h": 0.017994668445475297,
-      "rmse_mean": 0.014414196922757075
+      "target_moisture_24h": 0.0104843643127019,
+      "target_moisture_48h": 0.015406975752813747,
+      "target_moisture_72h": 0.018506707517025076,
+      "rmse_mean": 0.01479934919418024
     },
     {
-      "target_moisture_24h": 0.011038746616143794,
-      "target_moisture_48h": 0.01500696859354431,
-      "target_moisture_72h": 0.01889398034722418,
-      "rmse_mean": 0.01497989851897076
+      "target_moisture_24h": 0.011073655962816136,
+      "target_moisture_48h": 0.015189630754094772,
+      "target_moisture_72h": 0.01859629283817819,
+      "rmse_mean": 0.014953193185029698
     }
   ],
-  "model_hash": "dd9438af5f4ec8db40a677778944ab5b39db29e104dc604b74e32c66009cf500",
-  "training_data_hash": "abcd15339c86ca35c43e05cf686de3a9a819699ecfd6ad987580238c600be66f",
-  "training_rows": 7710
+  "model_hash": "3b4f696011da32e97add0e123ce226d1b8ed23e83926198e139b899fc3b6e9d3",
+  "training_data_hash": "e441a9b887e6290878afc1087f74a803478ea84ae65ed90b4f92e953dcc979ab",
+  "training_rows": 7631
 }

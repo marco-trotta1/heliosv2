@@ -22,6 +22,7 @@ from helios.schemas.outputs import (
     RecommendationExplanation,
     RegionalInsights,
 )
+from helios.utils.openet import clear_openet_cache
 
 
 class PickledFakeModel:
@@ -45,6 +46,7 @@ def temp_settings_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict[s
 
     get_settings.cache_clear()
     clear_model_cache()
+    clear_openet_cache()
     reset_engine()
 
     yield {
@@ -55,6 +57,7 @@ def temp_settings_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict[s
 
     reset_engine()
     clear_model_cache()
+    clear_openet_cache()
     get_settings.cache_clear()
 
 

@@ -55,11 +55,6 @@ class HealthResponse(BaseModel):
     issues: list[str] = Field(default_factory=list)
 
 
-class ChartPoint(BaseModel):
-    label: str
-    moisture: float = Field(ge=0, le=1)
-
-
 class FeedbackResponse(BaseModel):
     id: int
     duplicate_prevented: bool = False

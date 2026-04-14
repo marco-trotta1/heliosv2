@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-
 from helios.utils.evapotranspiration import estimate_reference_et_in
 
 

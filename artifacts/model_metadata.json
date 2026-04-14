@@ -1,0 +1,132 @@
+{
+  "trained_at": "2026-04-14T05:20:30.069220+00:00",
+  "feature_columns": [
+    "forecast_horizon_hours",
+    "temperature_f",
+    "humidity_pct",
+    "wind_mph",
+    "precipitation_in",
+    "solar_radiation_mj_m2",
+    "rolling_temp_mean",
+    "rolling_humidity_mean",
+    "rolling_precip_in",
+    "rolling_solar_mean",
+    "current_soil_moisture",
+    "soil_moisture_lag_1",
+    "soil_moisture_lag_2",
+    "soil_moisture_delta_1",
+    "soil_moisture_delta_2",
+    "pump_capacity_in_per_hour",
+    "water_rights_schedule_count",
+    "energy_window_count",
+    "infiltration_rate_in_per_hour",
+    "slope_pct",
+    "max_irrigation_volume_in",
+    "field_area_acres",
+    "budget_dollars",
+    "cumulative_irrigation_24h",
+    "cumulative_irrigation_72h",
+    "sensor_count",
+    "season_month",
+    "openet_monthly_et_in",
+    "reference_et_in",
+    "soil_texture_clay",
+    "soil_texture_loam",
+    "soil_texture_sand",
+    "drainage_class_moderate",
+    "drainage_class_poor",
+    "drainage_class_well",
+    "irrigation_type_drip",
+    "irrigation_type_flood",
+    "irrigation_type_pivot",
+    "growth_stage_emergence",
+    "growth_stage_flowering",
+    "growth_stage_grain_fill",
+    "growth_stage_maturity",
+    "growth_stage_vegetative",
+    "crop_type_alfalfa",
+    "crop_type_corn",
+    "crop_type_potato",
+    "crop_type_soybean"
+  ],
+  "target_columns": [
+    "target_moisture_24h",
+    "target_moisture_48h",
+    "target_moisture_72h"
+  ],
+  "cv_rmse_mean": 0.01467686343631312,
+  "cv_rmse_by_target": {
+    "target_moisture_24h": 0.010715012102081268,
+    "target_moisture_48h": 0.014960525541099768,
+    "target_moisture_72h": 0.018355052665758324
+  },
+  "validation_rmse": 0.014385792426764965,
+  "model_params": {
+    "estimator": "XGBRegressor",
+    "n_estimators": 400,
+    "learning_rate": 0.05,
+    "max_depth": 6,
+    "objective": "reg:squarederror",
+    "subsample": 0.9,
+    "colsample_bytree": 0.9
+  },
+  "categorical_mappings": {
+    "growth_stage": [
+      "emergence",
+      "vegetative",
+      "flowering",
+      "grain_fill",
+      "maturity"
+    ],
+    "soil_texture": [
+      "sand",
+      "loam",
+      "clay"
+    ],
+    "drainage_class": [
+      "poor",
+      "moderate",
+      "well"
+    ],
+    "irrigation_type": [
+      "pivot",
+      "drip",
+      "flood"
+    ]
+  },
+  "fold_metrics": [
+    {
+      "target_moisture_24h": 0.010508582426356553,
+      "target_moisture_48h": 0.014815737726204493,
+      "target_moisture_72h": 0.0179851455433248,
+      "rmse_mean": 0.014436488565295282
+    },
+    {
+      "target_moisture_24h": 0.010548703007526902,
+      "target_moisture_48h": 0.014877765710844473,
+      "target_moisture_72h": 0.017967108467804034,
+      "rmse_mean": 0.014464525728725136
+    },
+    {
+      "target_moisture_24h": 0.011111284227011476,
+      "target_moisture_48h": 0.015221977585477251,
+      "target_moisture_72h": 0.018934360524963306,
+      "rmse_mean": 0.015089207445817343
+    },
+    {
+      "target_moisture_24h": 0.010367744233367615,
+      "target_moisture_48h": 0.014880178089428311,
+      "target_moisture_72h": 0.017994668445475297,
+      "rmse_mean": 0.014414196922757075
+    },
+    {
+      "target_moisture_24h": 0.011038746616143794,
+      "target_moisture_48h": 0.01500696859354431,
+      "target_moisture_72h": 0.01889398034722418,
+      "rmse_mean": 0.01497989851897076
+    }
+  ],
+  "model_hash": "dd9438af5f4ec8db40a677778944ab5b39db29e104dc604b74e32c66009cf500",
+  "training_data_hash": "abcd15339c86ca35c43e05cf686de3a9a819699ecfd6ad987580238c600be66f",
+  "training_rows": 7710
+}

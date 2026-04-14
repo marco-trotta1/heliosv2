@@ -29,24 +29,6 @@ class MoistureForecastModel:
         clipped = [float(max(0.0, min(1.0, value))) for value in raw_prediction]
         return dict(zip(keys, clipped, strict=True))
 
-    def feature_importance(self) -> dict[str, float]:
-        estimators = getattr(self.model, "estimators_", [])
-        if not estimators:
-            return {}
-
-        aggregated = [0.0] * len(self.feature_columns)
-        for estimator in estimators:
-            if hasattr(estimator, "feature_importances_"):
-                aggregated = [
-                    current + float(new_value)
-                    for current, new_value in zip(aggregated, estimator.feature_importances_, strict=True)
-                ]
-        total = sum(aggregated) or 1.0
-        return {
-            feature: round(score / total, 4)
-            for feature, score in zip(self.feature_columns, aggregated, strict=True)
-        }
-
 
 @lru_cache(maxsize=4)
 def _load_model_bundle(model_path: str, metadata_path: str) -> MoistureForecastModel:

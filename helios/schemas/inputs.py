@@ -198,14 +198,3 @@ class AcknowledgementRequest(BaseModel):
     farm_id: str = Field(min_length=1)
     timestamp: datetime
     recommendation_summary: str = Field(max_length=2000)
-
-
-class NearbyFeedbackQuery(BaseModel):
-    lat: float = Field(ge=-90, le=90)
-    lon: float = Field(ge=-180, le=180)
-    radius_miles: float = Field(default=31.07, gt=0, le=310.7)
-    crop_type: str | None = None
-    recommendation_type: str | None = None
-    soil_texture: Literal["sand", "loam", "clay"] | None = None
-    irrigation_type: Literal["pivot", "drip", "flood"] | None = None
-    growth_stage: Literal["emergence", "vegetative", "flowering", "grain_fill", "maturity"] | None = None

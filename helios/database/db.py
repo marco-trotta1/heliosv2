@@ -147,15 +147,6 @@ def save_prediction_run(request: PredictionRequest, response: PredictionResponse
     return run_id
 
 
-def get_recent_runs(limit: int = 20) -> list[dict[str, Any]]:
-    engine = get_engine()
-    with engine.connect() as connection:
-        rows = connection.execute(
-            select(prediction_runs).order_by(prediction_runs.c.created_at.desc()).limit(limit)
-        ).mappings()
-        return [dict(row) for row in rows]
-
-
 def insert_feedback(payload: FeedbackCreateRequest) -> int:
     engine = get_engine()
     with engine.begin() as connection:

@@ -1,31 +1,34 @@
 from __future__ import annotations
 
+from secrets import compare_digest
+from typing import Final
+
 from fastapi import HTTPException, Request, status
 
 from helios.config import get_settings
 
+BEARER_PREFIX: Final = "Bearer "
+AUTH_FAILURE_DETAIL: Final = "Invalid or missing API key."
+
+
+def _raise_invalid_api_key() -> None:
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=AUTH_FAILURE_DETAIL,
+    )
+
 
 def verify_api_key(request: Request) -> None:
-    """FastAPI dependency that enforces Bearer token auth when HELIOS_API_KEY is set.
-
-    When HELIOS_API_KEY is empty or unset, this dependency is a no-op (prototype mode).
-    Only POST endpoints require auth; GET endpoints remain public.
-    """
+    """Reject requests without a valid bearer token when prototype auth is enabled."""
     settings = get_settings()
-    expected_key = settings.api_key
-    if not expected_key:
-        return  # Auth disabled — prototype / demo mode
+    configured_key = settings.api_key.strip()
+    if configured_key == "":
+        return
 
-    auth_header = request.headers.get("Authorization", "")
-    if not auth_header.startswith("Bearer "):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing API key.",
-        )
+    auth_header = request.headers.get("Authorization") or ""
+    scheme, _, provided_key = auth_header.partition(" ")
+    if scheme != "Bearer" or not provided_key:
+        _raise_invalid_api_key()
 
-    provided_key = auth_header[len("Bearer "):]
-    if provided_key != expected_key:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing API key.",
-        )
+    if not compare_digest(provided_key, configured_key):
+        _raise_invalid_api_key()

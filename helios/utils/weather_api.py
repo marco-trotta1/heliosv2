@@ -10,20 +10,9 @@ import httpx
 # This monthly climatological estimate is derived from NASA POWER data
 # for ~43.6°N (Snake River Plain, Idaho). It is an approximation.
 # Replace with measured pyranometer data when available.
-IDAHO_SOLAR_MJ_M2 = {
-    1: 7.5,
-    2: 10.8,
-    3: 15.2,
-    4: 19.8,
-    5: 23.4,
-    6: 26.1,
-    7: 26.8,
-    8: 23.9,
-    9: 18.7,
-    10: 12.4,
-    11: 7.8,
-    12: 6.2,
-}
+IDAHO_SOLAR_MJ_M2 = dict(
+    enumerate((7.5, 10.8, 15.2, 19.8, 23.4, 26.1, 26.8, 23.9, 18.7, 12.4, 7.8, 6.2), start=1)
+)
 NOAA_HEADERS = {
     "Accept": "application/geo+json, application/json",
     "User-Agent": "Helios/0.2.0 (NOAA weather enrichment)",

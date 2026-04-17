@@ -9,21 +9,36 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 ALLOWED_HORIZONS = {24, 48, 72}
 
 
-class WeatherInput(BaseModel):
+def _validate_allowed_horizon(value: int | None) -> int | None:
+    if value is None:
+        return value
+    if value not in ALLOWED_HORIZONS:
+        raise ValueError("forecast_horizon_hours must be one of 24, 48, or 72")
+    return value
+
+
+def _validate_minimum_readings(value: list["SoilMoistureReading"]) -> list["SoilMoistureReading"]:
+    if len(value) < 3:
+        raise ValueError("at least 3 soil moisture readings are required")
+    return value
+
+
+class RequiredHorizonModel(BaseModel):
+    @field_validator("forecast_horizon_hours", check_fields=False)
+    @classmethod
+    def validate_horizon(cls, value: int) -> int:
+        validated = _validate_allowed_horizon(value)
+        assert validated is not None
+        return validated
+
+
+class WeatherInput(RequiredHorizonModel):
     temperature_f: float
     humidity_pct: float = Field(ge=0, le=100)
     wind_mph: float = Field(ge=0)
     precipitation_in: float = Field(ge=0)
     solar_radiation_mj_m2: float = Field(ge=0)
     forecast_horizon_hours: int
-
-    @field_validator("forecast_horizon_hours")
-    @classmethod
-    def validate_horizon(cls, value: int) -> int:
-        if value not in ALLOWED_HORIZONS:
-            raise ValueError("forecast_horizon_hours must be one of 24, 48, or 72")
-        return value
-
 
 class WeatherInputPatch(BaseModel):
     temperature_f: float | None = None
@@ -36,11 +51,7 @@ class WeatherInputPatch(BaseModel):
     @field_validator("forecast_horizon_hours")
     @classmethod
     def validate_horizon(cls, value: int | None) -> int | None:
-        if value is None:
-            return value
-        if value not in ALLOWED_HORIZONS:
-            raise ValueError("forecast_horizon_hours must be one of 24, 48, or 72")
-        return value
+        return _validate_allowed_horizon(value)
 
 
 class IrrigationSystemInput(BaseModel):
@@ -79,7 +90,7 @@ class IrrigationEventInput(BaseModel):
     applied_in: float = Field(ge=0)
 
 
-class PredictionRequest(BaseModel):
+class PredictionRequest(RequiredHorizonModel):
     field_id: str = Field(min_length=1)
     farm_id: str | None = Field(default=None, min_length=1)
     forecast_horizon_hours: int
@@ -93,19 +104,10 @@ class PredictionRequest(BaseModel):
     location_lon: float = Field(ge=-180, le=180)
     recent_irrigation_events: list[IrrigationEventInput] = Field(default_factory=list)
 
-    @field_validator("forecast_horizon_hours")
-    @classmethod
-    def validate_horizon(cls, value: int) -> int:
-        if value not in ALLOWED_HORIZONS:
-            raise ValueError("forecast_horizon_hours must be one of 24, 48, or 72")
-        return value
-
     @field_validator("soil_moisture_readings")
     @classmethod
     def validate_readings(cls, value: list[SoilMoistureReading]) -> list[SoilMoistureReading]:
-        if len(value) < 3:
-            raise ValueError("at least 3 soil moisture readings are required")
-        return value
+        return _validate_minimum_readings(value)
 
     @model_validator(mode="after")
     def validate_consistency(self) -> "PredictionRequest":
@@ -119,7 +121,7 @@ class PredictionRequest(BaseModel):
         return self
 
 
-class PredictionRequestPayload(BaseModel):
+class PredictionRequestPayload(RequiredHorizonModel):
     field_id: str = Field(min_length=1)
     farm_id: str | None = Field(default=None, min_length=1)
     forecast_horizon_hours: int
@@ -133,19 +135,10 @@ class PredictionRequestPayload(BaseModel):
     location_lon: float = Field(ge=-180, le=180)
     recent_irrigation_events: list[IrrigationEventInput] = Field(default_factory=list)
 
-    @field_validator("forecast_horizon_hours")
-    @classmethod
-    def validate_horizon(cls, value: int) -> int:
-        if value not in ALLOWED_HORIZONS:
-            raise ValueError("forecast_horizon_hours must be one of 24, 48, or 72")
-        return value
-
     @field_validator("soil_moisture_readings")
     @classmethod
     def validate_readings(cls, value: list[SoilMoistureReading]) -> list[SoilMoistureReading]:
-        if len(value) < 3:
-            raise ValueError("at least 3 soil moisture readings are required")
-        return value
+        return _validate_minimum_readings(value)
 
     @model_validator(mode="after")
     def validate_consistency(self) -> "PredictionRequestPayload":

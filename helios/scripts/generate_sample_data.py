@@ -6,44 +6,19 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from helios.scripts.training_shared import (
+    CROP_KC,
+    CROP_TYPES,
+    DRAINAGE_CLASSES,
+    DRAINAGE_FACTOR,
+    GROWTH_STAGES,
+    IRRIGATION_EFFICIENCY,
+    IRRIGATION_TYPES,
+    ROOT_ZONE_DEPTH_IN,
+    SOIL_TEXTURES,
+    load_openet_monthly_et,
+)
 from helios.utils.evapotranspiration import estimate_reference_et_in
-
-
-SOIL_TEXTURES = ["sand", "loam", "clay"]
-DRAINAGE_CLASSES = ["poor", "moderate", "well"]
-IRRIGATION_TYPES = ["pivot", "drip", "flood"]
-GROWTH_STAGES = ["emergence", "vegetative", "flowering", "grain_fill", "maturity"]
-CROP_TYPES = ["corn", "soybean", "alfalfa", "potato"]
-
-# Crop coefficients (Kc) per FAO-56 growth stage guidelines
-CROP_KC = {
-    "emergence": 0.3,
-    "vegetative": 0.7,
-    "flowering": 1.15,
-    "grain_fill": 1.0,
-    "maturity": 0.5,
-}
-
-# Root zone depth by soil texture (inches)
-ROOT_ZONE_DEPTH_IN = {
-    "sand": 11.811,  # 300 mm
-    "loam": 17.717,  # 450 mm
-    "clay": 19.685,  # 500 mm
-}
-
-# Irrigation system efficiency (fraction of applied water entering root zone)
-IRRIGATION_EFFICIENCY = {
-    "pivot": 0.82,
-    "drip": 0.93,
-    "flood": 0.68,
-}
-
-# Drainage factor: fraction of excess water that drains per day
-DRAINAGE_FACTOR = {
-    "poor": 0.75,
-    "moderate": 1.0,
-    "well": 1.15,
-}
 
 
 def parse_args() -> argparse.Namespace:
@@ -65,27 +40,6 @@ def _choose_category(rng: np.random.Generator, values: list[str]) -> str:
     return str(rng.choice(values))
 
 
-def _load_openet_monthly_et(openet_csv: str | None) -> dict[int, float]:
-    """Return a month → ET (in/day) lookup from an OpenET monthly CSV.
-
-    The CSV must have columns ``date`` (YYYY-MM-DD) and ``openet_et_mm``
-    (cumulative monthly ET in millimetres). Values are converted to daily
-    averages in inches so they are on the same scale as ``reference_et_in``.
-    Returns an empty dict when no CSV is provided.
-    """
-    if openet_csv is None:
-        return {}
-    df = pd.read_csv(openet_csv, parse_dates=["date"])
-    lookup: dict[int, float] = {}
-    for _, row in df.iterrows():
-        month = int(row["date"].month)
-        days_in_month = row["date"].days_in_month
-        monthly_mm = float(row["openet_et_mm"])
-        daily_in = (monthly_mm / days_in_month) * 0.039370
-        lookup[month] = round(daily_in, 4)
-    return lookup
-
-
 def generate_sample_data(
     rows: int,
     output_path: str,
@@ -94,7 +48,7 @@ def generate_sample_data(
 ) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     records: list[dict[str, float | str | int]] = []
-    openet_monthly_et: dict[int, float] = _load_openet_monthly_et(openet_csv)
+    openet_monthly_et: dict[int, float] = load_openet_monthly_et(openet_csv)
 
     texture_to_retention = {"sand": -0.04, "loam": 0.0, "clay": 0.05}
 

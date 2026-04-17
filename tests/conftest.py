@@ -15,13 +15,7 @@ from helios.api.runtime import AppRuntime
 from helios.config import get_settings
 from helios.database.db import init_db, reset_engine
 from helios.models.moisture_model import clear_model_cache
-from helios.schemas.outputs import (
-    MoistureForecast,
-    PredictionResponse,
-    RecommendationAdjustment,
-    RecommendationExplanation,
-    RegionalInsights,
-)
+import helios.schemas.outputs as output_schemas
 from helios.utils.openet import clear_openet_cache
 
 
@@ -159,23 +153,23 @@ def write_fake_model_artifacts(model_path: Path, metadata_path: Path) -> None:
     )
 
 
-def make_prediction_response() -> PredictionResponse:
-    return PredictionResponse(
+def make_prediction_response() -> output_schemas.PredictionResponse:
+    return output_schemas.PredictionResponse(
         decision="water",
         recommended_amount_in=0.492,
         timing_window="tonight",
         confidence_score=0.74,
-        explanation=RecommendationExplanation(
+        explanation=output_schemas.RecommendationExplanation(
             predicted_moisture_48h=0.16,
             stress_probability=0.82,
             drivers=["low soil moisture", "limited forecast precipitation"],
         ),
-        predicted_moisture=MoistureForecast(
+        predicted_moisture=output_schemas.MoistureForecast(
             moisture_24h=0.2,
             moisture_48h=0.16,
             moisture_72h=0.13,
         ),
-        regional_insights=RegionalInsights(
+        regional_insights=output_schemas.RegionalInsights(
             success_rate=0.78,
             avg_yield_delta=4.0,
             total_samples=6,
@@ -183,7 +177,7 @@ def make_prediction_response() -> PredictionResponse:
             comparable_samples=4,
             radius_miles=31.07,
         ),
-        recommendation_adjustment=RecommendationAdjustment(
+        recommendation_adjustment=output_schemas.RecommendationAdjustment(
             base_recommendation_in=0.465,
             adjusted_recommendation_in=0.492,
             adjustment_factor=1.06,
@@ -193,7 +187,7 @@ def make_prediction_response() -> PredictionResponse:
 
 
 @pytest.fixture()
-def prediction_response() -> PredictionResponse:
+def prediction_response() -> output_schemas.PredictionResponse:
     return make_prediction_response()
 
 

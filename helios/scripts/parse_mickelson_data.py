@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from pathlib import Path
 
 import pandas as pd
@@ -33,6 +34,7 @@ _build_acreage_lookup = build_acreage_lookup
 _build_weekly_et_lookup = build_weekly_et_lookup
 _build_weekly_flow_lookup = build_weekly_flow_lookup
 _build_weekly_lookup_from_totals = build_weekly_lookup_from_totals
+logger = logging.getLogger(__name__)
 
 
 def parse_args() -> argparse.Namespace:
@@ -275,14 +277,14 @@ def parse_mickelson(input_path: str, output_path: str, openet_csv: str | None = 
     destination.parent.mkdir(parents=True, exist_ok=True)
     frame.to_csv(destination, index=False)
 
-    print(f"Total input rows in Data sheet: {len(data)}")
-    print("Skipped:")
-    print(f"  no/zero crop:               {stats['no_crop']}")
-    print(f"  unmapped crop:              {stats['unmapped_crop']}")
-    print(f"  fewer than 3 nonzero weeks: {stats['insufficient_weeks']}")
-    print(f"  zero/negative irrigation:   {stats['zero_irrigation']}")
-    print(f"  missing/zero reference ET:  {stats['missing_et']}")
-    print(f"Rows written: {len(frame)} → {destination}")
+    logger.info("Total input rows in Data sheet: %s", len(data))
+    logger.info("Skipped:")
+    logger.info("  no/zero crop:               %s", stats["no_crop"])
+    logger.info("  unmapped crop:              %s", stats["unmapped_crop"])
+    logger.info("  fewer than 3 nonzero weeks: %s", stats["insufficient_weeks"])
+    logger.info("  zero/negative irrigation:   %s", stats["zero_irrigation"])
+    logger.info("  missing/zero reference ET:  %s", stats["missing_et"])
+    logger.info("Rows written: %s -> %s", len(frame), destination)
     return frame
 
 

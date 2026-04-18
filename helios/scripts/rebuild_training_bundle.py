@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from pathlib import Path
 
 import pandas as pd
@@ -8,6 +9,9 @@ import pandas as pd
 from helios.models.train_model import train_model
 from helios.scripts.generate_sample_data import generate_sample_data
 from helios.scripts.parse_mickelson_data import parse_mickelson
+
+
+logger = logging.getLogger(__name__)
 
 
 def parse_args() -> argparse.Namespace:
@@ -97,7 +101,7 @@ def main() -> None:
         n_estimators=args.n_estimators,
         learning_rate=args.learning_rate,
     )
-    print(
+    logger.info(
         "Rebuilt Helios bundle: synthetic_rows={synthetic_rows} mickelson_rows={mickelson_rows} "
         "combined_rows={combined_rows} model={model_path}".format(**result)
     )

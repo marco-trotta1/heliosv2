@@ -140,6 +140,25 @@ def prediction_payload() -> dict[str, Any]:
     }
 
 
+@pytest.fixture
+def known_inference_row():
+    """A minimal valid inference input for sanity-checking model output range."""
+    return {
+        "temperature_f": 82.0,
+        "humidity_pct": 35.0,
+        "wind_mph": 8.0,
+        "precipitation_in": 0.0,
+        "solar_radiation_mj_m2": 22.0,
+        "volumetric_water_content_lag1": 0.28,
+        "volumetric_water_content_lag2": 0.30,
+        "current_vwc": 0.26,
+        "crop_type": "potato",
+        "growth_stage": "tuber_bulking",
+        "soil_texture": "silt_loam",
+        "irrigation_type": "pivot",
+    }
+
+
 @pytest.fixture()
 def feedback_payload() -> dict[str, Any]:
     timestamp = datetime.now(timezone.utc) - timedelta(days=1)

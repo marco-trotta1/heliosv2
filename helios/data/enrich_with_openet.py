@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import logging
 
 import pandas as pd
 
 from helios.utils.openet import fetch_monthly_et
+
+
+logger = logging.getLogger(__name__)
 
 
 def parse_args() -> argparse.Namespace:
@@ -33,7 +37,7 @@ def main() -> None:
     df = df.rename(columns={"time": "date", "et": "openet_et_mm"})
     df.to_csv(args.output, index=False)
 
-    print(f"Wrote {len(df)} rows to {args.output}")
+    logger.info("Wrote %s rows to %s", len(df), args.output)
 
 
 if __name__ == "__main__":

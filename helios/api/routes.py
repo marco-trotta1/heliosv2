@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import hashlib
+import json
 import time
+import uuid
 from datetime import datetime, timezone
-
 import logging
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse
@@ -20,6 +23,7 @@ from helios.utils.weather_api import fetch_noaa_weather
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+API_VERSION = "1.0.0"
 WEATHER_FIELD_NAMES = (
     "temperature_f",
     "humidity_pct",
@@ -40,6 +44,32 @@ def _get_recommendation_service(request: Request) -> RecommendationService:
     return service
 
 
+def _request_log_message(request_id: str, message: str) -> str:
+    return f"[req:{request_id}] {message}"
+
+
+def _model_artifact_hash(model_path: Path) -> str:
+    if not model_path.exists():
+        return "model_not_loaded"
+    return hashlib.sha256(model_path.read_bytes()).hexdigest()[:12]
+
+
+def _read_training_date(metadata_path: Path) -> str | None:
+    if not metadata_path.exists():
+        return None
+
+    try:
+        metadata = json.loads(metadata_path.read_text())
+    except Exception:
+        logger.exception(
+            "Failed to read model metadata for version endpoint",
+            extra={"metadata_path": str(metadata_path)},
+        )
+        return None
+
+    return metadata.get("training_date") or metadata.get("trained_at")
+
+
 def _build_prediction_request(payload: PredictionRequestPayload, request_id: str | None) -> PredictionRequest:
     raw_weather = payload.weather.model_dump(exclude_none=False) if payload.weather is not None else {}
     weather_horizon = raw_weather.get("forecast_horizon_hours") or payload.forecast_horizon_hours
@@ -47,7 +77,7 @@ def _build_prediction_request(payload: PredictionRequestPayload, request_id: str
 
     if caller_supplied_weather:
         logger.info(
-            "prediction weather source selected",
+            _request_log_message(request_id, "prediction weather source selected") if request_id else "prediction weather source selected",
             extra={
                 "request_id": request_id,
                 "field_id": payload.field_id,
@@ -65,7 +95,7 @@ def _build_prediction_request(payload: PredictionRequestPayload, request_id: str
             **{field_name: raw_weather[field_name] for field_name in WEATHER_FIELD_NAMES if raw_weather.get(field_name) is not None},
         }
         logger.info(
-            "prediction weather source selected",
+            _request_log_message(request_id, "prediction weather source selected") if request_id else "prediction weather source selected",
             extra={
                 "request_id": request_id,
                 "field_id": payload.field_id,
@@ -111,6 +141,18 @@ def health(request: Request) -> JSONResponse:
     )
 
 
+@router.get("/version")
+def version(request: Request) -> dict[str, str | None]:
+    runtime = request.app.state.runtime
+    model_path = runtime.settings.model_path
+    metadata_path = runtime.settings.metadata_path
+    return {
+        "model_artifact_hash": _model_artifact_hash(model_path),
+        "training_date": _read_training_date(metadata_path),
+        "api_version": API_VERSION,
+    }
+
+
 @router.post("/predict", response_model=PredictionResponse)
 def predict(
     http_request: Request,
@@ -120,13 +162,14 @@ def predict(
     service: RecommendationService = Depends(_get_recommendation_service),
 ) -> PredictionResponse:
     t_start = time.monotonic()
-    request_id = getattr(http_request.state, "request_id", None)
+    request_id = str(uuid.uuid4())
+    http_request.state.request_id = request_id
     try:
         hydrated_request = _build_prediction_request(request, request_id)
     except HTTPException:
         raise
     except RuntimeError as exc:
-        logger.exception("NOAA weather enrichment failed")
+        logger.exception(_request_log_message(request_id, "NOAA weather enrichment failed"))
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=str(exc),
@@ -137,7 +180,7 @@ def predict(
     except HTTPException:
         raise
     except Exception:
-        logger.exception("Prediction failed")
+        logger.exception(_request_log_message(request_id, "Prediction failed"))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Prediction failed inside the service. Review server logs and retry.",
@@ -145,7 +188,7 @@ def predict(
 
     latency_ms = round((time.monotonic() - t_start) * 1000, 1)
     logger.info(
-        "prediction completed",
+        _request_log_message(request_id, "prediction completed"),
         extra={
             "request_id": request_id,
             "field_id": hydrated_request.field_id,
@@ -160,7 +203,7 @@ def predict(
     try:
         save_prediction_run(hydrated_request, response)
     except Exception:
-        logger.exception("Failed to persist prediction run — returning result to caller anyway")
+        logger.exception(_request_log_message(request_id, "Failed to persist prediction run — returning result to caller anyway"))
 
     return response
 

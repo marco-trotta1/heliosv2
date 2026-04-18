@@ -21,9 +21,11 @@ from helios.schemas.outputs import ErrorResponse
 logger = logging.getLogger("helios.api")
 
 
-def _configure_logging(settings: Settings) -> None:
-    log_level = getattr(logging, settings.log_level, logging.INFO)
-    logging.basicConfig(level=log_level, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+def _configure_logging(_: Settings) -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s %(message)s",
+    )
 
 
 def _warning_if_cors_is_open(settings: Settings) -> None:

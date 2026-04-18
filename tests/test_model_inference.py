@@ -71,4 +71,5 @@ def test_prediction_in_agronomic_range(known_inference_row):
     features = build_inference_features(_build_known_feature_frame(known_inference_row))
     prediction = service.model.predict(features)
 
-    assert 0.05 <= prediction["moisture_24h"] <= 0.55
+    for key in ("moisture_24h", "moisture_48h", "moisture_72h"):
+        assert 0.05 <= prediction[key] <= 0.55, f"{key}={prediction[key]} outside agronomic range"

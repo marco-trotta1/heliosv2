@@ -128,8 +128,10 @@ def train_model(data_path: str, model_path: str, metadata_path: str, n_estimator
     model_hash = hashlib.sha256(Path(model_path).read_bytes()).hexdigest()
     data_hash = hashlib.sha256(Path(data_path).read_bytes()).hexdigest()
 
+    trained_at = datetime.now(timezone.utc).isoformat()
     metadata = {
-        "trained_at": datetime.now(timezone.utc).isoformat(),
+        "trained_at": trained_at,
+        "training_date": trained_at,
         "feature_columns": feature_columns,
         "target_columns": TARGET_COLUMNS,
         "cv_rmse_mean": float(sum(metric["rmse_mean"] for metric in fold_metrics) / len(fold_metrics)),

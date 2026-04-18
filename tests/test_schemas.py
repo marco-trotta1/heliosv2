@@ -17,6 +17,29 @@ def test_prediction_request_defaults_farm_id(prediction_payload: dict) -> None:
     assert request.farm_id == request.field_id
 
 
+def test_prediction_request_allows_single_sensor_with_three_readings(prediction_payload: dict) -> None:
+    payload = dict(prediction_payload)
+    payload["soil_moisture_readings"] = [
+        {
+            "timestamp": reading["timestamp"],
+            "field_id": reading["field_id"],
+            "sensor_id": "sensor-a",
+            "volumetric_water_content": reading["volumetric_water_content"],
+        }
+        for reading in prediction_payload["soil_moisture_readings"][:3]
+    ]
+
+    request = PredictionRequest(**payload)
+
+    assert len({reading.sensor_id for reading in request.soil_moisture_readings}) == 1
+
+
+def test_prediction_request_allows_multi_sensor_readings(prediction_payload: dict) -> None:
+    request = PredictionRequest(**prediction_payload)
+
+    assert len({reading.sensor_id for reading in request.soil_moisture_readings}) == 2
+
+
 def test_prediction_request_rejects_mismatched_field_ids(prediction_payload: dict) -> None:
     payload = dict(prediction_payload)
     payload["soil_moisture_readings"] = list(payload["soil_moisture_readings"])
@@ -24,6 +47,24 @@ def test_prediction_request_rejects_mismatched_field_ids(prediction_payload: dic
     payload["soil_moisture_readings"][0]["field_id"] = "other-field"
 
     with pytest.raises(ValidationError):
+        PredictionRequest(**payload)
+
+
+def test_prediction_request_rejects_sensor_with_too_few_readings(prediction_payload: dict) -> None:
+    payload = dict(prediction_payload)
+    payload["soil_moisture_readings"] = list(prediction_payload["soil_moisture_readings"][:5])
+
+    with pytest.raises(ValidationError, match="sensor 'sensor-b' requires at least 3 soil moisture readings; received 2"):
+        PredictionRequest(**payload)
+
+
+def test_prediction_request_requires_sensor_id(prediction_payload: dict) -> None:
+    payload = dict(prediction_payload)
+    payload["soil_moisture_readings"] = list(payload["soil_moisture_readings"])
+    payload["soil_moisture_readings"][0] = dict(payload["soil_moisture_readings"][0])
+    del payload["soil_moisture_readings"][0]["sensor_id"]
+
+    with pytest.raises(ValidationError, match="sensor_id"):
         PredictionRequest(**payload)
 
 

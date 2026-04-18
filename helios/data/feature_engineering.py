@@ -46,7 +46,7 @@ def _ensure_reference_et(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _drop_non_feature_columns(df: pd.DataFrame) -> pd.DataFrame:
-    return df.drop(columns=[col for col in ["field_id"] if col in df.columns], errors="ignore")
+    return df.drop(columns=[col for col in ["field_id", "primary_sensor_id"] if col in df.columns], errors="ignore")
 
 
 def build_training_features(

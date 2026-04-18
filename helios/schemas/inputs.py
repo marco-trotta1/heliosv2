@@ -17,9 +17,27 @@ def _validate_allowed_horizon(value: int | None) -> int | None:
     return value
 
 
-def _validate_minimum_readings(value: list["SoilMoistureReading"]) -> list["SoilMoistureReading"]:
-    if len(value) < 3:
-        raise ValueError("at least 3 soil moisture readings are required")
+def _validate_sensor_readings(value: list["SoilMoistureReading"]) -> list["SoilMoistureReading"]:
+    if not value:
+        raise ValueError("at least 1 soil moisture sensor with readings is required")
+
+    grouped: dict[str, int] = {}
+    for reading in value:
+        sensor_id = reading.sensor_id.strip()
+        if not sensor_id:
+            raise ValueError("soil moisture readings must include a non-empty sensor_id")
+        grouped[sensor_id] = grouped.get(sensor_id, 0) + 1
+
+    if not grouped:
+        raise ValueError("at least 1 soil moisture sensor with readings is required")
+
+    violations = [
+        f"sensor '{sensor_id}' requires at least 3 soil moisture readings; received {count}"
+        for sensor_id, count in sorted(grouped.items())
+        if count < 3
+    ]
+    if violations:
+        raise ValueError("; ".join(violations))
     return value
 
 
@@ -64,6 +82,7 @@ class IrrigationSystemInput(BaseModel):
 class SoilMoistureReading(BaseModel):
     timestamp: datetime
     field_id: str
+    sensor_id: str
     volumetric_water_content: float = Field(ge=0, le=1)
 
 
@@ -107,7 +126,7 @@ class PredictionRequest(RequiredHorizonModel):
     @field_validator("soil_moisture_readings")
     @classmethod
     def validate_readings(cls, value: list[SoilMoistureReading]) -> list[SoilMoistureReading]:
-        return _validate_minimum_readings(value)
+        return _validate_sensor_readings(value)
 
     @model_validator(mode="after")
     def validate_consistency(self) -> "PredictionRequest":
@@ -138,7 +157,7 @@ class PredictionRequestPayload(RequiredHorizonModel):
     @field_validator("soil_moisture_readings")
     @classmethod
     def validate_readings(cls, value: list[SoilMoistureReading]) -> list[SoilMoistureReading]:
-        return _validate_minimum_readings(value)
+        return _validate_sensor_readings(value)
 
     @model_validator(mode="after")
     def validate_consistency(self) -> "PredictionRequestPayload":

@@ -46,7 +46,7 @@ class RecommendationService:
         return cls(model=model, model_path=model_path, metadata_path=metadata_path)
 
     def predict_recommendation(self, request: PredictionRequest) -> PredictionResponse:
-        latest_timestamp = request.soil_moisture_readings[-1].timestamp
+        latest_timestamp = max(reading.timestamp for reading in request.soil_moisture_readings)
         openet_monthly_et_in, openet_source = resolve_monthly_et_in(
             longitude=request.location_lon,
             latitude=request.location_lat,
@@ -61,6 +61,11 @@ class RecommendationService:
         )
 
         raw_frame = request_to_feature_frame(request, openet_monthly_et_in=openet_monthly_et_in)
+        primary_sensor_id = str(raw_frame.iloc[0]["primary_sensor_id"])
+        physical_sensor_count = int(raw_frame.iloc[0]["physical_sensor_count"])
+        zone_moisture_summary = self._latest_zone_moisture_summary(request)
+        moisture_spread = max(zone_moisture_summary.values()) - min(zone_moisture_summary.values())
+        high_variability_flag = moisture_spread > 0.12
         features = build_inference_features(raw_frame)
         predicted = self.model.predict(features)
 
@@ -95,6 +100,7 @@ class RecommendationService:
                 recent_precipitation_in=request.weather.precipitation_in,
                 model_rmse=float(self.model.metadata.get("cv_rmse_mean", 0.12)),
                 sensor_count=len(request.soil_moisture_readings),
+                physical_sensor_count=physical_sensor_count,
             )
         )
 
@@ -103,6 +109,7 @@ class RecommendationService:
             predicted=predicted,
             stress_probability=stress_probability,
             estimated_et=estimated_et,
+            current_moisture=float(raw_frame.iloc[0]["current_soil_moisture"]),
         )
         insights_data = get_regional_insights(
             lat=request.location_lat,
@@ -112,7 +119,7 @@ class RecommendationService:
             soil_texture=request.soil_properties.soil_texture,
             irrigation_type=request.irrigation_system.irrigation_type,
             growth_stage=request.crop.growth_stage,
-            season_month=request.soil_moisture_readings[-1].timestamp.month,
+            season_month=latest_timestamp.month,
         )
         adjustment_data = adjust_recommendation(plan["recommended_amount_in"], insights_data)
 
@@ -125,6 +132,9 @@ class RecommendationService:
                 predicted_moisture_48h=predicted["moisture_48h"],
                 stress_probability=stress_probability,
                 drivers=drivers,
+                driving_zone=primary_sensor_id,
+                zone_moisture_summary=zone_moisture_summary,
+                high_variability_flag=high_variability_flag,
             ),
             predicted_moisture=MoistureForecast(**predicted),
             regional_insights=RegionalInsights(**insights_data),
@@ -164,9 +174,9 @@ class RecommendationService:
         predicted: dict[str, float],
         stress_probability: float,
         estimated_et: float,
+        current_moisture: float,
     ) -> list[str]:
         drivers: list[str] = []
-        current_moisture = request.soil_moisture_readings[-1].volumetric_water_content
         if estimated_et >= 0.217:  # ~5.5 mm/day in inches
             drivers.append("high evapotranspiration")
         if current_moisture <= SOIL_THRESHOLDS[request.soil_properties.soil_texture]["dry"] + 0.04:
@@ -180,3 +190,17 @@ class RecommendationService:
         if stress_probability > 0.8 and predicted["moisture_72h"] < predicted["moisture_24h"]:
             drivers.append("continued drying trend")
         return drivers[:3] or ["stable near-threshold moisture"]
+
+    def _latest_zone_moisture_summary(self, request: PredictionRequest) -> dict[str, float]:
+        latest_by_sensor: dict[str, tuple[object, float]] = {}
+        for reading in request.soil_moisture_readings:
+            existing = latest_by_sensor.get(reading.sensor_id)
+            if existing is None or reading.timestamp > existing[0]:
+                latest_by_sensor[reading.sensor_id] = (
+                    reading.timestamp,
+                    reading.volumetric_water_content,
+                )
+        return {
+            sensor_id: float(latest_by_sensor[sensor_id][1])
+            for sensor_id in sorted(latest_by_sensor)
+        }

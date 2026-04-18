@@ -16,6 +16,9 @@ class RecommendationExplanation(BaseModel):
     predicted_moisture_48h: float = Field(ge=0, le=1)
     stress_probability: float = Field(ge=0, le=1)
     drivers: list[str]
+    driving_zone: str
+    zone_moisture_summary: dict[str, float]
+    high_variability_flag: bool
 
 
 class RegionalInsights(BaseModel):

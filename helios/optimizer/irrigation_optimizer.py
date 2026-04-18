@@ -37,6 +37,7 @@ class OptimizationInputs:
     recent_precipitation_in: float
     model_rmse: float
     sensor_count: int
+    physical_sensor_count: int
 
 
 def _allowed_hours(water_rights_schedule: list[str]) -> float:
@@ -64,7 +65,12 @@ def _confidence_score(inputs: OptimizationInputs, dry_threshold: float, timing_w
     base = max(0.2, 1.0 - min(inputs.model_rmse, 0.35) / 0.35)
     threshold_margin = abs(inputs.predicted_moisture["moisture_48h"] - dry_threshold)
     margin_bonus = min(0.2, threshold_margin / 0.15)
-    sensor_penalty = 0.0 if inputs.sensor_count >= 4 else 0.08
+    if inputs.physical_sensor_count >= 3:
+        sensor_penalty = 0.0
+    elif inputs.physical_sensor_count == 2:
+        sensor_penalty = 0.04
+    else:
+        sensor_penalty = 0.10
     timing_penalty = 0.05 if timing_window == "next available permitted window" else 0.0
     confidence = base + margin_bonus - sensor_penalty - timing_penalty
     return round(min(0.99, max(0.05, confidence)), 3)

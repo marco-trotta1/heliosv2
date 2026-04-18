@@ -78,19 +78,40 @@ def prediction_payload() -> dict[str, Any]:
         },
         "soil_moisture_readings": [
             {
+                "timestamp": (timestamp - timedelta(hours=18)).isoformat(),
+                "field_id": "field-001",
+                "sensor_id": "sensor-a",
+                "volumetric_water_content": 0.24,
+            },
+            {
                 "timestamp": (timestamp - timedelta(hours=12)).isoformat(),
                 "field_id": "field-001",
+                "sensor_id": "sensor-b",
+                "volumetric_water_content": 0.28,
+            },
+            {
+                "timestamp": (timestamp - timedelta(hours=9)).isoformat(),
+                "field_id": "field-001",
+                "sensor_id": "sensor-a",
                 "volumetric_water_content": 0.22,
             },
             {
                 "timestamp": (timestamp - timedelta(hours=6)).isoformat(),
                 "field_id": "field-001",
-                "volumetric_water_content": 0.21,
+                "sensor_id": "sensor-b",
+                "volumetric_water_content": 0.25,
+            },
+            {
+                "timestamp": (timestamp - timedelta(hours=3)).isoformat(),
+                "field_id": "field-001",
+                "sensor_id": "sensor-a",
+                "volumetric_water_content": 0.20,
             },
             {
                 "timestamp": timestamp.isoformat(),
                 "field_id": "field-001",
-                "volumetric_water_content": 0.20,
+                "sensor_id": "sensor-b",
+                "volumetric_water_content": 0.23,
             },
         ],
         "soil_properties": {
@@ -163,6 +184,9 @@ def make_prediction_response() -> output_schemas.PredictionResponse:
             predicted_moisture_48h=0.16,
             stress_probability=0.82,
             drivers=["low soil moisture", "limited forecast precipitation"],
+            driving_zone="sensor-a",
+            zone_moisture_summary={"sensor-a": 0.20, "sensor-b": 0.23},
+            high_variability_flag=False,
         ),
         predicted_moisture=output_schemas.MoistureForecast(
             moisture_24h=0.2,

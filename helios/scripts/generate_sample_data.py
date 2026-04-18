@@ -20,6 +20,12 @@ from helios.scripts.training_shared import (
 )
 from helios.utils.evapotranspiration import estimate_reference_et_in
 
+TEXTURE_DRAINAGE_SPREAD = {
+    "sand": 0.05,
+    "loam": 0.03,
+    "clay": 0.02,
+}
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate synthetic Helios training data.")
@@ -87,9 +93,23 @@ def generate_sample_data(
             )
         )
         slope_pct = float(np.clip(rng.normal(2.6, 1.4), 0.0, 9.0))
-        current_soil_moisture = float(
+        base_moisture = float(
             np.clip(0.24 + texture_to_retention[soil_texture] + rng.normal(0, 0.035), 0.08, 0.48)
         )
+        spread = TEXTURE_DRAINAGE_SPREAD.get(soil_texture, 0.03)
+        physical_sensor_count = int(rng.integers(2, 4))
+        sensor_values = [
+            float(np.clip(base_moisture - (spread / 2.0), 0.08, 0.48)),
+            float(np.clip(base_moisture + (spread / 2.0), 0.08, 0.48)),
+        ]
+        if physical_sensor_count == 3:
+            sensor_values.append(float(np.clip(base_moisture, 0.08, 0.48)))
+
+        moisture_min = min(sensor_values)
+        moisture_max = max(sensor_values)
+        moisture_mean = float(sum(sensor_values) / len(sensor_values))
+        moisture_spread = moisture_max - moisture_min
+        current_soil_moisture = moisture_min
         soil_moisture_lag_1 = float(np.clip(current_soil_moisture + rng.normal(0, 0.015), 0.08, 0.5))
         soil_moisture_lag_2 = float(np.clip(soil_moisture_lag_1 + rng.normal(0, 0.015), 0.08, 0.5))
         soil_moisture_delta_1 = current_soil_moisture - soil_moisture_lag_1
@@ -104,7 +124,7 @@ def generate_sample_data(
             0.0, 1.024,
         ))
         forecast_horizon_hours = int(rng.choice([24, 48, 72]))
-        sensor_count = int(rng.integers(3, 8))
+        sensor_count = physical_sensor_count
         water_rights_schedule_count = int(rng.integers(1, 4))
         energy_window_count = int(rng.integers(1, 3))
 
@@ -161,6 +181,11 @@ def generate_sample_data(
                 "soil_moisture_lag_2": round(soil_moisture_lag_2, 4),
                 "soil_moisture_delta_1": round(soil_moisture_delta_1, 4),
                 "soil_moisture_delta_2": round(soil_moisture_delta_2, 4),
+                "moisture_min": round(moisture_min, 4),
+                "moisture_max": round(moisture_max, 4),
+                "moisture_mean": round(moisture_mean, 4),
+                "moisture_spread": round(moisture_spread, 4),
+                "physical_sensor_count": physical_sensor_count,
                 "pump_capacity_in_per_hour": round(pump_capacity_in_per_hour, 4),
                 "water_rights_schedule_count": water_rights_schedule_count,
                 "energy_window_count": energy_window_count,

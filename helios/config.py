@@ -40,6 +40,7 @@ class Settings:
     strict_model_startup: bool
     log_level: str
     api_key: str
+    validation_mode: bool
 
 
 @lru_cache(maxsize=1)
@@ -56,4 +57,5 @@ def get_settings() -> Settings:
         strict_model_startup=_env_bool("HELIOS_STRICT_MODEL_STARTUP", False),
         log_level=os.getenv("HELIOS_LOG_LEVEL", "INFO").upper(),
         api_key=os.getenv("HELIOS_API_KEY", ""),
+        validation_mode=_env_bool("HELIOS_VALIDATION_MODE", False),
     )

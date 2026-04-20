@@ -253,3 +253,39 @@ def test_recommendation_service_uses_runtime_openet_value(
 
     assert model.last_features is not None
     assert float(model.last_features.iloc[0]["openet_monthly_et_in"]) == 0.1234
+
+
+def test_recommendation_service_validation_mode_disables_feedback_adjustment(
+    prediction_payload: dict,
+    monkeypatch,
+) -> None:
+    request = PredictionRequest(**prediction_payload)
+
+    def fail_get_regional_insights(**_kwargs):
+        raise AssertionError("Nearby feedback should not run in validation mode.")
+
+    def fail_adjust_recommendation(*_args, **_kwargs):
+        raise AssertionError("Recommendation adjustment should not run in validation mode.")
+
+    monkeypatch.setattr(
+        "helios.services.recommendation_service.get_regional_insights",
+        fail_get_regional_insights,
+    )
+    monkeypatch.setattr(
+        "helios.services.recommendation_service.adjust_recommendation",
+        fail_adjust_recommendation,
+    )
+
+    service = RecommendationService(
+        model=StubForecastModel(),
+        model_path=Path("unused-model.pkl"),
+        metadata_path=Path("unused-metadata.json"),
+        validation_mode=True,
+    )
+    response = service.predict_recommendation(request)
+
+    assert response.recommended_amount_in == response.recommendation_adjustment.adjusted_recommendation_in
+    assert response.recommendation_adjustment.adjustment_factor == 1.0
+    assert response.regional_insights is not None
+    assert response.regional_insights.total_samples == 0
+    assert "Validation mode is enabled" in response.recommendation_adjustment.reason

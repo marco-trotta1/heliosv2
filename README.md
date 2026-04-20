@@ -103,6 +103,7 @@ Key runtime settings:
 - `HELIOS_RATE_LIMIT_WINDOW_SECONDS`
 - `HELIOS_RATE_LIMIT_MAX_REQUESTS`
 - `HELIOS_STRICT_MODEL_STARTUP`
+- `HELIOS_VALIDATION_MODE`
 - `HELIOS_LOG_LEVEL`
 - `HELIOS_API_KEY`
 - `OPENET_API_KEY`
@@ -112,6 +113,7 @@ Notes:
 - `HELIOS_API_KEY` protects `POST /predict` and `POST /api/feedback` when set.
 - `OPENET_API_KEY` enables live monthly OpenET enrichment during `/predict`.
 - When `OPENET_API_KEY` is missing or OpenET fails, runtime inference falls back to the baked-in monthly ET lookup so predictions still succeed.
+- `HELIOS_VALIDATION_MODE=1` disables nearby-feedback recommendation adjustments for clean field-test runs.
 
 ## Data Policy
 
@@ -197,6 +199,13 @@ The target-generation logic is still physics-informed and heuristic rather than 
 
 ```bash
 python3 -m pytest -q
+```
+
+For a frozen field-test manifest:
+
+```bash
+HELIOS_VALIDATION_MODE=1 python3 -m helios.scripts.validation_preflight \
+  --output artifacts/validation-manifest.json
 ```
 
 The test suite covers:

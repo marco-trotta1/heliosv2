@@ -31,19 +31,27 @@ class RecommendationService:
         model: MoistureForecastModel,
         model_path: Path,
         metadata_path: Path,
+        validation_mode: bool = False,
     ) -> None:
         self.model = model
         self.model_path = model_path
         self.metadata_path = metadata_path
+        self.validation_mode = validation_mode
 
     @classmethod
     def from_artifacts(
         cls,
         model_path: Path = Path("artifacts/moisture_model.pkl"),
         metadata_path: Path = Path("artifacts/model_metadata.json"),
+        validation_mode: bool = False,
     ) -> "RecommendationService":
         model = MoistureForecastModel.load(model_path, metadata_path)
-        return cls(model=model, model_path=model_path, metadata_path=metadata_path)
+        return cls(
+            model=model,
+            model_path=model_path,
+            metadata_path=metadata_path,
+            validation_mode=validation_mode,
+        )
 
     def predict_recommendation(self, request: PredictionRequest) -> PredictionResponse:
         latest_timestamp = max(reading.timestamp for reading in request.soil_moisture_readings)
@@ -111,17 +119,32 @@ class RecommendationService:
             estimated_et=estimated_et,
             current_moisture=float(raw_frame.iloc[0]["current_soil_moisture"]),
         )
-        insights_data = get_regional_insights(
-            lat=request.location_lat,
-            lon=request.location_lon,
-            crop_type=request.crop.crop_type,
-            recommendation_type="irrigation",
-            soil_texture=request.soil_properties.soil_texture,
-            irrigation_type=request.irrigation_system.irrigation_type,
-            growth_stage=request.crop.growth_stage,
-            season_month=latest_timestamp.month,
-        )
-        adjustment_data = adjust_recommendation(plan["recommended_amount_in"], insights_data)
+        if self.validation_mode:
+            insights_data = {
+                "success_rate": 0.0,
+                "avg_yield_delta": None,
+                "total_samples": 0,
+                "weighted_samples": 0.0,
+                "comparable_samples": 0,
+                "radius_miles": 31.07,
+            }
+            adjustment_data = {
+                "adjusted_recommendation_in": round(plan["recommended_amount_in"], 2),
+                "adjustment_factor": 1.0,
+                "reason": "Validation mode is enabled, so nearby feedback adjustments were disabled for a clean field test.",
+            }
+        else:
+            insights_data = get_regional_insights(
+                lat=request.location_lat,
+                lon=request.location_lon,
+                crop_type=request.crop.crop_type,
+                recommendation_type="irrigation",
+                soil_texture=request.soil_properties.soil_texture,
+                irrigation_type=request.irrigation_system.irrigation_type,
+                growth_stage=request.crop.growth_stage,
+                season_month=latest_timestamp.month,
+            )
+            adjustment_data = adjust_recommendation(plan["recommended_amount_in"], insights_data)
 
         response = PredictionResponse(
             decision=plan["decision"],

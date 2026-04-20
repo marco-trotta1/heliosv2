@@ -308,6 +308,7 @@ def test_version_returns_hash_and_training_date_without_auth(
         "model_artifact_hash": expected_hash,
         "training_date": "2026-04-17T23:00:00+00:00",
         "api_version": "1.0.0",
+        "validation_mode": "disabled",
     }
 
 

@@ -150,6 +150,7 @@ def version(request: Request) -> dict[str, str | None]:
         "model_artifact_hash": _model_artifact_hash(model_path),
         "training_date": _read_training_date(metadata_path),
         "api_version": API_VERSION,
+        "validation_mode": "enabled" if runtime.settings.validation_mode else "disabled",
     }
 
 

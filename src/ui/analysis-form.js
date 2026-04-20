@@ -163,7 +163,7 @@ export function PromptInput() {
             ${modeLabel}
           </div>
           ${Object.keys(PRESETS)
-            .map((key) => PrimaryButton({ label: key === "heatwave" ? "Heat wave" : key === "balanced" ? "Balanced day" : "Rain incoming", iconName: "sparkles", variant: "secondary", extraClass: "preset-trigger", id: "", type: "button" }).replace("<button", `<button data-preset="${key}"`))
+            .map((key) => PrimaryButton({ label: key === "heatwave" ? "Heat wave" : key === "balanced" ? "Balanced day" : key === "kimberly" ? "Kimberly Farm" : "Rain incoming", iconName: "sparkles", variant: "secondary", extraClass: "preset-trigger", id: "", type: "button" }).replace("<button", `<button data-preset="${key}"`))
             .join("")}
         </div>
       </div>

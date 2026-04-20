@@ -163,6 +163,24 @@ export const PRESETS = {
     waterWindow: ["tomorrow_morning", "tomorrow_night"],
     energyWindow: ["tomorrow_morning"],
   },
+  kimberly: {
+    ...DEFAULT_FORM,
+    analysisPrompt:
+      "Assess irrigation timing for the Kimberly Research Farm potato field and recommend the next center-pivot pass.",
+    farmId: "kimberly-research-farm",
+    fieldName: "Kimberly Research Farm",
+    locationLat: 42.5335,
+    locationLon: -114.3651,
+    cropType: "potato",
+    growthStage: "flowering",
+    soilTexture: "loam",
+    drainageClass: "moderate",
+    infiltrationRate: 0.6,
+    slopePct: 1.0,
+    irrigationType: "pivot",
+    maxIrrigationVolume: 2.0,
+    waterWindow: ["tomorrow_morning", "tomorrow_night"],
+  },
   rain: {
     ...DEFAULT_FORM,
     analysisPrompt:

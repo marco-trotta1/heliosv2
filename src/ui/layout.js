@@ -26,10 +26,6 @@ export function Sidebar() {
     <aside class="sticky top-0 flex h-screen flex-col border-r border-[var(--border)] bg-[var(--bg)]/90 backdrop-blur">
       ${BrandLogo()}
       <nav class="flex-1 px-3 py-5 xl:px-4">
-        <div class="mb-4 hidden rounded-[24px] border border-[var(--border)] bg-[var(--panel)] px-4 py-4 shadow-[var(--shadow)] xl:block">
-          <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--accent)]">Field focus</p>
-          <p class="mt-2 text-sm leading-6 text-[var(--text-muted)]">Run Analysis stays front and center for quick irrigation decisions.</p>
-        </div>
         <ul class="space-y-1">
           ${NAV_ITEMS.map(
             (item) => {
@@ -74,7 +70,6 @@ export function Sidebar() {
           </div>
           <div class="hidden xl:block">
             <p class="text-sm font-semibold">Field Ops</p>
-            <p class="text-xs text-[var(--text-muted)]">Prototype workspace</p>
           </div>
         </div>
       </div>
@@ -107,9 +102,6 @@ export function TopBar() {
         >
           ${icon("github")}
         </a>
-        <div class="hidden rounded-full border border-[var(--border)] bg-[var(--panel)] px-3 py-2 text-xs font-semibold text-[var(--text-muted)] shadow-[var(--shadow)] sm:inline-flex">
-          Farmer view
-        </div>
         <div class="flex h-10 w-10 items-center justify-center rounded-[18px] border border-[var(--border)] bg-[var(--panel)] text-[var(--text-muted)] shadow-[var(--shadow)]">
           ${icon("user")}
         </div>

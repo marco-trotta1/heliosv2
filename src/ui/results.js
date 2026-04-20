@@ -22,7 +22,7 @@ export function ResultCard(run, inspectorMode = false) {
   const amountClass = run.decision === "water" ? "tone-water" : "tone-wait";
 
   return `
-    <article class="fade-in rounded-[30px] border border-[var(--border)] bg-[var(--panel)] p-5 shadow-[var(--shadow)] transition-all duration-200 hover:border-[var(--border-strong)]">
+    <article class="fade-in rounded-[30px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow)] transition-all duration-200 hover:border-[var(--border-strong)]">
       <div class="flex items-start justify-between gap-4">
         <div class="min-w-0">
           <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--accent)]">${formatTimestamp(run.timestamp)}</p>
@@ -38,8 +38,8 @@ export function ResultCard(run, inspectorMode = false) {
         </button>
       </div>
 
-      <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
-        <div class="rounded-[24px] border border-[var(--border)] bg-[var(--panel-muted)] p-4">
+      <div class="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto]">
+        <div class="rounded-[24px] border border-[var(--border)] bg-[var(--panel-muted)] p-5">
           <div class="flex flex-wrap items-center gap-2">
             <span class="rounded-full px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] ${decisionPillClass}">
               ${run.decision.toUpperCase()}
@@ -50,7 +50,6 @@ export function ResultCard(run, inspectorMode = false) {
             <span class="text-4xl font-semibold tracking-[-0.05em] ${amountClass}">${(run.recommendedAmountIn ?? 0).toFixed(2)}</span>
             <span class="pb-1 text-sm font-semibold text-[var(--text-muted)]">in</span>
           </div>
-          <p class="mt-3 text-sm leading-6 text-[var(--text-muted)]">${escapeHtml(run.summary)}</p>
         </div>
         <div class="flex flex-wrap content-start gap-2 lg:max-w-[180px] lg:justify-end">
           <span class="rounded-full bg-[var(--panel-muted)] px-3 py-1 text-xs font-semibold text-[var(--text-muted)]">Confidence ${formatPercent(run.confidenceScore)}</span>
@@ -100,10 +99,9 @@ export function ResultsPanel() {
 export function HistoryPage(items, subtitle) {
   return `
     <section class="space-y-6">
-      <div class="surface-ring rounded-[32px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow-strong)]">
+      <div class="surface-ring rounded-[32px] border border-[var(--border)] bg-[var(--panel)] p-7 shadow-[var(--shadow-strong)]">
         <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--accent)]">${PAGE_TITLES[state.activePage]}</p>
         <h2 class="mt-3 text-3xl font-semibold tracking-[-0.04em] text-[var(--text)]">${subtitle}</h2>
-        <p class="mt-3 text-sm leading-7 text-[var(--text-muted)]">Review recent recommendations, copy technical details when needed, and reopen familiar scenarios without changing the farmer-facing workflow.</p>
       </div>
       <div class="space-y-3">
         ${items.length > 0 ? items.map((run) => ResultCard(run)).join("") : emptyBlock("No records yet", "Run an analysis to populate this page.")}
@@ -115,16 +113,14 @@ export function HistoryPage(items, subtitle) {
 export function SettingsPage() {
   return `
     <section class="space-y-6">
-      <div class="surface-ring rounded-[32px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow-strong)]">
+      <div class="surface-ring rounded-[32px] border border-[var(--border)] bg-[var(--panel)] p-7 shadow-[var(--shadow-strong)]">
         <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--accent)]">Settings</p>
         <h2 class="mt-3 text-3xl font-semibold tracking-[-0.04em] text-[var(--text)]">Workspace preferences</h2>
-        <p class="mt-3 text-sm leading-7 text-[var(--text-muted)]">Theme and runtime configuration stay available here without crowding the farmer decision flow.</p>
       </div>
       <div class="grid gap-6 xl:grid-cols-2">
         <div class="rounded-[32px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
           <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--accent)]">Theme</p>
           <h3 class="mt-2 text-xl font-semibold tracking-[-0.03em] text-[var(--text)]">Current theme</h3>
-          <p class="mt-3 text-sm leading-7 text-[var(--text-muted)]">Light mode is tuned for the main field workflow, while dark mode remains available for lower-light review sessions.</p>
           <div class="mt-5">
             ${PrimaryButton({ id: "theme-toggle-inline", label: state.theme === "dark" ? "Switch to light" : "Switch to dark", iconName: state.theme === "dark" ? "sun" : "moon", variant: "secondary" })}
           </div>

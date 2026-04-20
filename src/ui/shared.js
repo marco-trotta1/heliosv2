@@ -103,7 +103,7 @@ export function PrimaryButton({ id = "", label, iconName = "", variant = "primar
       type="${type}"
       ${disabled ? "disabled" : ""}
       class="${classNames(
-        "focus-outline inline-flex items-center justify-center gap-2 rounded-[20px] px-4 py-2.5 text-sm font-semibold transition-all duration-200",
+        "focus-outline inline-flex items-center justify-center gap-2 rounded-[20px] px-4 py-3 text-sm font-semibold transition-all duration-200",
         disabled ? "cursor-not-allowed opacity-60" : "",
         palette,
         extraClass,
@@ -117,7 +117,7 @@ export function PrimaryButton({ id = "", label, iconName = "", variant = "primar
 
 export function toggleControl(name, label, checked) {
   return `
-    <label class="inline-flex items-center gap-3 rounded-[18px] border border-[var(--border)] bg-[var(--panel)] px-3 py-2 text-sm text-[var(--text)] shadow-[var(--shadow)]">
+    <label class="inline-flex items-center gap-3 rounded-[18px] border border-[var(--border)] bg-[var(--panel)] px-3.5 py-2.5 text-sm text-[var(--text)] shadow-[var(--shadow)]">
       <input
         type="checkbox"
         name="${name}"
@@ -129,13 +129,13 @@ export function toggleControl(name, label, checked) {
   `;
 }
 
-export function fieldCard(title, description, content, detail = "Tap to collapse") {
+export function fieldCard(title, description, content, detail = "Collapse") {
   return `
-    <details open class="field-card surface-ring rounded-[26px] border border-[var(--border)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]">
+    <details open class="field-card surface-ring rounded-[28px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
       <summary class="field-card-summary focus-outline flex cursor-pointer list-none items-start justify-between gap-4 rounded-[20px]">
         <div>
           <p class="text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--accent)]">${title}</p>
-          <h3 class="mt-2 text-lg font-semibold tracking-[-0.02em] text-[var(--text)]">${description}</h3>
+          <h3 class="mt-2 text-xl font-semibold tracking-[-0.02em] text-[var(--text)]">${description}</h3>
         </div>
         <div class="field-card-meta inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] transition-colors duration-200">
           <span>${detail}</span>
@@ -156,7 +156,7 @@ export function inputGroup(label, control, meta = "", helper = "") {
         <span>${label}</span>
         ${meta}
       </span>
-      ${helper ? `<p class="mb-2 text-xs leading-5 text-[var(--text-muted)]">${helper}</p>` : ""}
+      ${helper ? `<p class="mb-3 text-xs leading-5 text-[var(--text-muted)]">${helper}</p>` : ""}
       ${control}
     </label>
   `;
@@ -171,7 +171,7 @@ export function numericInput(name, value, min, step = "0.1", max = "") {
       min="${min}"
       ${max !== "" ? `max="${max}"` : ""}
       step="${step}"
-      class="focus-outline w-full rounded-[18px] border border-[var(--border)] bg-[var(--panel-muted)] px-3.5 py-3 text-sm text-[var(--text)] outline-none transition-all duration-200 placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:bg-[var(--panel)]"
+      class="focus-outline w-full rounded-[18px] border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-3.5 text-sm text-[var(--text)] outline-none transition-all duration-200 placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:bg-[var(--panel)]"
     />
   `;
 }
@@ -189,7 +189,7 @@ export function textInput(name, value) {
       name="${name}"
       type="text"
       value="${escapeHtml(value)}"
-      class="focus-outline w-full rounded-[18px] border border-[var(--border)] bg-[var(--panel-muted)] px-3.5 py-3 text-sm text-[var(--text)] outline-none transition-all duration-200 focus:border-[var(--accent)] focus:bg-[var(--panel)]"
+      class="focus-outline w-full rounded-[18px] border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-3.5 text-sm text-[var(--text)] outline-none transition-all duration-200 focus:border-[var(--accent)] focus:bg-[var(--panel)]"
     />
   `;
 }
@@ -198,7 +198,7 @@ export function selectInput(name, value, options) {
   return `
     <select
       name="${name}"
-      class="focus-outline w-full rounded-[18px] border border-[var(--border)] bg-[var(--panel-muted)] px-3.5 py-3 text-sm text-[var(--text)] outline-none transition-all duration-200 focus:border-[var(--accent)] focus:bg-[var(--panel)]"
+      class="focus-outline w-full rounded-[18px] border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-3.5 text-sm text-[var(--text)] outline-none transition-all duration-200 focus:border-[var(--accent)] focus:bg-[var(--panel)]"
     >
       ${options
         .map((option) => `<option value="${option.value}" ${value === option.value ? "selected" : ""}>${option.label}</option>`)
@@ -209,13 +209,13 @@ export function selectInput(name, value, options) {
 
 export function checkboxGroup(title, name, options, selected) {
   return `
-    <fieldset class="rounded-[24px] border border-[var(--border)] bg-[var(--panel-muted)] p-4">
+    <fieldset class="rounded-[24px] border border-[var(--border)] bg-[var(--panel-muted)] p-5">
       <legend class="px-1 text-sm font-semibold text-[var(--text)]">${title}</legend>
       <div class="mt-3 grid gap-3 sm:grid-cols-2">
         ${options
           .map(
             (option) => `
-              <label class="inline-flex items-center gap-3 rounded-[18px] border border-[var(--border)] bg-[var(--panel)] px-3 py-2.5 text-sm text-[var(--text)] shadow-[var(--shadow)]">
+              <label class="inline-flex items-center gap-3 rounded-[18px] border border-[var(--border)] bg-[var(--panel)] px-3.5 py-3 text-sm text-[var(--text)] shadow-[var(--shadow)]">
                 <input
                   type="checkbox"
                   name="${name}"

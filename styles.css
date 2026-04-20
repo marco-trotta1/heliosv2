@@ -1,53 +1,53 @@
 :root {
-  --bg: #f4f1e8;
-  --bg-strong: #ebe5d5;
-  --panel: rgba(255, 255, 255, 0.94);
-  --panel-muted: #f8f5ee;
-  --panel-hover: #f1ecdf;
-  --border: rgba(65, 86, 68, 0.14);
-  --border-strong: rgba(65, 86, 68, 0.24);
-  --text: #1f3127;
-  --text-muted: #617267;
-  --accent: #295a43;
-  --accent-hover: #214b38;
-  --accent-soft: rgba(41, 90, 67, 0.12);
-  --accent-mint: #6e9278;
-  --accent-mint-soft: rgba(110, 146, 120, 0.16);
-  --accent-cool: #3f7488;
-  --accent-cool-soft: rgba(63, 116, 136, 0.12);
-  --accent-warm: #b56c2f;
-  --accent-warm-soft: rgba(181, 108, 47, 0.12);
-  --success: #2f7a59;
-  --warning: #b56c2f;
-  --danger: #bd5c4c;
-  --shadow: 0 18px 48px rgba(47, 58, 43, 0.08);
-  --shadow-strong: 0 28px 80px rgba(47, 58, 43, 0.14);
+  --bg: #f6f4ee;
+  --bg-strong: #efebe2;
+  --panel: #ffffff;
+  --panel-muted: #f4f6f3;
+  --panel-hover: #edf1ed;
+  --border: rgba(31, 49, 39, 0.16);
+  --border-strong: rgba(31, 49, 39, 0.3);
+  --text: #18261d;
+  --text-muted: #4e5f55;
+  --accent: #244f3c;
+  --accent-hover: #1d4332;
+  --accent-soft: rgba(36, 79, 60, 0.1);
+  --accent-mint: #6f8579;
+  --accent-mint-soft: rgba(111, 133, 121, 0.12);
+  --accent-cool: #426b79;
+  --accent-cool-soft: rgba(66, 107, 121, 0.12);
+  --accent-warm: #9f6637;
+  --accent-warm-soft: rgba(159, 102, 55, 0.12);
+  --success: #2e6e52;
+  --warning: #9f6637;
+  --danger: #b3564a;
+  --shadow: 0 10px 28px rgba(24, 38, 29, 0.06);
+  --shadow-strong: 0 18px 48px rgba(24, 38, 29, 0.09);
 }
 
 body.theme-light {
-  --bg: #f4f1e8;
-  --bg-strong: #ebe5d5;
-  --panel: rgba(255, 255, 255, 0.94);
-  --panel-muted: #f8f5ee;
-  --panel-hover: #f1ecdf;
-  --border: rgba(65, 86, 68, 0.14);
-  --border-strong: rgba(65, 86, 68, 0.24);
-  --text: #1f3127;
-  --text-muted: #617267;
-  --accent: #295a43;
-  --accent-hover: #214b38;
-  --accent-soft: rgba(41, 90, 67, 0.12);
-  --accent-mint: #6e9278;
-  --accent-mint-soft: rgba(110, 146, 120, 0.16);
-  --accent-cool: #3f7488;
-  --accent-cool-soft: rgba(63, 116, 136, 0.12);
-  --accent-warm: #b56c2f;
-  --accent-warm-soft: rgba(181, 108, 47, 0.12);
-  --success: #2f7a59;
-  --warning: #b56c2f;
-  --danger: #bd5c4c;
-  --shadow: 0 18px 48px rgba(47, 58, 43, 0.08);
-  --shadow-strong: 0 28px 80px rgba(47, 58, 43, 0.14);
+  --bg: #f6f4ee;
+  --bg-strong: #efebe2;
+  --panel: #ffffff;
+  --panel-muted: #f4f6f3;
+  --panel-hover: #edf1ed;
+  --border: rgba(31, 49, 39, 0.16);
+  --border-strong: rgba(31, 49, 39, 0.3);
+  --text: #18261d;
+  --text-muted: #4e5f55;
+  --accent: #244f3c;
+  --accent-hover: #1d4332;
+  --accent-soft: rgba(36, 79, 60, 0.1);
+  --accent-mint: #6f8579;
+  --accent-mint-soft: rgba(111, 133, 121, 0.12);
+  --accent-cool: #426b79;
+  --accent-cool-soft: rgba(66, 107, 121, 0.12);
+  --accent-warm: #9f6637;
+  --accent-warm-soft: rgba(159, 102, 55, 0.12);
+  --success: #2e6e52;
+  --warning: #9f6637;
+  --danger: #b3564a;
+  --shadow: 0 10px 28px rgba(24, 38, 29, 0.06);
+  --shadow-strong: 0 18px 48px rgba(24, 38, 29, 0.09);
 }
 
 body.theme-dark {
@@ -87,11 +87,7 @@ html {
 body {
   margin: 0;
   font-family: "Manrope", sans-serif;
-  background:
-    radial-gradient(circle at top left, rgba(110, 146, 120, 0.12), transparent 24%),
-    radial-gradient(circle at top right, rgba(63, 116, 136, 0.09), transparent 22%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 35%),
-    var(--bg);
+  background: var(--bg);
   color: var(--text);
 }
 
@@ -141,10 +137,7 @@ summary::-webkit-details-marker {
 }
 
 .glass-grid {
-  background-image:
-    linear-gradient(rgba(41, 90, 67, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(41, 90, 67, 0.03) 1px, transparent 1px);
-  background-size: 52px 52px;
+  background: linear-gradient(180deg, var(--bg), var(--bg-strong));
 }
 
 .spotlight-water {
@@ -182,7 +175,7 @@ summary::-webkit-details-marker {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  border: 1px solid rgba(255, 255, 255, 0.46);
+  border: 1px solid rgba(255, 255, 255, 0.72);
   pointer-events: none;
 }
 
@@ -222,9 +215,7 @@ summary::-webkit-details-marker {
 }
 
 .theme-dark .glass-grid {
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+  background: linear-gradient(180deg, var(--bg), var(--bg-strong));
 }
 
 @keyframes fadeIn {

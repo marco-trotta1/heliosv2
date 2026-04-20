@@ -25,7 +25,7 @@ function dashboardRunItem(run) {
 
 function DashboardMetric(label, value, hint) {
   return `
-    <div class="rounded-[26px] border border-[var(--border)] bg-[var(--panel)] px-4 py-4 shadow-[var(--shadow)]">
+    <div class="rounded-[26px] border border-[var(--border)] bg-[var(--panel)] px-5 py-5 shadow-[var(--shadow)]">
       <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--accent)]">${label}</p>
       <p class="mt-3 text-3xl font-semibold tracking-[-0.04em] text-[var(--text)]">${value}</p>
       <p class="mt-2 text-sm leading-6 text-[var(--text-muted)]">${hint}</p>
@@ -90,7 +90,7 @@ function DashboardSection(eyebrow, title, body, content, action = "") {
         <div class="max-w-2xl">
           <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--accent)]">${eyebrow}</p>
           <h3 class="mt-2 text-2xl font-semibold tracking-[-0.04em] text-[var(--text)]">${title}</h3>
-          <p class="mt-3 text-sm leading-7 text-[var(--text-muted)]">${body}</p>
+          ${body ? `<p class="mt-3 text-sm leading-7 text-[var(--text-muted)]">${body}</p>` : ""}
         </div>
         ${action}
       </div>
@@ -107,7 +107,6 @@ function DashboardHeroStatus() {
         <div class="mt-4 flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
           <div class="max-w-3xl">
             <h2 class="text-[38px] font-semibold tracking-[-0.05em] text-[var(--text)]">No recent irrigation recommendation</h2>
-            <p class="mt-3 text-sm leading-7 text-[var(--text-muted)]">Start a run to surface the irrigation call, preferred window, and supporting field context in one calm review flow.</p>
           </div>
           <button
             type="button"
@@ -137,7 +136,6 @@ function DashboardHeroStatus() {
             </span>
           </div>
           <h2 class="mt-4 text-[38px] font-semibold tracking-[-0.05em] text-[var(--text)]">${run.decision === "water" ? `Apply ${(run.recommendedAmountIn ?? 0).toFixed(2)} in ${escapeHtml(formatWindow(run.timingWindow)).toLowerCase()}` : "Hold irrigation for now"}</h2>
-          <p class="mt-3 text-sm leading-7 text-[var(--text-muted)]">${escapeHtml(run.summary)}</p>
         </div>
         <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
           <div class="rounded-[26px] border border-[var(--border)] bg-[var(--panel)] px-4 py-4 shadow-[var(--shadow)]">
@@ -171,7 +169,7 @@ export function DashboardPage() {
         ${DashboardSection(
           "Recent activity",
           "Latest field decisions",
-          "The newest analyses stay easy to review here without crowding the main status surface.",
+          "",
           `<div class="space-y-3">
             ${state.runHistory.slice(0, 3).map((run) => dashboardRunItem(run)).join("") || emptyBlock("No runs yet", "Start with Run Analysis to populate the dashboard feed.")}
           </div>`,
@@ -187,7 +185,7 @@ export function DashboardPage() {
         ${DashboardSection(
           "Quick start",
           "Saved field scenarios",
-          "Open a familiar field pattern without rebuilding the context from scratch.",
+          "",
           `<div class="space-y-3">
             ${Object.entries(PRESETS)
               .map(

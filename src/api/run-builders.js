@@ -37,16 +37,19 @@ export function buildPredictionRequest(inputs) {
       {
         timestamp: new Date(now.getTime() - (12 * 60 * 60 * 1000)).toISOString(),
         field_id: fieldId,
+        sensor_id: fieldId + "-probe-1",
         volumetric_water_content: Number(inputs.lagTwoMoisture),
       },
       {
         timestamp: new Date(now.getTime() - (6 * 60 * 60 * 1000)).toISOString(),
         field_id: fieldId,
+        sensor_id: fieldId + "-probe-1",
         volumetric_water_content: Number(inputs.lagOneMoisture),
       },
       {
         timestamp: now.toISOString(),
         field_id: fieldId,
+        sensor_id: fieldId + "-probe-1",
         volumetric_water_content: Number(inputs.currentMoisture),
       },
     ],

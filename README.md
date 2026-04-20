@@ -4,6 +4,7 @@
 
 Helios is an irrigation decision-support prototype for Idaho row crop operations. It helps growers review water stress risk, likely near-term soil moisture, and an operator-constrained irrigation recommendation. It is not an autonomous controller.
 
+
 The current repo combines:
 
 - a static frontend that can run in demo mode or call a live backend

@@ -1,6 +1,6 @@
 window.HELIOS_CONFIG = {
-  mode: "demo",
-  apiBaseUrl: "",
+  mode: "live",
+  apiBaseUrl: "https://glorious-success-production.up.railway.app",
   disclaimer:
-    "Demo mode uses browser-side prototype logic only. It does not call a live backend or store feedback in the project database.",
+    "Live API mode sends requests to a hosted Helios backend. Recommendations are still prototype decision support and should be reviewed by the operator.",
 };

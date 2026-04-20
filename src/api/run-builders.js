@@ -104,6 +104,7 @@ export function mapApiRun(inputs, response) {
     confidenceScore: Number(response.confidence_score || 0),
     stressProbability: Number(response.explanation?.stress_probability || 0),
     estimatedEtIn,
+    etSource: response.et_source || null,
     predicted: {
       moisture24h: Number(response.predicted_moisture?.moisture_24h || 0),
       moisture48h: Number(response.predicted_moisture?.moisture_48h || 0),
@@ -161,6 +162,7 @@ export function buildLocalRun(inputs) {
     stressProbability: plan.stressProbability,
     bindingConstraint: plan.bindingConstraint,
     estimatedEtIn,
+    etSource: null,
     predicted,
     drivers,
     summary: buildSummary(inputs, predicted, plan),

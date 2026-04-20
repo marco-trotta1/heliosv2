@@ -37,6 +37,11 @@ export function ResultCard(run, inspectorMode = false) {
       <div class="mt-3 flex flex-wrap gap-2">
         <span class="rounded-full bg-[var(--panel-muted)] px-3 py-1 text-xs font-medium text-[var(--text-muted)]">Heuristic confidence ${formatPercent(run.confidenceScore)}</span>
         <span class="rounded-full bg-[var(--panel-muted)] px-3 py-1 text-xs font-medium text-[var(--text-muted)]">Stress ${formatPercent(run.stressProbability)}</span>
+        ${run.etSource === "openet-live" || run.etSource === "openet-cache"
+          ? `<span class="rounded-full bg-[var(--panel-muted)] px-3 py-1 text-xs font-medium text-[var(--text-muted)]">ET: Live OpenET data</span>`
+          : run.etSource === "openet-fallback"
+            ? `<span class="rounded-full bg-[var(--panel-muted)] px-3 py-1 text-xs font-medium text-[var(--text-muted)]">ET: Calibrated Idaho estimate</span>`
+            : ""}
       </div>
       ${inspectorMode ? `<div class="mt-4 h-px bg-[var(--border)]"></div>` : ""}
       <pre class="mt-4 overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] p-4 font-mono text-[12px] leading-6 text-[var(--text-muted)]">${escapeHtml(run.copyText)}</pre>

@@ -67,6 +67,7 @@ export function normalizeRun(run) {
     confidenceScore: Number(run.confidenceScore || 0),
     stressProbability: Number(run.stressProbability || 0),
     estimatedEtIn: Number(run.estimatedEtIn ?? run.estimatedEtMm ?? 0),
+    etSource: run.etSource || null,
     predicted,
     drivers: Array.isArray(run.drivers) ? run.drivers : [],
     summary: run.summary || "",

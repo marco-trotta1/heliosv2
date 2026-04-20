@@ -33,10 +33,23 @@ export async function evaluateScenario() {
       },
       body: JSON.stringify(buildPredictionRequest(inputs)),
     });
-    const result = await readJsonResponse(response);
     if (!response.ok) {
-      throw new Error(result.detail || "Unable to run the recommendation service.");
+      const rawText = await response.text();
+      let detail = "";
+      try {
+        const parsed = JSON.parse(rawText);
+        detail = typeof parsed?.detail === "string" && parsed.detail.length > 0
+          ? parsed.detail
+          : rawText.slice(0, 300);
+      } catch {
+        detail = rawText.slice(0, 300);
+      }
+      state.analysis.source = "error";
+      state.analysis.status = "";
+      state.analysis.error = `Recommendation service did not return a valid result. HTTP ${response.status}: ${detail}`;
+      return;
     }
+    const result = await readJsonResponse(response);
     const run = mapApiRun(inputs, result);
     state.acknowledgement.pendingRun = run;
     state.analysis.source = "api";
@@ -44,11 +57,10 @@ export async function evaluateScenario() {
       ? `Recommendation updated using ${run.regionalInsights.totalSamples} nearby feedback reports.`
       : "Recommendation completed. No nearby feedback reports were available yet.";
   } catch (error) {
-    const run = buildLocalRun(inputs);
-    state.acknowledgement.pendingRun = run;
-    state.analysis.source = "local";
-    state.analysis.error = error instanceof Error ? error.message : "Unable to reach the recommendation service.";
-    state.analysis.status = "Showing the local demo estimate because the live API could not be reached.";
+    state.analysis.source = "error";
+    state.analysis.status = "";
+    const reason = error instanceof Error ? error.message : "Network or client error.";
+    state.analysis.error = `Recommendation service did not return a valid result. ${reason}`;
   } finally {
     state.analysis.submitting = false;
     renderApp();

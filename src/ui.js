@@ -49,11 +49,11 @@ export function renderApp() {
   const showResultsPanel = state.activePage !== "run-analysis";
   app.innerHTML = `
     <div class="min-h-screen bg-[var(--bg)] text-[var(--text)]">
-      <div class="grid min-h-screen ${showResultsPanel ? "grid-cols-[78px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)_420px]" : "grid-cols-[78px_minmax(0,1fr)] xl:grid-cols-[240px_minmax(0,1fr)]"}">
+      <div class="grid min-h-screen ${showResultsPanel ? "grid-cols-[84px_minmax(0,1fr)] xl:grid-cols-[272px_minmax(0,1fr)_420px]" : "grid-cols-[84px_minmax(0,1fr)] xl:grid-cols-[272px_minmax(0,1fr)]"}">
         ${Sidebar()}
         <div class="min-w-0">
           ${TopBar()}
-          <main class="glass-grid min-h-[calc(100vh-65px)] px-4 py-4 sm:px-6 sm:py-6">
+          <main class="glass-grid min-h-[calc(100vh-80px)] px-4 py-4 sm:px-6 sm:py-6">
             ${renderPage()}
           </main>
         </div>

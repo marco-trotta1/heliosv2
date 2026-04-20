@@ -87,7 +87,7 @@ export function normalizeRun(run) {
 
 export const state = {
   activePage: "run-analysis",
-  theme: localStorage.getItem(THEME_KEY) || "dark",
+  theme: localStorage.getItem(THEME_KEY) || "light",
   form: { ...DEFAULT_FORM },
   runHistory: loadStoredArray(RUN_HISTORY_KEY),
   savedRuns: loadStoredArray(SAVED_RUNS_KEY),
@@ -187,6 +187,7 @@ export function setPage(pageId) {
 
 export function applyTheme() {
   document.body.classList.toggle("theme-light", state.theme === "light");
+  document.body.classList.toggle("theme-dark", state.theme === "dark");
 }
 
 export function toggleTheme() {

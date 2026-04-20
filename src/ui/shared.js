@@ -95,15 +95,15 @@ export function copyText(value, trigger) {
 export function PrimaryButton({ id = "", label, iconName = "", variant = "primary", extraClass = "", type = "button", disabled = false }) {
   const palette =
     variant === "primary"
-      ? "bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]"
-      : "border border-[var(--border)] bg-[var(--panel-muted)] text-[var(--text)] hover:border-[var(--accent)] hover:text-[var(--accent)]";
+      ? "border border-[var(--accent)] bg-[var(--accent)] text-white shadow-[var(--shadow)] hover:bg-[var(--accent-hover)] hover:border-[var(--accent-hover)]"
+      : "border border-[var(--border)] bg-[var(--panel)] text-[var(--text)] hover:border-[var(--border-strong)] hover:bg-[var(--panel-hover)]";
   return `
     <button
       ${id ? `id="${id}"` : ""}
       type="${type}"
       ${disabled ? "disabled" : ""}
       class="${classNames(
-        "inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-medium transition-all duration-200",
+        "focus-outline inline-flex items-center justify-center gap-2 rounded-[20px] px-4 py-2.5 text-sm font-semibold transition-all duration-200",
         disabled ? "cursor-not-allowed opacity-60" : "",
         palette,
         extraClass,
@@ -117,7 +117,7 @@ export function PrimaryButton({ id = "", label, iconName = "", variant = "primar
 
 export function toggleControl(name, label, checked) {
   return `
-    <label class="inline-flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2 text-sm text-[var(--text)]">
+    <label class="inline-flex items-center gap-3 rounded-[18px] border border-[var(--border)] bg-[var(--panel)] px-3 py-2 text-sm text-[var(--text)] shadow-[var(--shadow)]">
       <input
         type="checkbox"
         name="${name}"
@@ -129,25 +129,34 @@ export function toggleControl(name, label, checked) {
   `;
 }
 
-export function fieldCard(title, description, content) {
+export function fieldCard(title, description, content, detail = "Tap to collapse") {
   return `
-    <section class="rounded-[24px] border border-[var(--border)] bg-[var(--panel-muted)] p-5">
-      <div class="mb-5">
-        <p class="text-sm font-medium uppercase tracking-[0.18em] text-[var(--text-muted)]">${title}</p>
-        <h3 class="mt-2 text-base font-medium text-[var(--text)]">${description}</h3>
+    <details open class="field-card surface-ring rounded-[26px] border border-[var(--border)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]">
+      <summary class="field-card-summary focus-outline flex cursor-pointer list-none items-start justify-between gap-4 rounded-[20px]">
+        <div>
+          <p class="text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--accent)]">${title}</p>
+          <h3 class="mt-2 text-lg font-semibold tracking-[-0.02em] text-[var(--text)]">${description}</h3>
+        </div>
+        <div class="field-card-meta inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] transition-colors duration-200">
+          <span>${detail}</span>
+          <span class="field-card-chevron transition-transform duration-200">${icon("chevronDown", "h-4 w-4")}</span>
+        </div>
+      </summary>
+      <div class="pt-5">
+        ${content}
       </div>
-      ${content}
-    </section>
+    </details>
   `;
 }
 
-export function inputGroup(label, control, meta = "") {
+export function inputGroup(label, control, meta = "", helper = "") {
   return `
     <label class="block">
-      <span class="mb-2 flex items-center gap-2 text-sm font-medium text-[var(--text-muted)]">
+      <span class="mb-2 flex items-center gap-2 text-sm font-semibold text-[var(--text)]">
         <span>${label}</span>
         ${meta}
       </span>
+      ${helper ? `<p class="mb-2 text-xs leading-5 text-[var(--text-muted)]">${helper}</p>` : ""}
       ${control}
     </label>
   `;
@@ -162,7 +171,7 @@ export function numericInput(name, value, min, step = "0.1", max = "") {
       min="${min}"
       ${max !== "" ? `max="${max}"` : ""}
       step="${step}"
-      class="w-full rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2.5 text-sm text-[var(--text)] outline-none transition-all duration-200 focus:border-[var(--accent)]"
+      class="focus-outline w-full rounded-[18px] border border-[var(--border)] bg-[var(--panel-muted)] px-3.5 py-3 text-sm text-[var(--text)] outline-none transition-all duration-200 placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:bg-[var(--panel)]"
     />
   `;
 }
@@ -171,7 +180,7 @@ export function autoWeatherTag(name) {
   if (!state.weatherAutofill.autoFields[name]) {
     return "";
   }
-  return `<span class="rounded-full border border-[var(--border)] bg-[var(--panel)] px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.12em] text-[var(--text-muted)]">(auto)</span>`;
+  return `<span class="rounded-full border border-[var(--accent-cool-soft)] bg-[var(--accent-cool-soft)] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--accent-cool)]">Auto</span>`;
 }
 
 export function textInput(name, value) {
@@ -180,7 +189,7 @@ export function textInput(name, value) {
       name="${name}"
       type="text"
       value="${escapeHtml(value)}"
-      class="w-full rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2.5 text-sm text-[var(--text)] outline-none transition-all duration-200 focus:border-[var(--accent)]"
+      class="focus-outline w-full rounded-[18px] border border-[var(--border)] bg-[var(--panel-muted)] px-3.5 py-3 text-sm text-[var(--text)] outline-none transition-all duration-200 focus:border-[var(--accent)] focus:bg-[var(--panel)]"
     />
   `;
 }
@@ -189,7 +198,7 @@ export function selectInput(name, value, options) {
   return `
     <select
       name="${name}"
-      class="w-full rounded-2xl border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2.5 text-sm text-[var(--text)] outline-none transition-all duration-200 focus:border-[var(--accent)]"
+      class="focus-outline w-full rounded-[18px] border border-[var(--border)] bg-[var(--panel-muted)] px-3.5 py-3 text-sm text-[var(--text)] outline-none transition-all duration-200 focus:border-[var(--accent)] focus:bg-[var(--panel)]"
     >
       ${options
         .map((option) => `<option value="${option.value}" ${value === option.value ? "selected" : ""}>${option.label}</option>`)
@@ -200,13 +209,13 @@ export function selectInput(name, value, options) {
 
 export function checkboxGroup(title, name, options, selected) {
   return `
-    <fieldset class="rounded-3xl border border-[var(--border)] bg-[var(--panel-muted)] p-4">
-      <legend class="px-1 text-sm font-medium text-[var(--text-muted)]">${title}</legend>
-      <div class="mt-3 grid gap-3">
+    <fieldset class="rounded-[24px] border border-[var(--border)] bg-[var(--panel-muted)] p-4">
+      <legend class="px-1 text-sm font-semibold text-[var(--text)]">${title}</legend>
+      <div class="mt-3 grid gap-3 sm:grid-cols-2">
         ${options
           .map(
             (option) => `
-              <label class="inline-flex items-center gap-3 text-sm text-[var(--text)]">
+              <label class="inline-flex items-center gap-3 rounded-[18px] border border-[var(--border)] bg-[var(--panel)] px-3 py-2.5 text-sm text-[var(--text)] shadow-[var(--shadow)]">
                 <input
                   type="checkbox"
                   name="${name}"
@@ -226,8 +235,8 @@ export function checkboxGroup(title, name, options, selected) {
 
 export function emptyBlock(title, body) {
   return `
-    <div class="rounded-3xl border border-dashed border-[var(--border)] bg-[var(--panel-muted)] px-5 py-10 text-center">
-      <p class="text-sm font-medium text-[var(--text)]">${title}</p>
+    <div class="rounded-[28px] border border-dashed border-[var(--border)] bg-[var(--panel-muted)] px-5 py-10 text-center">
+      <p class="text-sm font-semibold text-[var(--text)]">${title}</p>
       <p class="mt-2 text-sm text-[var(--text-muted)]">${body}</p>
     </div>
   `;
@@ -235,9 +244,9 @@ export function emptyBlock(title, body) {
 
 export function emptyInspectorState() {
   return `
-    <div class="rounded-[28px] border border-dashed border-[var(--border)] bg-[var(--panel)] px-6 py-12 text-center">
-      <p class="text-sm font-medium text-[var(--text)]">No analysis yet. Run a prompt to generate results.</p>
-      <p class="mt-2 text-sm text-[var(--text-muted)]">Results will appear here as reusable cards with copy actions and timestamps.</p>
+    <div class="rounded-[28px] border border-dashed border-[var(--border)] bg-[var(--panel)] px-6 py-12 text-center shadow-[var(--shadow)]">
+      <p class="text-sm font-semibold text-[var(--text)]">No analysis yet. Run a prompt to generate results.</p>
+      <p class="mt-2 text-sm text-[var(--text-muted)]">Recent field decisions will appear here for review, copying, and reuse.</p>
     </div>
   `;
 }

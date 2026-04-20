@@ -119,6 +119,12 @@ export const state = {
   acknowledgement: {
     pendingRun: null,
   },
+  backend: {
+    status: isLiveApiMode() ? "checking" : "demo",
+    modelHash: null,
+    trainingDate: null,
+    apiVersion: null,
+  },
 };
 
 if (state.runHistory.length > 0) {

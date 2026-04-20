@@ -1,5 +1,5 @@
 import { PRESETS } from "../constants.js";
-import { state } from "../state.js";
+import { isLiveApiMode, state } from "../state.js";
 import {
   PrimaryButton,
   autoWeatherTag,
@@ -142,12 +142,18 @@ export function DataSection() {
 }
 
 export function PromptInput() {
-  const modeLabel =
-    state.analysis.source === "api"
-      ? "Live API mode"
-      : state.analysis.source === "local"
-        ? "Fallback mode"
-        : "Demo mode";
+  let modeLabel;
+  if (!isLiveApiMode()) {
+    modeLabel = "Demo mode";
+  } else if (state.backend.status === "checking") {
+    modeLabel = "Warming up backend…";
+  } else if (state.backend.status === "unavailable") {
+    modeLabel = "Backend unavailable";
+  } else {
+    const hash = state.backend.modelHash ? state.backend.modelHash.slice(0, 7) : "unknown";
+    const trained = state.backend.trainingDate ? state.backend.trainingDate.slice(0, 10) : "unknown date";
+    modeLabel = `Live • model ${hash} • trained ${trained}`;
+  }
   return `
     <section class="rounded-[28px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">

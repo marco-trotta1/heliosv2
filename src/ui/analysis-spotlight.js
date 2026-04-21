@@ -93,14 +93,14 @@ function AcknowledgementGate(run) {
     : "—";
 
   return `
-    <section class="fade-in validation-banner flex-col items-stretch gap-4">
-      <div class="flex items-center justify-between gap-3">
-        <div>
-          <p class="eyebrow" style="color: var(--accent-warm);">REVIEW REQUIRED</p>
-          <p class="mt-1.5 text-base font-semibold text-[var(--ink)]">Confirm the recommendation before you proceed.</p>
+    <section class="fade-in validation-banner flex flex-col items-stretch gap-5 p-5 sm:p-6">
+      <div class="flex items-center justify-between gap-4">
+        <div class="space-y-2">
+          <p class="text-[22px] font-black leading-none tracking-[-0.02em] text-[var(--accent-warm)] sm:text-[26px]">Review Required</p>
+          <p class="text-base font-semibold leading-6 text-[var(--ink)]">Confirm the recommendation before you proceed.</p>
         </div>
       </div>
-      <div class="grid gap-0 rounded-[10px] border border-[var(--hairline)] bg-[var(--panel)] px-4 py-2">
+      <div class="grid gap-0 rounded-[10px] border border-[var(--hairline)] bg-[var(--panel)] px-4 py-3">
         ${contextRow("FIELD", fieldId)}
         ${contextRow("CROP", cropType.toUpperCase())}
         ${contextRow("DECISION", decision)}

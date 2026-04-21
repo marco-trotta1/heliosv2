@@ -65,6 +65,7 @@ def test_recommendation_service_applies_feedback_adjustment(
     response = service.predict_recommendation(request)
 
     assert response.decision == "water"
+    assert response.et_source == "openet-fallback"
     assert response.recommendation_adjustment is not None
     assert response.recommendation_adjustment.adjustment_factor == 1.08
     assert response.regional_insights is not None

@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 OPENET_ENDPOINT = "https://openet-api.org/raster/timeseries/point"
 INCHES_PER_MM = 0.039370
+OPENET_TIMEOUT_SECONDS = 6.0
 DEFAULT_OPENET_MONTHLY_ET_IN = {
     4: 0.1024,
     5: 0.0991,
@@ -67,7 +68,11 @@ def fetch_monthly_et(
     }
     headers = {"Authorization": api_key}
 
-    response = requests.post(OPENET_ENDPOINT, json=payload, headers=headers)
+    try:
+        response = requests.post(OPENET_ENDPOINT, json=payload, headers=headers, timeout=OPENET_TIMEOUT_SECONDS)
+    except requests.RequestException as exc:
+        raise RuntimeError(f"OpenET API request failed: {exc}") from exc
+
     if response.status_code != 200:
         logger.error(
             "OpenET request failed: status=%s body=%s",

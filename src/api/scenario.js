@@ -1,7 +1,9 @@
 import { state, runtimeConfig, isLiveApiMode } from "../state.js";
 import { renderApp } from "../ui.js";
-import { apiUrl, readJsonResponse } from "./http.js";
+import { apiUrl, fetchWithTimeout, readJsonResponse } from "./http.js";
 import { buildPredictionRequest, mapApiRun, buildLocalRun } from "./run-builders.js";
+
+const LIVE_ANALYSIS_TIMEOUT_MS = 20000;
 
 export async function evaluateScenario() {
   const inputs = { ...state.form };
@@ -29,13 +31,13 @@ export async function evaluateScenario() {
   }
 
   try {
-    const response = await fetch(apiUrl("/predict"), {
+    const response = await fetchWithTimeout(apiUrl("/predict"), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(buildPredictionRequest(inputs)),
-    });
+    }, LIVE_ANALYSIS_TIMEOUT_MS);
     if (!response.ok) {
       const rawText = await response.text();
       let detail = "";
@@ -65,7 +67,7 @@ export async function evaluateScenario() {
     state.analysis.source = "error";
     state.analysis.status = "";
     const reason = error instanceof Error ? error.message : "Network or client error.";
-    state.analysis.error = `Recommendation service did not return a valid result. ${reason}`;
+    state.analysis.error = `Live model-backed analysis did not finish. ${reason} Check backend health, then retry so the recommendation is based on the trained model and current evidence.`;
   } finally {
     state.analysis.submitting = false;
     renderApp();

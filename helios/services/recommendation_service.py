@@ -151,6 +151,7 @@ class RecommendationService:
             recommended_amount_in=adjustment_data["adjusted_recommendation_in"],
             timing_window=plan["timing_window"],
             confidence_score=plan["confidence_score"],
+            et_source=openet_source,
             explanation=RecommendationExplanation(
                 predicted_moisture_48h=predicted["moisture_48h"],
                 stress_probability=stress_probability,

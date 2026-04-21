@@ -55,6 +55,21 @@ export function normalizeRun(run) {
     moisture48h: 0,
     moisture72h: 0,
   };
+  const backendSnapshot = run.backendSnapshot && typeof run.backendSnapshot === "object"
+    ? {
+        modelHash: typeof run.backendSnapshot.modelHash === "string" ? run.backendSnapshot.modelHash : null,
+        trainingDate: typeof run.backendSnapshot.trainingDate === "string" ? run.backendSnapshot.trainingDate : null,
+        apiVersion: typeof run.backendSnapshot.apiVersion === "string" ? run.backendSnapshot.apiVersion : null,
+        validationMode: typeof run.backendSnapshot.validationMode === "boolean" ? run.backendSnapshot.validationMode : null,
+      }
+    : null;
+  const zoneMoistureSummary = run.zoneMoistureSummary && typeof run.zoneMoistureSummary === "object"
+    ? Object.fromEntries(
+        Object.entries(run.zoneMoistureSummary)
+          .filter(([sensorId]) => typeof sensorId === "string" && sensorId.length > 0)
+          .map(([sensorId, value]) => [sensorId, Number(value)]),
+      )
+    : null;
   const hadMissingId = !run.id;
   const normalized = {
     id: run.id || `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
@@ -74,6 +89,10 @@ export function normalizeRun(run) {
     inputSnapshot,
     regionalInsights: run.regionalInsights || null,
     recommendationAdjustment: run.recommendationAdjustment || null,
+    backendSnapshot,
+    drivingZone: typeof run.drivingZone === "string" ? run.drivingZone : "",
+    zoneMoistureSummary,
+    highVariabilityFlag: run.highVariabilityFlag === true,
     sourceLabel: run.sourceLabel || "",
   };
   normalized.copyText = run.copyText || serializeRunForCopy(normalized);
@@ -124,6 +143,7 @@ export const state = {
     modelHash: null,
     trainingDate: null,
     apiVersion: null,
+    validationMode: null,
   },
 };
 

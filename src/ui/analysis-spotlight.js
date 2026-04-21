@@ -12,6 +12,9 @@ import {
 } from "./shared.js";
 
 function feedbackSummary(run) {
+  if (run?.backendSnapshot?.validationMode) {
+    return "Validation mode disabled nearby feedback adjustments for this run so the recommendation can be scored cleanly against researcher observations.";
+  }
   if (!run?.regionalInsights) {
     return isLiveApiMode()
       ? "No nearby farmer feedback yet."
@@ -24,6 +27,24 @@ function feedbackSummary(run) {
       : `Average yield change: ${Number(run.regionalInsights.avgYieldDelta).toFixed(1)}%.`;
 
   return `${Math.round(run.regionalInsights.successRate * 100)}% success across ${run.regionalInsights.totalSamples} nearby farms within ${Math.round(run.regionalInsights.radiusMiles || 31.07)} miles. ${yieldText}`;
+}
+
+function zoneSpread(run) {
+  const values = Object.values(run.zoneMoistureSummary || {}).map(Number).filter((value) => Number.isFinite(value));
+  if (values.length < 2) {
+    return null;
+  }
+  return Math.max(...values) - Math.min(...values);
+}
+
+function zoneSummary(run) {
+  const entries = Object.entries(run.zoneMoistureSummary || {});
+  if (entries.length === 0) {
+    return "Only one probe summary was available for this run.";
+  }
+  return entries
+    .map(([sensorId, moisture]) => `${sensorId}: ${(Number(moisture) * 100).toFixed(1)}%`)
+    .join(" • ");
 }
 
 function summarySentence(run) {
@@ -150,11 +171,19 @@ export function RecommendationSpotlight() {
         <div class="space-y-5">
           ${statTile("Latest run", formatTimestamp(run.timestamp))}
           <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-            ${statTile("Confidence", formatPercent(run.confidenceScore))}
+            ${statTile("Heuristic confidence", formatPercent(run.confidenceScore), "Prototype score only. Not a calibrated uncertainty estimate.")}
             ${statTile("Stress risk", formatPercent(run.stressProbability))}
+            ${statTile("Driving zone", escapeHtml(run.drivingZone || "Unavailable"), escapeHtml(zoneSummary(run)))}
+            ${statTile(
+              "Zone spread",
+              zoneSpread(run) == null ? "Single probe" : `${(zoneSpread(run) * 100).toFixed(1)} pts`,
+              run.highVariabilityFlag
+                ? "High spatial variability detected across the latest probe readings."
+                : "No high-variability flag was raised for this run.",
+            )}
           </div>
           <div class="rounded-[28px] border border-[var(--border)] bg-[var(--panel)] px-6 py-6 shadow-[var(--shadow)]">
-            <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--text-muted)]">Farmer feedback</p>
+            <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--text-muted)]">${run.backendSnapshot?.validationMode ? "Validation context" : "Nearby feedback"}</p>
             <p class="mt-3 text-sm leading-7 text-[var(--text-muted)]">${escapeHtml(feedbackSummary(run))}</p>
             <div class="mt-5 border-t border-[var(--border)] pt-5">
               <button

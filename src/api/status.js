@@ -31,6 +31,11 @@ export async function refreshBackendStatus() {
       state.backend.modelHash = typeof ver.model_artifact_hash === "string" ? ver.model_artifact_hash : null;
       state.backend.trainingDate = typeof ver.training_date === "string" ? ver.training_date : null;
       state.backend.apiVersion = typeof ver.api_version === "string" ? ver.api_version : null;
+      state.backend.validationMode = ver.validation_mode === "enabled"
+        ? true
+        : ver.validation_mode === "disabled"
+          ? false
+          : null;
     }
   } catch {
     // version fetch is non-blocking; the ready pill still shows without hash/date

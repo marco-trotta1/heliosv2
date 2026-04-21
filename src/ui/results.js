@@ -52,7 +52,10 @@ export function ResultCard(run, inspectorMode = false) {
           </div>
         </div>
         <div class="flex flex-wrap content-start gap-2 lg:max-w-[180px] lg:justify-end">
-          <span class="rounded-full bg-[var(--panel-muted)] px-3 py-1 text-xs font-semibold text-[var(--text-muted)]">Confidence ${formatPercent(run.confidenceScore)}</span>
+          ${run.backendSnapshot?.validationMode
+            ? `<span class="rounded-full bg-[var(--accent-warm-soft)] px-3 py-1 text-xs font-semibold text-[var(--accent-warm)]">Validation build</span>`
+            : ""}
+          <span class="rounded-full bg-[var(--panel-muted)] px-3 py-1 text-xs font-semibold text-[var(--text-muted)]">Heuristic confidence ${formatPercent(run.confidenceScore)}</span>
           <span class="rounded-full bg-[var(--panel-muted)] px-3 py-1 text-xs font-semibold text-[var(--text-muted)]">Stress ${formatPercent(run.stressProbability)}</span>
           ${run.etSource === "openet-live" || run.etSource === "openet-cache"
             ? `<span class="rounded-full bg-[var(--panel-muted)] px-3 py-1 text-xs font-semibold text-[var(--text-muted)]">ET live</span>`

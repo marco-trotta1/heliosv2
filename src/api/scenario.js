@@ -5,13 +5,16 @@ import { buildPredictionRequest, mapApiRun, buildLocalRun } from "./run-builders
 
 export async function evaluateScenario() {
   const inputs = { ...state.form };
+  const validationMode = state.backend.validationMode === true;
   if (state.analysis.submitting) {
     return;
   }
   state.analysis.submitting = true;
   state.analysis.error = "";
   state.analysis.status = isLiveApiMode()
-    ? "Running recommendation with nearby feedback..."
+    ? validationMode
+      ? "Running validation recommendation. Nearby feedback adjustments are disabled."
+      : "Running recommendation with nearby feedback..."
     : "Running local demo estimate. No live backend call will be made.";
   renderApp();
 
@@ -53,9 +56,11 @@ export async function evaluateScenario() {
     const run = mapApiRun(inputs, result);
     state.acknowledgement.pendingRun = run;
     state.analysis.source = "api";
-    state.analysis.status = run.regionalInsights?.totalSamples
-      ? `Recommendation updated using ${run.regionalInsights.totalSamples} nearby feedback reports.`
-      : "Recommendation completed. No nearby feedback reports were available yet.";
+    state.analysis.status = validationMode
+      ? "Validation recommendation completed. Nearby feedback adjustments remained disabled for clean scoring."
+      : run.regionalInsights?.totalSamples
+        ? `Recommendation updated using ${run.regionalInsights.totalSamples} nearby feedback reports.`
+        : "Recommendation completed. No nearby feedback reports were available yet.";
   } catch (error) {
     state.analysis.source = "error";
     state.analysis.status = "";

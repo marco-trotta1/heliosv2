@@ -156,7 +156,18 @@ function modeLabel() {
   }
   const hash = state.backend.modelHash ? state.backend.modelHash.slice(0, 7) : "unknown";
   const trained = state.backend.trainingDate ? state.backend.trainingDate.slice(0, 10) : "unknown date";
-  return `Live model ${hash} • trained ${trained}`;
+  const apiVersion = state.backend.apiVersion ? ` • API ${state.backend.apiVersion}` : "";
+  if (state.backend.validationMode === true) {
+    return `Validation build ${hash} • trained ${trained}${apiVersion}`;
+  }
+  return `Live model ${hash} • trained ${trained}${apiVersion}`;
+}
+
+function validationStatusMessage() {
+  if (!isLiveApiMode() || state.backend.validationMode !== true) {
+    return "";
+  }
+  return "Validation mode is enabled. Nearby feedback adjustments are disabled so tomorrow's field scoring stays clean.";
 }
 
 export function PromptInput() {
@@ -206,6 +217,9 @@ export function PromptInput() {
             <div class="mt-5 rounded-[22px] border border-[var(--border)] bg-[var(--panel)] px-4 py-3 text-sm font-semibold text-[var(--text)]">
               ${modeLabel()}
             </div>
+            ${validationStatusMessage()
+              ? `<p class="mt-3 rounded-[18px] border border-[var(--accent-warm-soft)] bg-[var(--accent-warm-soft)] px-4 py-3 text-sm leading-6 text-[var(--accent-warm)]">${validationStatusMessage()}</p>`
+              : ""}
             <div class="mt-6">
               ${PrimaryButton({
                 id: "run-analysis-button",

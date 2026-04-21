@@ -38,7 +38,7 @@ function DashboardMetrics(totalRuns, savedRuns) {
   const metrics = latestRun
     ? [
         {
-          label: "Confidence",
+          label: "Heuristic confidence",
           value: formatPercent(latestRun.confidenceScore),
           hint: "Secondary signal for the current recommendation.",
         },

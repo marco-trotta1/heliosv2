@@ -42,6 +42,7 @@ class PredictionResponse(BaseModel):
     recommended_amount_in: float = Field(ge=0)
     timing_window: str
     confidence_score: float = Field(ge=0, le=1)
+    et_source: str | None = None
     explanation: RecommendationExplanation
     predicted_moisture: MoistureForecast
     regional_insights: RegionalInsights | None = None

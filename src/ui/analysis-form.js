@@ -15,6 +15,8 @@ import {
 
 const PROMPT_TEXTAREA_CLASSES = [
   "focus-outline",
+  "mt-8",
+  "sm:mt-10",
   "min-h-[230px]",
   "w-full",
   "rounded-[28px]",

@@ -180,7 +180,7 @@ export function RecommendationHero(run, { showRunButton = true } = {}) {
           </div>
         </div>
 
-        <div class="rounded-[12px] border border-[var(--border)] bg-[var(--panel-muted)] p-5">
+        <div class="self-center rounded-[12px] border border-[var(--border)] bg-[var(--panel-muted)] p-5">
           <div class="flex items-center gap-2">
             <span class="eyebrow">CONFIDENCE</span>
             <div class="h-px flex-1 bg-[var(--hairline)] opacity-40"></div>

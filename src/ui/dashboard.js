@@ -1,5 +1,5 @@
 import { PRESETS } from "../constants.js";
-import { formatPercent, formatTimestamp, formatWindow } from "../domain.js";
+import { formatPercent, formatTimestamp, formatWindow, recommendationTone } from "../domain.js";
 import { state } from "../state.js";
 import {
   confidenceBar,
@@ -73,7 +73,7 @@ function DashboardMetrics() {
   return `
     <section>
       <div class="grid gap-3 md:grid-cols-3">
-        <div class="rounded-[12px] border border-[var(--border)] bg-[var(--panel)] p-5 rail-warm shadow-[var(--shadow)]">
+        <div class="metric-card rounded-[12px] border border-[var(--metric-border)] p-5 rail-warm">
           <div class="flex items-center justify-between">
             <p class="eyebrow">SOIL MOISTURE</p>
             ${soilSourceHtml}
@@ -84,7 +84,7 @@ function DashboardMetrics() {
           </div>
           ${soilDeltaHtml}
         </div>
-        <div class="rounded-[12px] border border-[var(--border)] bg-[var(--panel)] p-5 rail-forest shadow-[var(--shadow)]">
+        <div class="metric-card rounded-[12px] border border-[var(--metric-border)] p-5 rail-forest">
           <div class="flex items-center justify-between">
             <p class="eyebrow">ET · LATEST</p>
             ${latestRun ? etSourceTag(latestRun.etSource) : `<span class="num text-[9px] font-bold tracking-[0.12em] text-[var(--text-muted)]">—</span>`}
@@ -95,7 +95,7 @@ function DashboardMetrics() {
           </div>
           ${etFooter}
         </div>
-        <div class="rounded-[12px] border border-[var(--border)] bg-[var(--panel)] p-5 rail-sky shadow-[var(--shadow)]">
+        <div class="metric-card rounded-[12px] border border-[var(--metric-border)] p-5 rail-sky">
           <div class="flex items-center justify-between">
             <p class="eyebrow">NEXT RAIN</p>
             <span class="num text-[9px] font-bold tracking-[0.12em] text-[var(--text-muted)]">FORECAST</span>
@@ -156,9 +156,10 @@ export function RecommendationHero(run, { showRunButton = true } = {}) {
   const growthStage = run.inputSnapshot?.growthStage ? escapeHtml(String(run.inputSnapshot.growthStage).replace(/_/g, " ").toUpperCase()) : "";
   const tempF = typeof run.inputSnapshot?.temperatureF === "number" ? Math.round(run.inputSnapshot.temperatureF) : null;
   const isHot = typeof tempF === "number" && tempF >= 90;
+  const tone = recommendationTone(run);
 
   return `
-    <section class="hero-glow p-7 sm:p-8">
+    <section class="hero-glow ${tone.spotlight} p-7 sm:p-8">
       <div class="grid gap-8 xl:grid-cols-[minmax(0,1.1fr)_minmax(300px,0.9fr)] xl:items-start">
         <div>
           <div class="flex items-center gap-3">
@@ -180,7 +181,7 @@ export function RecommendationHero(run, { showRunButton = true } = {}) {
           </div>
         </div>
 
-        <div class="self-center rounded-[12px] border border-[var(--border)] bg-[var(--panel-muted)] p-5">
+        <div class="metric-card self-center rounded-[12px] border border-[var(--metric-border)] p-5 rail-forest">
           <div class="flex items-center gap-2">
             <span class="eyebrow">CONFIDENCE</span>
             <div class="h-px flex-1 bg-[var(--hairline)] opacity-40"></div>

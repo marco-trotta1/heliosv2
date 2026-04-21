@@ -30,6 +30,12 @@
   --rail-warm: #c47a2c;
   --rail-forest: #1a3a2a;
   --rail-sky: #426b79;
+  --metric-neutral-bg: linear-gradient(135deg, #efe3c8 0%, #e7efdf 100%);
+  --metric-warm-bg: linear-gradient(135deg, #f0ddbd 0%, #f7edda 100%);
+  --metric-forest-bg: linear-gradient(135deg, #dce9d6 0%, #eef5e9 100%);
+  --metric-sky-bg: linear-gradient(135deg, #dceaea 0%, #eef5ef 100%);
+  --metric-border: rgba(24, 38, 29, 0.2);
+  --metric-shadow: 0 18px 36px -24px rgba(24, 38, 29, 0.42);
   --success: #2e6e52;
   --warning: #9f6637;
   --danger: #b3564a;
@@ -70,6 +76,12 @@ body.theme-light {
   --rail-warm: #c47a2c;
   --rail-forest: #1a3a2a;
   --rail-sky: #426b79;
+  --metric-neutral-bg: linear-gradient(135deg, #efe3c8 0%, #e7efdf 100%);
+  --metric-warm-bg: linear-gradient(135deg, #f0ddbd 0%, #f7edda 100%);
+  --metric-forest-bg: linear-gradient(135deg, #dce9d6 0%, #eef5e9 100%);
+  --metric-sky-bg: linear-gradient(135deg, #dceaea 0%, #eef5ef 100%);
+  --metric-border: rgba(24, 38, 29, 0.2);
+  --metric-shadow: 0 18px 36px -24px rgba(24, 38, 29, 0.42);
   --success: #2e6e52;
   --warning: #9f6637;
   --danger: #b3564a;
@@ -110,6 +122,12 @@ body.theme-dark {
   --rail-warm: #d89b61;
   --rail-forest: #81b18d;
   --rail-sky: #6fa4bf;
+  --metric-neutral-bg: linear-gradient(135deg, rgba(129, 177, 141, 0.18), rgba(216, 155, 97, 0.12)), #18261e;
+  --metric-warm-bg: linear-gradient(135deg, rgba(216, 155, 97, 0.22), rgba(129, 177, 141, 0.08)), #1a241d;
+  --metric-forest-bg: linear-gradient(135deg, rgba(129, 177, 141, 0.2), rgba(111, 164, 191, 0.1)), #17261d;
+  --metric-sky-bg: linear-gradient(135deg, rgba(111, 164, 191, 0.2), rgba(129, 177, 141, 0.1)), #17242a;
+  --metric-border: rgba(222, 231, 223, 0.16);
+  --metric-shadow: 0 22px 54px -28px rgba(0, 0, 0, 0.72);
   --success: #80c19a;
   --warning: #d89b61;
   --danger: #e07b72;
@@ -147,7 +165,7 @@ body {
 .hero-glow {
   position: relative;
   overflow: hidden;
-  background: var(--panel);
+  background: var(--metric-neutral-bg);
   border: 1px solid var(--border);
   border-top: 4px solid var(--ink);
   border-radius: 14px;
@@ -244,6 +262,54 @@ body {
 .rail-warm { border-top: 3px solid var(--rail-warm); }
 .rail-forest { border-top: 3px solid var(--rail-forest); }
 .rail-sky { border-top: 3px solid var(--rail-sky); }
+
+.metric-card {
+  position: relative;
+  overflow: hidden;
+  background: var(--metric-neutral-bg);
+  border-color: var(--metric-border);
+  box-shadow: var(--metric-shadow);
+}
+
+.metric-card.rail-warm {
+  background: var(--metric-warm-bg);
+  border-top-color: var(--rail-warm);
+}
+
+.metric-card.rail-warm:hover {
+  border-top-color: var(--rail-warm);
+}
+
+.metric-card.rail-forest {
+  background: var(--metric-forest-bg);
+  border-top-color: var(--rail-forest);
+}
+
+.metric-card.rail-forest:hover {
+  border-top-color: var(--rail-forest);
+}
+
+.metric-card.rail-sky {
+  background: var(--metric-sky-bg);
+  border-top-color: var(--rail-sky);
+}
+
+.metric-card.rail-sky:hover {
+  border-top-color: var(--rail-sky);
+}
+
+.metric-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.48);
+  pointer-events: none;
+}
+
+.theme-dark .metric-card::after {
+  border-color: rgba(255, 255, 255, 0.08);
+}
 
 .dashed-rule {
   flex: 1;
@@ -374,16 +440,12 @@ summary::-webkit-details-marker {
 
 .spotlight-water {
   border-color: rgba(181, 108, 47, 0.24);
-  background:
-    linear-gradient(135deg, rgba(181, 108, 47, 0.1), rgba(41, 90, 67, 0.08)),
-    var(--panel);
+  background: var(--metric-warm-bg);
 }
 
 .spotlight-wait {
   border-color: rgba(41, 90, 67, 0.22);
-  background:
-    linear-gradient(135deg, rgba(110, 146, 120, 0.12), rgba(63, 116, 136, 0.06)),
-    var(--panel);
+  background: var(--metric-forest-bg);
 }
 
 .accent-divider {

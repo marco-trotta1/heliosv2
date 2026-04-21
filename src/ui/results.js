@@ -24,6 +24,7 @@ function runMetaLine(run) {
 export function ResultCard(run) {
   const isValidation = run.backendSnapshot?.validationMode === true;
   const fieldName = escapeHtml(run.inputSnapshot?.fieldName || "UNTITLED FIELD").toUpperCase();
+  const toneClass = run.decision === "water" ? "rail-warm" : "rail-forest";
   const etTag = run.etSource === "openet-live" || run.etSource === "openet-cache"
     ? `<span class="num text-[9px] font-extrabold tracking-[0.14em] rounded px-1.5 py-0.5 bg-[rgba(56,189,248,0.12)] text-[#0284c7]">OpenET LIVE</span>`
     : run.etSource === "openet-fallback"
@@ -31,7 +32,7 @@ export function ResultCard(run) {
       : "";
 
   return `
-    <article class="fade-in rounded-[10px] border border-[var(--border)] bg-[var(--panel)] shadow-[var(--shadow)] transition-all duration-200 hover:border-[var(--border-strong)]">
+    <article class="metric-card fade-in rounded-[10px] border border-[var(--metric-border)] ${toneClass} transition-all duration-200 hover:border-[var(--border-strong)]">
       <div class="flex flex-wrap items-center gap-3 px-4 py-3">
         ${decisionPill(run.decision)}
         <div class="min-w-0 flex-1">

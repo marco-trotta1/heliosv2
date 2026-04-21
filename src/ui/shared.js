@@ -287,7 +287,7 @@ export function confidenceBar(value) {
 
 export function metricCard({ label, value, unit = "", source = "", railClass = "" }) {
   return `
-    <div class="rounded-[12px] border border-[var(--border)] bg-[var(--panel)] p-5 ${railClass}">
+    <div class="metric-card rounded-[12px] border border-[var(--metric-border)] p-5 ${railClass}">
       <div class="flex items-center justify-between">
         <p class="eyebrow">${label}</p>
         ${source ? `<div>${source}</div>` : ""}

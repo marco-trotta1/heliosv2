@@ -100,7 +100,7 @@ function AcknowledgementGate(run) {
           <p class="text-base font-semibold leading-6 text-[var(--ink)]">Confirm the recommendation before you proceed.</p>
         </div>
       </div>
-      <div class="grid gap-0 rounded-[10px] border border-[var(--hairline)] bg-[var(--panel)] px-4 py-3">
+      <div class="metric-card grid gap-0 rounded-[10px] border border-[var(--metric-border)] px-4 py-3 rail-warm">
         ${contextRow("FIELD", fieldId)}
         ${contextRow("CROP", cropType.toUpperCase())}
         ${contextRow("DECISION", decision)}
@@ -133,7 +133,7 @@ function ContextPanel(run) {
     : "";
 
   return `
-    <section class="rounded-[12px] border border-[var(--border)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]">
+    <section class="metric-card rounded-[12px] border border-[var(--metric-border)] p-5 rail-sky">
       <div class="flex items-center justify-between">
         <p class="eyebrow">FIELD CONTEXT</p>
         <span class="num text-[10px] font-bold tracking-[0.12em] text-[var(--text-muted)]">LATEST RUN</span>
@@ -154,7 +154,7 @@ function FeedbackPanel(run) {
   const heading = isValidation ? "VALIDATION CONTEXT" : "NEARBY FEEDBACK";
 
   return `
-    <section class="rounded-[12px] border border-[var(--border)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]">
+    <section class="metric-card rounded-[12px] border border-[var(--metric-border)] p-5 rail-forest">
       <p class="eyebrow">${heading}</p>
       <p class="mt-3 text-[13px] leading-6 text-[var(--text-muted)]">${escapeHtml(feedbackSummary(run))}</p>
       ${isValidation ? "" : `

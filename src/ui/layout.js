@@ -1,6 +1,14 @@
 import { NAV_ITEMS, PAGE_TITLES, BRAND_LOGOS } from "../constants.js";
 import { state } from "../state.js";
-import { classNames, icon } from "./shared.js";
+import { classNames, icon, livePill } from "./shared.js";
+
+function todayLabel() {
+  const date = new Date();
+  const weekday = date.toLocaleDateString([], { weekday: "short" }).toUpperCase();
+  const month = date.toLocaleDateString([], { month: "short" }).toUpperCase();
+  const day = date.toLocaleDateString([], { day: "numeric" });
+  return `${weekday} · ${month} ${day}`;
+}
 
 function BrandLogo() {
   const logoSrc = state.theme === "light" ? BRAND_LOGOS.light : BRAND_LOGOS.dark;
@@ -78,17 +86,24 @@ export function Sidebar() {
 }
 
 export function TopBar() {
+  const pill = livePill({
+    validationMode: state.backend.validationMode,
+    modelHash: state.backend.modelHash,
+  });
+
   return `
-    <header class="sticky top-0 z-20 flex h-20 items-center justify-between border-b border-[var(--border)] bg-[var(--bg)]/86 px-4 backdrop-blur sm:px-6">
+    <header class="header-hairline sticky top-0 z-20 flex h-20 items-center justify-between bg-[var(--bg)]/90 px-4 backdrop-blur sm:px-6">
       <div>
-        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-[var(--accent)]">Helios</p>
+        <p class="eyebrow-muted">Helios</p>
         <h1 class="mt-1 text-[22px] font-semibold tracking-[-0.03em]">${PAGE_TITLES[state.activePage]}</h1>
       </div>
       <div class="flex items-center gap-2 sm:gap-3">
+        <div class="hidden sm:inline-flex">${pill}</div>
+        <span class="num hidden md:inline-block text-[11px] font-bold tracking-[0.15em] text-[var(--text-muted)]">${todayLabel()}</span>
         <button
           type="button"
           id="theme-toggle"
-          class="focus-outline inline-flex h-10 w-10 items-center justify-center rounded-[18px] border border-[var(--border)] bg-[var(--panel)] text-[var(--text-muted)] shadow-[var(--shadow)] transition-all duration-200 hover:border-[var(--border-strong)] hover:text-[var(--text)]"
+          class="focus-outline inline-flex h-10 w-10 items-center justify-center rounded-[10px] border border-[var(--border)] bg-[var(--panel)] text-[var(--text-muted)] shadow-[var(--shadow)] transition-all duration-200 hover:border-[var(--border-strong)] hover:text-[var(--text)]"
           aria-label="Toggle theme"
         >
           ${icon(state.theme === "dark" ? "sun" : "moon")}
@@ -97,14 +112,11 @@ export function TopBar() {
           href="https://github.com/marco-trotta1/heliosv2"
           target="_blank"
           rel="noopener noreferrer"
-          class="focus-outline inline-flex h-10 w-10 items-center justify-center rounded-[18px] border border-[var(--border)] bg-[var(--panel)] text-[var(--text-muted)] shadow-[var(--shadow)] transition-all duration-200 hover:border-[var(--border-strong)] hover:text-[var(--text)]"
+          class="focus-outline inline-flex h-10 w-10 items-center justify-center rounded-[10px] border border-[var(--border)] bg-[var(--panel)] text-[var(--text-muted)] shadow-[var(--shadow)] transition-all duration-200 hover:border-[var(--border-strong)] hover:text-[var(--text)]"
           aria-label="Open GitHub"
         >
           ${icon("github")}
         </a>
-        <div class="flex h-10 w-10 items-center justify-center rounded-[18px] border border-[var(--border)] bg-[var(--panel)] text-[var(--text-muted)] shadow-[var(--shadow)]">
-          ${icon("user")}
-        </div>
       </div>
     </header>
   `;

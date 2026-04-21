@@ -49,9 +49,9 @@ export function Sidebar() {
                     isActive
                       ? isPrimary
                         ? "border border-[var(--accent)] bg-[var(--accent)] text-white shadow-[var(--shadow)]"
-                        : "border border-[var(--border)] bg-[var(--panel)] text-[var(--text)] shadow-[var(--shadow)]"
+                      : "border border-[var(--border)] bg-[var(--panel)] text-[var(--text)] shadow-[var(--shadow)]"
                       : isPrimary
-                        ? "border border-[var(--accent-soft)] bg-[var(--accent-soft)] text-[var(--accent)] hover:border-[var(--accent)] hover:bg-[var(--panel)]"
+                        ? "text-[var(--accent)] hover:bg-[var(--panel)]"
                         : "text-[var(--text-muted)] hover:bg-[var(--panel)] hover:text-[var(--text)]",
                   )}"
                 >

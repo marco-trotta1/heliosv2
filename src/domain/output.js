@@ -1,5 +1,15 @@
 import { formatPercent, formatTimestamp, formatWindow } from "./format.js";
 
+function formatZoneMoistureSummary(zoneMoistureSummary) {
+  const entries = Object.entries(zoneMoistureSummary || {});
+  if (entries.length === 0) {
+    return null;
+  }
+  return entries
+    .map(([sensorId, moisture]) => `${sensorId}: ${(Number(moisture) * 100).toFixed(1)}% VWC`)
+    .join(", ");
+}
+
 export function recommendationTone(run) {
   return run.decision === "water"
     ? {
@@ -27,13 +37,43 @@ export function serializeRunForCopy(run) {
     `Forecast 24h: ${run.predicted.moisture24h.toFixed(2)}`,
     `Forecast 48h: ${run.predicted.moisture48h.toFixed(2)}`,
     `Forecast 72h: ${run.predicted.moisture72h.toFixed(2)}`,
-    "",
-    "Drivers:",
-    ...run.drivers.map((driver) => `- ${driver}`),
-    "",
-    "Prompt:",
-    run.prompt,
   ];
+  if (run.drivingZone) {
+    lines.push(`Driving zone: ${run.drivingZone}`);
+  }
+  const zoneSummary = formatZoneMoistureSummary(run.zoneMoistureSummary);
+  if (zoneSummary) {
+    lines.push(`Latest zone moisture: ${zoneSummary}`);
+    lines.push(`High variability flag: ${run.highVariabilityFlag ? "Yes" : "No"}`);
+  }
+  if (run.backendSnapshot) {
+    lines.push("");
+    lines.push("Build provenance:");
+    lines.push(
+      `Validation mode: ${
+        run.backendSnapshot.validationMode === true
+          ? "enabled"
+          : run.backendSnapshot.validationMode === false
+            ? "disabled"
+            : "unknown"
+      }`,
+    );
+    if (run.backendSnapshot.modelHash) {
+      lines.push(`Model hash: ${run.backendSnapshot.modelHash}`);
+    }
+    if (run.backendSnapshot.trainingDate) {
+      lines.push(`Training date: ${run.backendSnapshot.trainingDate}`);
+    }
+    if (run.backendSnapshot.apiVersion) {
+      lines.push(`API version: ${run.backendSnapshot.apiVersion}`);
+    }
+  }
+  lines.push("");
+  lines.push("Drivers:");
+  lines.push(...run.drivers.map((driver) => `- ${driver}`));
+  lines.push("");
+  lines.push("Prompt:");
+  lines.push(run.prompt);
   if (run.recommendationAdjustment) {
     lines.push("");
     lines.push(`Base recommendation: ${run.recommendationAdjustment.baseRecommendationIn.toFixed(2)} in`);

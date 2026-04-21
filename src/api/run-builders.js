@@ -9,7 +9,7 @@ import {
   serializeRunForCopy,
   formatWindow,
 } from "../domain.js";
-import { isLiveApiMode } from "../state.js";
+import { isLiveApiMode, state } from "../state.js";
 import { apiUrl, readJsonResponse } from "./http.js";
 
 export function buildPredictionRequest(inputs) {
@@ -84,6 +84,13 @@ export function buildPredictionRequest(inputs) {
 }
 
 function buildApiSummary(inputs, response) {
+  if (state.backend.validationMode === true) {
+    const action =
+      response.decision === "water"
+        ? `Apply ${Number(response.recommended_amount_in).toFixed(2)} in during ${formatWindow(response.timing_window)}.`
+        : "Hold irrigation and check again after the next weather update.";
+    return `${inputs.fieldName} is running in validation mode. Nearby feedback adjustments were disabled for clean field scoring. ${action}`;
+  }
   const action =
     response.decision === "water"
       ? `Apply ${Number(response.recommended_amount_in).toFixed(2)} in during ${formatWindow(response.timing_window)}.`
@@ -133,7 +140,20 @@ export function mapApiRun(inputs, response) {
           reason: response.recommendation_adjustment.reason || "No adjustment reason returned.",
         }
       : null,
-    sourceLabel: "Live API with nearby farm feedback",
+    backendSnapshot: {
+      modelHash: state.backend.modelHash,
+      trainingDate: state.backend.trainingDate,
+      apiVersion: state.backend.apiVersion,
+      validationMode: state.backend.validationMode,
+    },
+    drivingZone: response.explanation?.driving_zone || "",
+    zoneMoistureSummary: response.explanation?.zone_moisture_summary || null,
+    highVariabilityFlag: response.explanation?.high_variability_flag === true,
+    sourceLabel: state.backend.validationMode === true
+      ? "Live API validation build with nearby feedback adjustments disabled"
+      : state.backend.validationMode === false
+        ? "Live API recommendation with nearby feedback adjustments enabled"
+        : "Live API recommendation",
     copyText: "",
   };
   run.copyText = serializeRunForCopy(run);
@@ -179,6 +199,10 @@ export function buildLocalRun(inputs) {
         ? "Live feedback service was unavailable, so this result uses the local prototype rules only."
         : "Demo mode uses the local prototype rules only. No backend model or stored feedback was used.",
     },
+    backendSnapshot: null,
+    drivingZone: "",
+    zoneMoistureSummary: null,
+    highVariabilityFlag: false,
     sourceLabel: isLiveApiMode() ? "Local fallback estimate" : "Static demo estimate",
     copyText: "",
   };

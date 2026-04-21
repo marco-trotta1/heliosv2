@@ -129,20 +129,18 @@ export function toggleControl(name, label, checked) {
   `;
 }
 
-export function fieldCard(title, description, content, detail = "Collapse") {
+export function stackedCard({ label, iconChar, summary, content, open = false }) {
   return `
-    <details open class="field-card surface-ring rounded-[28px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]">
-      <summary class="field-card-summary focus-outline flex cursor-pointer list-none items-start justify-between gap-4 rounded-[20px]">
-        <div>
-          <p class="text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--accent)]">${title}</p>
-          <h3 class="mt-2 text-xl font-semibold tracking-[-0.02em] text-[var(--text)]">${description}</h3>
+    <details class="stacked-card" ${open ? "open" : ""}>
+      <summary class="focus-outline">
+        <span class="stacked-card-icon">${iconChar || ""}</span>
+        <div class="min-w-0 flex-1">
+          <p class="stacked-card-label">${label}</p>
+          <p class="stacked-card-summary">${summary || ""}</p>
         </div>
-        <div class="field-card-meta inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-1.5 text-xs font-medium text-[var(--text-muted)] transition-colors duration-200">
-          <span>${detail}</span>
-          <span class="field-card-chevron transition-transform duration-200">${icon("chevronDown", "h-4 w-4")}</span>
-        </div>
+        <span class="stacked-card-chevron">${icon("chevronDown", "h-4 w-4")}</span>
       </summary>
-      <div class="pt-5">
+      <div class="stacked-card-body">
         ${content}
       </div>
     </details>
@@ -247,6 +245,57 @@ export function emptyInspectorState() {
     <div class="rounded-[28px] border border-dashed border-[var(--border)] bg-[var(--panel)] px-6 py-12 text-center shadow-[var(--shadow)]">
       <p class="text-sm font-semibold text-[var(--text)]">No analysis yet. Run a prompt to generate results.</p>
       <p class="mt-2 text-sm text-[var(--text-muted)]">Recent field decisions will appear here for review, copying, and reuse.</p>
+    </div>
+  `;
+}
+
+export function decisionPill(decision) {
+  const isWater = decision === "water";
+  return `<span class="decision-pill ${isWater ? "decision-pill-apply" : "decision-pill-hold"}">${isWater ? "APPLY" : "HOLD"}</span>`;
+}
+
+export function livePill({ validationMode, modelHash }) {
+  const version = modelHash ? modelHash.slice(0, 7) : "demo";
+  const isValidation = validationMode === true;
+  return `
+    <span class="${isValidation ? "live-pill live-pill-validation" : "live-pill"}">
+      <span class="live-dot" style="${isValidation ? "background: var(--accent-warm); box-shadow: 0 0 10px rgba(196, 122, 44, 0.8);" : ""}"></span>
+      <span>${isValidation ? "VALIDATION BUILD" : "LIVE MODEL"}</span>
+      <span class="num" style="opacity: 0.75; letter-spacing: 0.05em;">${escapeHtml(version)}</span>
+    </span>
+  `;
+}
+
+export function etSourceTag(etSource) {
+  if (etSource === "openet-live" || etSource === "openet-cache") {
+    return `<span class="num" style="font-size:10px; letter-spacing:0.14em; font-weight:800; color:var(--success);">OpenET LIVE</span>`;
+  }
+  if (etSource === "openet-fallback") {
+    return `<span class="num" style="font-size:10px; letter-spacing:0.14em; font-weight:800; color:var(--text-muted);">OpenET FALLBACK</span>`;
+  }
+  return `<span class="num" style="font-size:10px; letter-spacing:0.14em; font-weight:800; color:var(--text-muted);">ET ESTIMATE</span>`;
+}
+
+export function confidenceBar(value) {
+  const pct = Math.max(0, Math.min(100, Math.round(Number(value || 0) * 100)));
+  return `
+    <div class="confidence-bar-track">
+      <div class="confidence-bar-fill" style="width: ${pct}%;"></div>
+    </div>
+  `;
+}
+
+export function metricCard({ label, value, unit = "", source = "", railClass = "" }) {
+  return `
+    <div class="rounded-[12px] border border-[var(--border)] bg-[var(--panel)] p-5 ${railClass}">
+      <div class="flex items-center justify-between">
+        <p class="eyebrow">${label}</p>
+        ${source ? `<div>${source}</div>` : ""}
+      </div>
+      <div class="mt-4 flex items-baseline gap-2">
+        <span class="num" style="font-size: 60px; font-weight: 800; line-height: 0.85; color: var(--text); letter-spacing: -0.03em;">${value}</span>
+        ${unit ? `<span class="num" style="font-size: 18px; font-weight: 700; color: var(--text-muted);">${unit}</span>` : ""}
+      </div>
     </div>
   `;
 }

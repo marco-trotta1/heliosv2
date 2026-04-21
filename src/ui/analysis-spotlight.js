@@ -1,6 +1,7 @@
 import { isLiveApiMode, state } from "../state.js";
-import { formatPercent, formatTimestamp, formatWindow, recommendationTone } from "../domain.js";
+import { formatWindow } from "../domain.js";
 import { ResultCard } from "./results.js";
+import { RecommendationHero } from "./dashboard.js";
 import {
   PrimaryButton,
   classNames,
@@ -13,7 +14,7 @@ import {
 
 function feedbackSummary(run) {
   if (run?.backendSnapshot?.validationMode) {
-    return "Validation mode disabled nearby feedback adjustments for this run so the recommendation can be scored cleanly against researcher observations.";
+    return "Validation mode disabled nearby-farmer feedback so researchers can score this recommendation cleanly.";
   }
   if (!run?.regionalInsights) {
     return isLiveApiMode()
@@ -47,13 +48,6 @@ function zoneSummary(run) {
     .join(" • ");
 }
 
-function summarySentence(run) {
-  if (run.decision === "water") {
-    return `Apply ${(run.recommendedAmountIn ?? 0).toFixed(2)} in during ${formatWindow(run.timingWindow).toLowerCase()}.`;
-  }
-  return `Hold irrigation and review ${formatWindow(run.timingWindow).toLowerCase()} as the next best operating window.`;
-}
-
 function bindingConstraintLabel(value) {
   return {
     need: "Water deficit",
@@ -64,50 +58,140 @@ function bindingConstraintLabel(value) {
   }[value] || value;
 }
 
-function statTile(label, value, helper = "", emphasisClass = "") {
+function contextRow(label, value) {
   return `
-    <div class="rounded-[24px] border border-[var(--border)] bg-[var(--panel)] px-5 py-5 shadow-[var(--shadow)]">
-      <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--text-muted)]">${label}</p>
-      <p class="${classNames("mt-3 text-2xl font-semibold tracking-[-0.03em] text-[var(--text)]", emphasisClass)}">${value}</p>
-      ${helper ? `<p class="mt-3 text-sm leading-6 text-[var(--text-muted)]">${helper}</p>` : ""}
+    <div class="flex items-center justify-between gap-3 border-b border-dashed border-[var(--hairline)] py-2.5 last:border-b-0">
+      <span class="eyebrow-muted">${label}</span>
+      <span class="num text-[13px] font-extrabold tracking-[0.04em] text-[var(--ink)] text-right truncate max-w-[60%]">${value}</span>
     </div>
+  `;
+}
+
+function ValidationBanner(run) {
+  const hash = run.backendSnapshot?.modelHash ? escapeHtml(String(run.backendSnapshot.modelHash)) : "—";
+  const trainedAt = run.backendSnapshot?.trainedAt ? escapeHtml(String(run.backendSnapshot.trainedAt)) : "";
+  return `
+    <section class="validation-banner">
+      <div>
+        <p class="eyebrow" style="color: var(--accent-warm);">VALIDATION BUILD</p>
+        <p class="mt-1.5 text-sm leading-6 text-[var(--text)]">Nearby-farmer feedback is disabled so researchers can score this recommendation cleanly against field observations.</p>
+      </div>
+      <div class="num shrink-0 text-[11px] font-extrabold tracking-[0.12em] text-[var(--text-muted)] text-right">
+        <div>BUILD · ${hash}</div>
+        ${trainedAt ? `<div class="mt-1">TRAINED · ${trainedAt}</div>` : ""}
+      </div>
+    </section>
   `;
 }
 
 function AcknowledgementGate(run) {
   const fieldId = escapeHtml(run.inputSnapshot?.farmId || run.inputSnapshot?.fieldName || "Unknown field");
   const cropType = escapeHtml(run.inputSnapshot?.cropType || "Unknown crop");
-  const decision = run.decision === "water" ? "Irrigate now" : "Hold irrigation";
+  const decision = run.decision === "water" ? "IRRIGATE NOW" : "HOLD IRRIGATION";
   const moisture48h = typeof run.predicted?.moisture48h === "number"
     ? `${(run.predicted.moisture48h * 100).toFixed(1)}% VWC`
     : "—";
 
   return `
-    <section class="fade-in surface-ring rounded-[32px] border border-[var(--accent-warm-soft)] bg-[var(--panel)] p-6 shadow-[var(--shadow-strong)]">
-      <div class="rounded-[26px] border border-[var(--accent-warm-soft)] bg-[var(--accent-warm-soft)] px-5 py-5">
-        <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--accent-warm)]">Review Required</p>
-        <h3 class="mt-2 text-3xl font-semibold tracking-[-0.04em] text-[var(--text)]">Confirm the recommendation before you proceed</h3>
+    <section class="fade-in validation-banner flex-col items-stretch gap-4">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <p class="eyebrow" style="color: var(--accent-warm);">REVIEW REQUIRED</p>
+          <p class="mt-1.5 text-base font-semibold text-[var(--ink)]">Confirm the recommendation before you proceed.</p>
+        </div>
       </div>
+      <div class="grid gap-0 rounded-[10px] border border-[var(--hairline)] bg-[var(--panel)] px-4 py-2">
+        ${contextRow("FIELD", fieldId)}
+        ${contextRow("CROP", cropType.toUpperCase())}
+        ${contextRow("DECISION", decision)}
+        ${contextRow("48H FORECAST", moisture48h)}
+        ${contextRow("WINDOW", escapeHtml(formatWindow(run.timingWindow)).toUpperCase())}
+      </div>
+      <button
+        type="button"
+        id="acknowledge-proceed-btn"
+        class="focus-outline flex min-h-[52px] w-full items-center justify-center gap-2 rounded-[8px] bg-[var(--ink)] px-5 py-3 text-xs font-extrabold tracking-[0.2em] text-[var(--amber)] shadow-[0_10px_26px_-10px_rgba(24,38,29,0.55)] transition-all duration-150 hover:brightness-110 active:scale-[0.99]"
+      >
+        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m5 13 4 4L19 7"/>
+        </svg>
+        <span>I'VE REVIEWED THIS — PROCEED</span>
+      </button>
+    </section>
+  `;
+}
 
-      <div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        ${statTile("Field", fieldId)}
-        ${statTile("Crop", cropType.charAt(0).toUpperCase() + cropType.slice(1))}
-        ${statTile("Decision", decision)}
-        ${statTile("48h Forecast", moisture48h, formatWindow(run.timingWindow))}
-      </div>
+function ContextPanel(run) {
+  const spread = zoneSpread(run);
+  const constraintHtml = run.bindingConstraint
+    ? contextRow("LIMITED BY", escapeHtml(bindingConstraintLabel(run.bindingConstraint)).toUpperCase())
+    : "";
+  const zoneLabel = run.drivingZone ? escapeHtml(String(run.drivingZone).toUpperCase()) : "UNAVAILABLE";
+  const spreadLabel = spread == null ? "SINGLE PROBE" : `${(spread * 100).toFixed(1)} PTS`;
+  const variabilityHtml = run.highVariabilityFlag
+    ? `<p class="mt-2 text-[12px] leading-5 text-[var(--accent-warm)]">High spatial variability detected across probe readings.</p>`
+    : "";
 
-      <div class="mt-6">
-        <button
-          type="button"
-          id="acknowledge-proceed-btn"
-          class="focus-outline flex min-h-[60px] w-full items-center justify-center gap-3 rounded-[24px] bg-[var(--accent-warm)] px-6 py-5 text-base font-semibold text-white shadow-[var(--shadow)] transition-all duration-150 hover:brightness-105 active:scale-[0.99]"
-        >
-          <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="m5 13 4 4L19 7"/>
-          </svg>
-          <span>I’ve reviewed this — proceed</span>
-        </button>
+  return `
+    <section class="rounded-[12px] border border-[var(--border)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]">
+      <div class="flex items-center justify-between">
+        <p class="eyebrow">FIELD CONTEXT</p>
+        <span class="num text-[10px] font-bold tracking-[0.12em] text-[var(--text-muted)]">LATEST RUN</span>
       </div>
+      <div class="mt-3 grid gap-0">
+        ${contextRow("DRIVING ZONE", zoneLabel)}
+        ${contextRow("ZONE SPREAD", spreadLabel)}
+        ${constraintHtml}
+      </div>
+      ${zoneSummary(run) ? `<p class="num mt-3 text-[11px] leading-5 text-[var(--text-muted)]">${escapeHtml(zoneSummary(run))}</p>` : ""}
+      ${variabilityHtml}
+    </section>
+  `;
+}
+
+function FeedbackPanel(run) {
+  const isValidation = run.backendSnapshot?.validationMode === true;
+  const heading = isValidation ? "VALIDATION CONTEXT" : "NEARBY FEEDBACK";
+
+  return `
+    <section class="rounded-[12px] border border-[var(--border)] bg-[var(--panel)] p-5 shadow-[var(--shadow)]">
+      <p class="eyebrow">${heading}</p>
+      <p class="mt-3 text-[13px] leading-6 text-[var(--text-muted)]">${escapeHtml(feedbackSummary(run))}</p>
+      ${isValidation ? "" : `
+        <div class="mt-4 border-t border-dashed border-[var(--hairline)] pt-4">
+          <button
+            type="button"
+            id="feedback-toggle"
+            class="focus-outline inline-flex items-center justify-center rounded-[8px] border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2 text-xs font-extrabold tracking-[0.14em] text-[var(--ink)] transition-all duration-200 hover:border-[var(--border-strong)]"
+          >
+            ${state.feedbackForm.open ? "HIDE FEEDBACK FORM" : "SUBMIT FEEDBACK"}
+          </button>
+          ${state.feedbackForm.open ? `
+            <div class="mt-4 grid gap-3 sm:grid-cols-2">
+              ${inputGroup("Did this recommendation work?", selectInput("feedbackOutcome", state.feedbackForm.outcome, [
+                { value: "SUCCESS", label: "Success" },
+                { value: "PARTIAL", label: "Partial" },
+                { value: "FAILURE", label: "Failure" },
+              ]))}
+              ${inputGroup("Yield change (%)", numericInput("feedbackYieldDelta", state.feedbackForm.yieldDelta, "-100", "0.1", "1000"))}
+            </div>
+            <div class="mt-3">
+              ${inputGroup("Notes", `<textarea id="feedback-notes" class="focus-outline min-h-[96px] w-full rounded-[10px] border border-[var(--border)] bg-[var(--panel-muted)] px-3 py-2.5 text-sm text-[var(--text)] outline-none transition-all duration-200 focus:border-[var(--accent)]">${escapeHtml(state.feedbackForm.notes)}</textarea>`)}
+            </div>
+            <div class="mt-3 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                id="feedback-submit"
+                class="focus-outline inline-flex items-center justify-center rounded-[8px] bg-[var(--ink)] px-3.5 py-2 text-xs font-extrabold tracking-[0.2em] text-[var(--amber)] transition-all duration-200 hover:brightness-110"
+              >
+                ${state.feedbackForm.submitting ? "SUBMITTING..." : "SEND FEEDBACK"}
+              </button>
+              ${state.feedbackForm.error ? `<p class="text-xs text-[var(--accent-warm)]">${escapeHtml(state.feedbackForm.error)}</p>` : ""}
+              ${state.feedbackForm.status ? `<p class="text-xs text-[var(--text-muted)]">${escapeHtml(state.feedbackForm.status)}</p>` : ""}
+            </div>
+          ` : state.feedbackForm.status ? `<p class="mt-3 text-xs text-[var(--text-muted)]">${escapeHtml(state.feedbackForm.status)}</p>` : ""}
+        </div>
+      `}
     </section>
   `;
 }
@@ -118,110 +202,21 @@ export function RecommendationSpotlight() {
   }
 
   if (!state.latestRun) {
-    return `
-      <section class="surface-ring rounded-[32px] border border-[var(--border)] bg-[var(--panel)] p-6 shadow-[var(--shadow-strong)]">
-        <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-          <div class="max-w-3xl">
-            <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--accent)]">Current Recommendation</p>
-            <h3 class="mt-2 text-3xl font-semibold tracking-[-0.04em] text-[var(--text)]">Run an analysis to reveal the irrigation call</h3>
-          </div>
-          <span class="inline-flex rounded-full bg-[var(--accent-soft)] px-4 py-2 text-xs font-bold uppercase tracking-[0.14em] text-[var(--accent)]">
-            Waiting for first run
-          </span>
-        </div>
-      </section>
-    `;
+    return RecommendationHero(null);
   }
 
   const run = state.latestRun;
-  const tone = recommendationTone(run);
-  const decisionLabel = run.decision === "water" ? "Irrigate now" : "Hold irrigation";
-  const decisionPillClass = run.decision === "water" ? "pill-water" : "pill-wait";
-  const amountClass = run.decision === "water" ? "tone-water" : "tone-wait";
+  const isValidation = run.backendSnapshot?.validationMode === true;
 
   return `
-    <section class="fade-in accent-divider surface-ring rounded-[32px] border p-7 shadow-[var(--shadow-strong)] ${tone.spotlight}">
-      <div class="grid gap-8 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
-        <div>
-          <div class="flex flex-wrap items-center gap-3">
-            <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--accent)]">Current Recommendation</p>
-            <span class="rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] ${decisionPillClass}">
-              ${run.decision.toUpperCase()}
-            </span>
-          </div>
-          <h3 class="mt-3 text-[38px] font-semibold tracking-[-0.05em] text-[var(--text)]">${decisionLabel}</h3>
-          <p class="mt-4 max-w-2xl text-lg leading-8 text-[var(--text)]">${escapeHtml(summarySentence(run))}</p>
-
-          <div class="mt-8 grid gap-5 sm:grid-cols-2">
-            <div class="rounded-[28px] border border-[var(--border)] bg-[var(--panel)] px-6 py-6 shadow-[var(--shadow)]">
-              <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--text-muted)]">Recommended amount</p>
-              <div class="mt-4 flex items-end gap-3">
-                <span class="text-6xl font-semibold tracking-[-0.06em] ${amountClass}">${(run.recommendedAmountIn ?? 0).toFixed(2)}</span>
-                <span class="pb-2 text-lg font-semibold text-[var(--text-muted)]">in</span>
-              </div>
-              ${run.bindingConstraint ? `<p class="mt-4 text-sm leading-6 text-[var(--text-muted)]">Limited by ${escapeHtml(bindingConstraintLabel(run.bindingConstraint))}.</p>` : ""}
-            </div>
-            <div class="rounded-[28px] border border-[var(--border)] bg-[var(--panel)] px-6 py-6 shadow-[var(--shadow)]">
-              <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--text-muted)]">Best timing window</p>
-              <p class="mt-4 text-3xl font-semibold tracking-[-0.04em] text-[var(--text)]">${escapeHtml(formatWindow(run.timingWindow))}</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="space-y-5">
-          ${statTile("Latest run", formatTimestamp(run.timestamp))}
-          <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-            ${statTile("Heuristic confidence", formatPercent(run.confidenceScore), "Prototype score only. Not a calibrated uncertainty estimate.")}
-            ${statTile("Stress risk", formatPercent(run.stressProbability))}
-            ${statTile("Driving zone", escapeHtml(run.drivingZone || "Unavailable"), escapeHtml(zoneSummary(run)))}
-            ${statTile(
-              "Zone spread",
-              zoneSpread(run) == null ? "Single probe" : `${(zoneSpread(run) * 100).toFixed(1)} pts`,
-              run.highVariabilityFlag
-                ? "High spatial variability detected across the latest probe readings."
-                : "No high-variability flag was raised for this run.",
-            )}
-          </div>
-          <div class="rounded-[28px] border border-[var(--border)] bg-[var(--panel)] px-6 py-6 shadow-[var(--shadow)]">
-            <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--text-muted)]">${run.backendSnapshot?.validationMode ? "Validation context" : "Nearby feedback"}</p>
-            <p class="mt-3 text-sm leading-7 text-[var(--text-muted)]">${escapeHtml(feedbackSummary(run))}</p>
-            <div class="mt-5 border-t border-[var(--border)] pt-5">
-              <button
-                type="button"
-                id="feedback-toggle"
-                class="focus-outline inline-flex items-center justify-center rounded-[18px] border border-[var(--border)] bg-[var(--panel-muted)] px-3.5 py-2.5 text-sm font-semibold text-[var(--text)] transition-all duration-200 hover:border-[var(--border-strong)]"
-              >
-                Submit feedback
-              </button>
-              ${state.feedbackForm.open ? `
-                <div class="mt-5 grid gap-4 sm:grid-cols-2">
-                  ${inputGroup("Did this recommendation work?", selectInput("feedbackOutcome", state.feedbackForm.outcome, [
-                    { value: "SUCCESS", label: "Success" },
-                    { value: "PARTIAL", label: "Partial" },
-                    { value: "FAILURE", label: "Failure" },
-                  ]))}
-                  ${inputGroup("Yield change (%)", numericInput("feedbackYieldDelta", state.feedbackForm.yieldDelta, "-100", "0.1", "1000"))}
-                </div>
-                <div class="mt-4">
-                  ${inputGroup("Notes", `<textarea id="feedback-notes" class="focus-outline min-h-[108px] w-full rounded-[18px] border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-3.5 text-sm text-[var(--text)] outline-none transition-all duration-200 focus:border-[var(--accent)]">${escapeHtml(state.feedbackForm.notes)}</textarea>`)}
-                </div>
-                <div class="mt-4 flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    id="feedback-submit"
-                    class="focus-outline inline-flex items-center justify-center rounded-[18px] border border-[var(--accent)] bg-[var(--accent)] px-3.5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-[var(--accent-hover)]"
-                  >
-                    ${state.feedbackForm.submitting ? "Submitting..." : "Send feedback"}
-                  </button>
-                  ${state.feedbackForm.error ? `<p class="text-sm text-[var(--accent-warm)]">${escapeHtml(state.feedbackForm.error)}</p>` : ""}
-                  ${state.feedbackForm.status ? `<p class="text-sm text-[var(--text-muted)]">${escapeHtml(state.feedbackForm.status)}</p>` : ""}
-                </div>
-              ` : state.feedbackForm.status ? `<p class="mt-4 text-sm text-[var(--text-muted)]">${escapeHtml(state.feedbackForm.status)}</p>` : ""}
-            </div>
-          </div>
-        </div>
+    <div class="fade-in space-y-5">
+      ${isValidation ? ValidationBanner(run) : ""}
+      ${RecommendationHero(run, { showRunButton: false })}
+      <div class="grid gap-5 xl:grid-cols-2">
+        ${ContextPanel(run)}
+        ${FeedbackPanel(run)}
       </div>
-    </section>
+    </div>
   `;
 }
 

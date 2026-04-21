@@ -5,10 +5,10 @@ import {
   autoWeatherTag,
   checkboxGroup,
   escapeHtml,
-  fieldCard,
   inputGroup,
   numericInput,
   selectInput,
+  stackedCard,
   textInput,
   toggleControl,
 } from "./shared.js";
@@ -34,11 +34,51 @@ const PROMPT_TEXTAREA_CLASSES = [
   "shadow-[var(--shadow)]",
 ].join(" ");
 
+function fieldProfileSummary() {
+  const parts = [];
+  if (state.form.soilTexture) parts.push(String(state.form.soilTexture).toUpperCase());
+  if (state.form.cropType) {
+    const crop = String(state.form.cropType);
+    const stage = state.form.growthStage ? ` · ${String(state.form.growthStage).replace(/_/g, " ")}` : "";
+    parts.push(`${crop.toUpperCase()}${stage.toUpperCase()}`);
+  }
+  if (state.form.fieldAreaAcres) parts.push(`${state.form.fieldAreaAcres}AC`);
+  return parts.join(" · ") || "FIELD, CROP, SOIL, LOCATION";
+}
+
+function conditionsSummary() {
+  const parts = [];
+  if (state.form.currentMoisture != null && state.form.currentMoisture !== "") {
+    parts.push(`${(Number(state.form.currentMoisture) * 100).toFixed(0)}% VWC`);
+  }
+  if (state.form.temperatureF != null && state.form.temperatureF !== "") {
+    parts.push(`${Math.round(Number(state.form.temperatureF))}°F`);
+  }
+  if (state.form.windMph != null && state.form.windMph !== "") {
+    parts.push(`${Math.round(Number(state.form.windMph))} MPH`);
+  }
+  if (state.form.precipitationIn != null && state.form.precipitationIn !== "") {
+    parts.push(`${Number(state.form.precipitationIn).toFixed(2)}IN RAIN`);
+  }
+  return parts.join(" · ") || "MOISTURE, TEMP, WIND, FORECAST";
+}
+
+function irrigationSummary() {
+  const parts = [];
+  if (state.form.irrigationType) parts.push(String(state.form.irrigationType).toUpperCase());
+  if (state.form.maxIrrigationVolume) parts.push(`MAX ${Number(state.form.maxIrrigationVolume).toFixed(2)}IN`);
+  if (Array.isArray(state.form.waterWindow) && state.form.waterWindow.length > 0) {
+    parts.push(`${state.form.waterWindow.length} WINDOW${state.form.waterWindow.length > 1 ? "S" : ""}`);
+  }
+  return parts.join(" · ") || "SYSTEM, CAPS, WINDOWS";
+}
+
 function FieldProfileSection() {
-  return fieldCard(
-    "Field Profile",
-    "Field and crop setup",
-    `<div class="grid gap-6 md:grid-cols-2">
+  return stackedCard({
+    label: "FIELD",
+    iconChar: "🌱",
+    summary: fieldProfileSummary(),
+    content: `<div class="grid gap-5 md:grid-cols-2">
       ${inputGroup("Field name", textInput("fieldName", state.form.fieldName))}
       ${inputGroup("Farm ID", textInput("farmId", state.form.farmId))}
       ${inputGroup("Field area (ac)", numericInput("fieldAreaAcres", state.form.fieldAreaAcres, "1"))}
@@ -71,15 +111,15 @@ function FieldProfileSection() {
       ${inputGroup("Latitude", numericInput("locationLat", state.form.locationLat, "-90", "0.0001", "90"))}
       ${inputGroup("Longitude", numericInput("locationLon", state.form.locationLon, "-180", "0.0001", "180"))}
     </div>`,
-    "Collapse",
-  );
+  });
 }
 
 function SensorFeedSection() {
-  return fieldCard(
-    "Current Conditions",
-    "Moisture and weather",
-    `<div class="grid gap-6 md:grid-cols-2">
+  return stackedCard({
+    label: "CONDITIONS",
+    iconChar: "🌤",
+    summary: conditionsSummary(),
+    content: `<div class="grid gap-5 md:grid-cols-2">
       ${inputGroup("Current soil moisture (0–1 VWC)", numericInput("currentMoisture", state.form.currentMoisture, "0.05", "0.01", "0.6"))}
       ${inputGroup("Moisture 6h ago (0–1 VWC)", numericInput("lagOneMoisture", state.form.lagOneMoisture, "0.05", "0.01", "0.6"))}
       ${inputGroup("Moisture 12h ago (0–1 VWC)", numericInput("lagTwoMoisture", state.form.lagTwoMoisture, "0.05", "0.01", "0.6"))}
@@ -90,15 +130,15 @@ function SensorFeedSection() {
       ${inputGroup("Solar radiation (MJ/m²)", numericInput("solarRadiationMjM2", state.form.solarRadiationMjM2, "0"), autoWeatherTag("solarRadiationMjM2"))}
       ${inputGroup("Soil moisture sensors", numericInput("sensorCount", state.form.sensorCount, "0", "1", "10"))}
     </div>`,
-    "Collapse",
-  );
+  });
 }
 
 function OperationsSection() {
-  return fieldCard(
-    "Irrigation Setup",
-    "Limits and timing",
-    `<div class="grid gap-6 md:grid-cols-2">
+  return stackedCard({
+    label: "IRRIGATION",
+    iconChar: "💧",
+    summary: irrigationSummary(),
+    content: `<div class="grid gap-5 md:grid-cols-2">
       ${inputGroup("Irrigation type", selectInput("irrigationType", state.form.irrigationType, [
         { value: "pivot", label: "Pivot" },
         { value: "drip", label: "Drip" },
@@ -110,7 +150,7 @@ function OperationsSection() {
       ${inputGroup("Irrigation last 24h (in)", numericInput("recentIrrigation24h", state.form.recentIrrigation24h, "0"))}
       ${inputGroup("Irrigation last 72h (in)", numericInput("recentIrrigation72h", state.form.recentIrrigation72h, "0"))}
     </div>
-    <div class="mt-6 grid gap-4">
+    <div class="mt-5 grid gap-4">
       ${checkboxGroup("Water rights schedule", "waterWindow", [
         { value: "tonight", label: "Tonight" },
         { value: "tomorrow_morning", label: "Tomorrow morning" },
@@ -124,18 +164,17 @@ function OperationsSection() {
         { value: "tomorrow_night", label: "Tomorrow night" },
       ], state.form.energyWindow)}
     </div>`,
-    "Collapse",
-  );
+  });
 }
 
 export function DataSection() {
   return `
-    <section class="surface-ring rounded-[32px] border border-[var(--border)] bg-[var(--panel)] p-7 shadow-[var(--shadow-strong)] sm:p-8">
-      <div class="max-w-3xl">
-          <p class="text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--accent)]">Supporting Data</p>
-          <h2 class="mt-2 text-2xl font-semibold tracking-[-0.03em] text-[var(--text)]">Field inputs</h2>
+    <section>
+      <div class="flex items-center justify-between pb-3">
+        <p class="eyebrow">FIELD INPUTS</p>
+        <span class="num text-[10px] font-bold tracking-[0.12em] text-[var(--text-muted)]">TAP TO EDIT</span>
       </div>
-      <div class="mt-8 grid gap-5">
+      <div class="grid gap-3">
         ${FieldProfileSection()}
         ${SensorFeedSection()}
         ${OperationsSection()}
@@ -218,7 +257,7 @@ export function PromptInput() {
               ${modeLabel()}
             </div>
             ${validationStatusMessage()
-              ? `<p class="mt-3 rounded-[18px] border border-[var(--accent-warm-soft)] bg-[var(--accent-warm-soft)] px-4 py-3 text-sm leading-6 text-[var(--accent-warm)]">${validationStatusMessage()}</p>`
+              ? `<div class="validation-banner mt-3"><div><p class="eyebrow" style="color: var(--accent-warm);">VALIDATION MODE</p><p class="mt-1 text-[13px] leading-5 text-[var(--text)]">${validationStatusMessage()}</p></div></div>`
               : ""}
             <div class="mt-6">
               ${PrimaryButton({

@@ -46,7 +46,7 @@ export function bindAppEvents() {
 }
 
 export function renderApp() {
-  const showResultsPanel = state.activePage !== "run-analysis";
+  const showResultsPanel = state.activePage !== "run-analysis" && state.activePage !== "dashboard";
   app.innerHTML = `
     <div class="min-h-screen bg-[var(--bg)] text-[var(--text)]">
       <div class="grid min-h-screen ${showResultsPanel ? "grid-cols-[84px_minmax(0,1fr)] xl:grid-cols-[272px_minmax(0,1fr)_420px]" : "grid-cols-[84px_minmax(0,1fr)] xl:grid-cols-[272px_minmax(0,1fr)]"}">

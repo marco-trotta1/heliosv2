@@ -17,19 +17,8 @@ def test_prediction_request_defaults_farm_id(prediction_payload: dict) -> None:
     assert request.farm_id == request.field_id
 
 
-def test_prediction_request_allows_single_sensor_with_three_readings(prediction_payload: dict) -> None:
-    payload = dict(prediction_payload)
-    payload["soil_moisture_readings"] = [
-        {
-            "timestamp": reading["timestamp"],
-            "field_id": reading["field_id"],
-            "sensor_id": "sensor-a",
-            "volumetric_water_content": reading["volumetric_water_content"],
-        }
-        for reading in prediction_payload["soil_moisture_readings"][:3]
-    ]
-
-    request = PredictionRequest(**payload)
+def test_prediction_request_allows_single_sensor_with_three_readings(single_sensor_prediction_payload: dict) -> None:
+    request = PredictionRequest(**single_sensor_prediction_payload)
 
     assert len({reading.sensor_id for reading in request.soil_moisture_readings}) == 1
 

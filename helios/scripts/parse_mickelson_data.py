@@ -290,11 +290,7 @@ def parse_mickelson(input_path: str, output_path: str, openet_csv: str | None = 
 
 def main() -> None:
     args = parse_args()
-    parse_mickelson(
-        input_path=args.input,
-        output_path=args.output,
-        openet_csv=args.openet_csv,
-    )
+    parse_mickelson(input_path=args.input, output_path=args.output, openet_csv=args.openet_csv)
 
 
 if __name__ == "__main__":

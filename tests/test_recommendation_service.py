@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from helios.schemas.inputs import PredictionRequest
-from helios.services.recommendation_service import RecommendationService
+from helios.services.recommendation_service import RecommendationService, VALIDATION_REGIONAL_INSIGHTS
 
 
 class StubForecastModel:
@@ -31,6 +31,21 @@ def _stub_insights() -> dict[str, float | int | None]:
     }
 
 
+def _stub_feedback(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "helios.services.recommendation_service.get_regional_insights",
+        lambda **_: _stub_insights(),
+    )
+    monkeypatch.setattr(
+        "helios.services.recommendation_service.adjust_recommendation",
+        lambda base_recommendation, insights: {
+            "adjusted_recommendation_in": base_recommendation,
+            "adjustment_factor": 1.0,
+            "reason": "No adjustment.",
+        },
+    )
+
+
 def test_recommendation_service_applies_feedback_adjustment(
     prediction_payload: dict,
     monkeypatch,
@@ -39,14 +54,7 @@ def test_recommendation_service_applies_feedback_adjustment(
 
     monkeypatch.setattr(
         "helios.services.recommendation_service.get_regional_insights",
-        lambda **_: {
-            "success_rate": 0.81,
-            "avg_yield_delta": 6.0,
-            "total_samples": 6,
-            "weighted_samples": 4.1,
-            "comparable_samples": 4,
-            "radius_miles": 31.07,
-        },
+        lambda **_: _stub_insights(),
     )
     monkeypatch.setattr(
         "helios.services.recommendation_service.adjust_recommendation",
@@ -72,33 +80,11 @@ def test_recommendation_service_applies_feedback_adjustment(
 
 
 def test_recommendation_service_single_sensor_uses_only_sensor_as_driving_zone(
-    prediction_payload: dict,
+    single_sensor_prediction_payload: dict,
     monkeypatch,
 ) -> None:
-    payload = dict(prediction_payload)
-    payload["soil_moisture_readings"] = [
-        {
-            "timestamp": reading["timestamp"],
-            "field_id": reading["field_id"],
-            "sensor_id": "sensor-a",
-            "volumetric_water_content": reading["volumetric_water_content"],
-        }
-        for reading in prediction_payload["soil_moisture_readings"][:3]
-    ]
-    request = PredictionRequest(**payload)
-
-    monkeypatch.setattr(
-        "helios.services.recommendation_service.get_regional_insights",
-        lambda **_: _stub_insights(),
-    )
-    monkeypatch.setattr(
-        "helios.services.recommendation_service.adjust_recommendation",
-        lambda base_recommendation, insights: {
-            "adjusted_recommendation_in": base_recommendation,
-            "adjustment_factor": 1.0,
-            "reason": "No adjustment.",
-        },
-    )
+    request = PredictionRequest(**single_sensor_prediction_payload)
+    _stub_feedback(monkeypatch)
 
     service = RecommendationService(
         model=StubForecastModel(),
@@ -128,19 +114,7 @@ def test_recommendation_service_reports_multi_sensor_summary_and_variability(
     ]
     payload["soil_moisture_readings"][-1]["volumetric_water_content"] = 0.38
     request = PredictionRequest(**payload)
-
-    monkeypatch.setattr(
-        "helios.services.recommendation_service.get_regional_insights",
-        lambda **_: _stub_insights(),
-    )
-    monkeypatch.setattr(
-        "helios.services.recommendation_service.adjust_recommendation",
-        lambda base_recommendation, insights: {
-            "adjusted_recommendation_in": base_recommendation,
-            "adjustment_factor": 1.0,
-            "reason": "No adjustment.",
-        },
-    )
+    _stub_feedback(monkeypatch)
 
     service = RecommendationService(
         model=StubForecastModel(),
@@ -160,19 +134,7 @@ def test_recommendation_service_passes_physical_sensor_count_to_optimizer(
 ) -> None:
     request = PredictionRequest(**prediction_payload)
     captured_inputs = {}
-
-    monkeypatch.setattr(
-        "helios.services.recommendation_service.get_regional_insights",
-        lambda **_: _stub_insights(),
-    )
-    monkeypatch.setattr(
-        "helios.services.recommendation_service.adjust_recommendation",
-        lambda base_recommendation, insights: {
-            "adjusted_recommendation_in": base_recommendation,
-            "adjustment_factor": 1.0,
-            "reason": "No adjustment.",
-        },
-    )
+    _stub_feedback(monkeypatch)
 
     def fake_generate_irrigation_plan(inputs):
         captured_inputs["value"] = inputs
@@ -235,14 +197,7 @@ def test_recommendation_service_uses_runtime_openet_value(
     )
     monkeypatch.setattr(
         "helios.services.recommendation_service.get_regional_insights",
-        lambda **_: {
-            "success_rate": 0.0,
-            "avg_yield_delta": None,
-            "total_samples": 0,
-            "weighted_samples": 0.0,
-            "comparable_samples": 0,
-            "radius_miles": 31.07,
-        },
+        lambda **_: dict(VALIDATION_REGIONAL_INSIGHTS),
     )
 
     service = RecommendationService(

@@ -5,6 +5,7 @@ import {
   autoWeatherTag,
   checkboxGroup,
   escapeHtml,
+  icon,
   inputGroup,
   numericInput,
   selectInput,
@@ -13,28 +14,8 @@ import {
   toggleControl,
 } from "./shared.js";
 
-const PROMPT_TEXTAREA_CLASSES = [
-  "focus-outline",
-  "mt-8",
-  "sm:mt-10",
-  "min-h-[230px]",
-  "w-full",
-  "rounded-[28px]",
-  "border",
-  "border-[var(--border)]",
-  "bg-[var(--panel)]",
-  "px-5",
-  "py-4",
-  "text-[15px]",
-  "leading-8",
-  "text-[var(--text)]",
-  "outline-none",
-  "transition-all",
-  "duration-200",
-  "focus:border-[var(--accent)]",
-  "focus:bg-[var(--panel)]",
-  "shadow-[var(--shadow)]",
-].join(" ");
+const PROMPT_TEXTAREA_CLASSES =
+  "focus-outline mt-8 sm:mt-10 min-h-[230px] w-full rounded-[28px] border border-[var(--border)] bg-[var(--panel)] px-5 py-4 text-[15px] leading-8 text-[var(--text)] outline-none transition-all duration-200 focus:border-[var(--accent)] focus:bg-[var(--panel)] shadow-[var(--shadow)]";
 
 function fieldProfileSummary() {
   const parts = [];
@@ -62,7 +43,7 @@ function conditionsSummary() {
   if (state.form.precipitationIn != null && state.form.precipitationIn !== "") {
     parts.push(`${Number(state.form.precipitationIn).toFixed(2)}IN RAIN`);
   }
-  return parts.join(" · ") || "MOISTURE, TEMP, WIND, FORECAST";
+  return parts.join(" · ") || "MOISTURE, HEAT, WIND, FORECAST";
 }
 
 function irrigationSummary() {
@@ -279,7 +260,7 @@ export function PromptInput() {
               <div>
                 <p class="text-sm font-semibold text-[var(--text)]">Advanced options</p>
               </div>
-              <span class="tech-chevron transition-transform duration-200">${toggleChevron()}</span>
+              <span class="tech-chevron transition-transform duration-200">${icon("chevronDown")}</span>
             </summary>
             <div class="mt-5 space-y-4">
               <label class="block text-sm text-[var(--text-muted)]">
@@ -302,13 +283,5 @@ export function PromptInput() {
         </div>
       </div>
     </section>
-  `;
-}
-
-function toggleChevron() {
-  return `
-    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-      <path d="m6 9 6 6 6-6" />
-    </svg>
   `;
 }

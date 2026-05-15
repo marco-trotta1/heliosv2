@@ -169,7 +169,7 @@ export function numericInput(name, value, min, step = "0.1", max = "") {
       min="${min}"
       ${max !== "" ? `max="${max}"` : ""}
       step="${step}"
-      class="focus-outline w-full rounded-[18px] border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-3.5 text-sm text-[var(--text)] outline-none transition-all duration-200 placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:bg-[var(--panel)]"
+      class="focus-outline w-full rounded-[18px] border border-[var(--border)] bg-[var(--panel-muted)] px-4 py-3.5 text-sm text-[var(--text)] outline-none transition-all duration-200 focus:border-[var(--accent)] focus:bg-[var(--panel)]"
     />
   `;
 }
@@ -250,8 +250,7 @@ export function emptyInspectorState() {
 }
 
 export function decisionPill(decision) {
-  const isWater = decision === "water";
-  return `<span class="decision-pill ${isWater ? "decision-pill-apply" : "decision-pill-hold"}">${isWater ? "APPLY" : "HOLD"}</span>`;
+  return `<span class="decision-pill ${decision === "water" ? "decision-pill-apply" : "decision-pill-hold"}">${decision === "water" ? "APPLY" : "HOLD"}</span>`;
 }
 
 export function livePill({ validationMode, modelHash }) {
@@ -284,7 +283,6 @@ export function confidenceBar(value) {
     </div>
   `;
 }
-
 export function metricCard({ label, value, unit = "", source = "", railClass = "" }) {
   return `
     <div class="metric-card rounded-[12px] border border-[var(--metric-border)] p-5 ${railClass}">

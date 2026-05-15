@@ -23,6 +23,18 @@ from helios.utils.openet import resolve_monthly_et_in
 
 logger = logging.getLogger(__name__)
 
+VALIDATION_REGIONAL_INSIGHTS = {
+    "success_rate": 0.0,
+    "avg_yield_delta": None,
+    "total_samples": 0,
+    "weighted_samples": 0.0,
+    "comparable_samples": 0,
+    "radius_miles": 31.07,
+}
+VALIDATION_ADJUSTMENT_REASON = (
+    "Validation mode is enabled, so nearby feedback adjustments were disabled for a clean field test."
+)
+
 
 class RecommendationService:
     def __init__(
@@ -120,18 +132,11 @@ class RecommendationService:
             current_moisture=float(raw_frame.iloc[0]["current_soil_moisture"]),
         )
         if self.validation_mode:
-            insights_data = {
-                "success_rate": 0.0,
-                "avg_yield_delta": None,
-                "total_samples": 0,
-                "weighted_samples": 0.0,
-                "comparable_samples": 0,
-                "radius_miles": 31.07,
-            }
+            insights_data = dict(VALIDATION_REGIONAL_INSIGHTS)
             adjustment_data = {
                 "adjusted_recommendation_in": round(plan["recommended_amount_in"], 2),
                 "adjustment_factor": 1.0,
-                "reason": "Validation mode is enabled, so nearby feedback adjustments were disabled for a clean field test.",
+                "reason": VALIDATION_ADJUSTMENT_REASON,
             }
         else:
             insights_data = get_regional_insights(

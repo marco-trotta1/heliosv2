@@ -140,6 +140,21 @@ def prediction_payload() -> dict[str, Any]:
     }
 
 
+@pytest.fixture()
+def single_sensor_prediction_payload(prediction_payload: dict[str, Any]) -> dict[str, Any]:
+    payload = dict(prediction_payload)
+    payload["soil_moisture_readings"] = [
+        {
+            "timestamp": reading["timestamp"],
+            "field_id": reading["field_id"],
+            "sensor_id": "sensor-a",
+            "volumetric_water_content": reading["volumetric_water_content"],
+        }
+        for reading in prediction_payload["soil_moisture_readings"][:3]
+    ]
+    return payload
+
+
 @pytest.fixture
 def known_inference_row():
     """A minimal valid inference input for sanity-checking model output range."""

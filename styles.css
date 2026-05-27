@@ -1,4 +1,8 @@
 :root {
+  --font-ui: "Inter", "Geist", sans-serif;
+  --font-display: "Söhne", "Geist", "Inter", sans-serif;
+  --font-data: "Geist", "Inter", SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --font-accent: "PP Neue Montreal", "Söhne", "Geist", "Inter", sans-serif;
   --bg: #fdf9f0;
   --bg-strong: #f5eedb;
   --paper-wash: linear-gradient(175deg, #fdf9f0 0%, #f5eedb 100%);
@@ -146,7 +150,7 @@ html {
 
 body {
   margin: 0;
-  font-family: "Manrope", sans-serif;
+  font-family: var(--font-ui);
   background: var(--paper-wash);
   background-attachment: fixed;
   color: var(--text);
@@ -154,12 +158,27 @@ body {
 
 .num {
   font-variant-numeric: tabular-nums;
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--font-data);
   font-feature-settings: "tnum" 1;
 }
 
 .mono {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--font-data);
+}
+
+h1,
+h2,
+h3,
+.hero-glow {
+  font-family: var(--font-display);
+}
+
+.eyebrow,
+.eyebrow-muted,
+.decision-pill,
+.live-pill,
+.stacked-card-label {
+  font-family: var(--font-accent);
 }
 
 .hero-glow {
@@ -566,7 +585,7 @@ summary::-webkit-details-marker {
 }
 
 .stacked-card-label {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-family: var(--font-accent);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.2em;
@@ -575,7 +594,7 @@ summary::-webkit-details-marker {
 }
 
 .stacked-card-summary {
-  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  font-family: var(--font-data);
   font-size: 12px;
   font-weight: 700;
   color: var(--ink);

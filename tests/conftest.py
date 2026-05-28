@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from helios.api.main import create_app
 from helios.api.runtime import AppRuntime
 from helios.config import get_settings
+from helios.data.feature_engineering import build_expected_feature_columns
 from helios.database.db import init_db, reset_engine
 from helios.models.moisture_model import clear_model_cache
 import helios.schemas.outputs as output_schemas
@@ -194,14 +195,18 @@ def feedback_payload() -> dict[str, Any]:
     }
 
 
-def write_fake_model_artifacts(model_path: Path, metadata_path: Path) -> None:
+def write_fake_model_artifacts(
+    model_path: Path,
+    metadata_path: Path,
+    feature_columns: list[str] | None = None,
+) -> None:
     model_path.parent.mkdir(parents=True, exist_ok=True)
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(PickledFakeModel(), model_path)
     metadata_path.write_text(
         json.dumps(
             {
-                "feature_columns": [],
+                "feature_columns": feature_columns or build_expected_feature_columns(),
                 "cv_rmse_mean": 0.11,
             }
         )

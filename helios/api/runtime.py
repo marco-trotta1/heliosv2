@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass, field
+from pathlib import Path
 
+from helios.data.feature_engineering import build_expected_feature_columns
 from helios.api.rate_limit import InMemoryRateLimiter, RateLimitPolicy
 from helios.config import Settings
 from helios.database.db import init_db
@@ -25,6 +28,33 @@ class AppRuntime:
         return self.database_ready and self.recommendation_service is not None
 
 
+class ModelFeatureSchemaMismatch(RuntimeError):
+    pass
+
+
+def validate_model_feature_schema(metadata_path: Path) -> None:
+    metadata = json.loads(metadata_path.read_text())
+    metadata_columns = metadata.get("feature_columns")
+    if not isinstance(metadata_columns, list) or not all(isinstance(column, str) for column in metadata_columns):
+        raise ModelFeatureSchemaMismatch("Model metadata feature_columns must be a list of strings.")
+
+    builder_columns = build_expected_feature_columns()
+    if metadata_columns == builder_columns:
+        return
+
+    metadata_set = set(metadata_columns)
+    builder_set = set(builder_columns)
+    missing_columns = [column for column in builder_columns if column not in metadata_set]
+    extra_columns = [column for column in metadata_columns if column not in builder_set]
+    raise ModelFeatureSchemaMismatch(
+        "Model feature schema mismatch.\n"
+        f"metadata feature columns: {metadata_columns}\n"
+        f"feature builder feature columns: {builder_columns}\n"
+        f"missing columns: {missing_columns}\n"
+        f"extra columns: {extra_columns}"
+    )
+
+
 def build_runtime(settings: Settings) -> AppRuntime:
     runtime = AppRuntime(
         settings=settings,
@@ -44,6 +74,7 @@ def build_runtime(settings: Settings) -> AppRuntime:
         runtime.startup_issues.append("Database initialization failed.")
 
     try:
+        validate_model_feature_schema(settings.metadata_path)
         runtime.recommendation_service = RecommendationService.from_artifacts(
             model_path=settings.model_path,
             metadata_path=settings.metadata_path,
@@ -58,6 +89,9 @@ def build_runtime(settings: Settings) -> AppRuntime:
             },
         )
         runtime.startup_issues.append("Model artifacts are missing. Train the model before using live API mode.")
+    except ModelFeatureSchemaMismatch as exc:
+        logger.error("Model feature schema validation failed: %s", exc)
+        raise RuntimeError(str(exc)) from exc
     except Exception:
         logger.exception("Failed to load Helios model artifacts")
         runtime.startup_issues.append("Model artifacts could not be loaded.")

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 from pathlib import Path
 
@@ -27,12 +28,39 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--metadata-path", default="artifacts/model_metadata.json")
     parser.add_argument("--n-estimators", type=int, default=400)
     parser.add_argument("--learning-rate", type=float, default=0.05)
+    parser.add_argument("--openet-latitude", type=float, default=None)
+    parser.add_argument("--openet-longitude", type=float, default=None)
+    parser.add_argument("--openet-coordinate-note", default="")
     return parser.parse_args()
 
 
 def _maybe_openet_csv(path: str) -> str | None:
     candidate = Path(path)
     return str(candidate) if candidate.exists() else None
+
+
+def _record_training_provenance(
+    *,
+    metadata_path: str,
+    mickelson_workbook: str,
+    openet_csv: str | None,
+    openet_latitude: float | None,
+    openet_longitude: float | None,
+    openet_coordinate_note: str,
+) -> None:
+    path = Path(metadata_path)
+    metadata = json.loads(path.read_text())
+    metadata["training_inputs"] = {
+        "mickelson_workbook": mickelson_workbook,
+        "openet_csv": openet_csv,
+    }
+    if openet_latitude is not None and openet_longitude is not None:
+        metadata["openet_coordinate"] = {
+            "latitude": openet_latitude,
+            "longitude": openet_longitude,
+            "note": openet_coordinate_note,
+        }
+    path.write_text(json.dumps(metadata, indent=2))
 
 
 def rebuild_training_bundle(
@@ -48,6 +76,9 @@ def rebuild_training_bundle(
     metadata_path: str,
     n_estimators: int,
     learning_rate: float,
+    openet_latitude: float | None = None,
+    openet_longitude: float | None = None,
+    openet_coordinate_note: str = "",
 ) -> dict[str, int | str]:
     openet_path = _maybe_openet_csv(openet_csv) if openet_csv is not None else None
 
@@ -75,6 +106,14 @@ def rebuild_training_bundle(
         n_estimators=n_estimators,
         learning_rate=learning_rate,
     )
+    _record_training_provenance(
+        metadata_path=metadata_path,
+        mickelson_workbook=mickelson_workbook,
+        openet_csv=openet_path,
+        openet_latitude=openet_latitude,
+        openet_longitude=openet_longitude,
+        openet_coordinate_note=openet_coordinate_note,
+    )
 
     return {
         "synthetic_rows": len(sample_frame),
@@ -100,6 +139,9 @@ def main() -> None:
         metadata_path=args.metadata_path,
         n_estimators=args.n_estimators,
         learning_rate=args.learning_rate,
+        openet_latitude=args.openet_latitude,
+        openet_longitude=args.openet_longitude,
+        openet_coordinate_note=args.openet_coordinate_note,
     )
     logger.info(
         "Rebuilt Helios bundle: synthetic_rows={synthetic_rows} mickelson_rows={mickelson_rows} "

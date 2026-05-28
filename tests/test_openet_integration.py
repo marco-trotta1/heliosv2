@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
+from helios.scripts.fetch_openet_monthly import normalize_openet_rows
 from helios.utils.openet import OPENET_TIMEOUT_SECONDS, clear_openet_cache, fetch_monthly_et, resolve_monthly_et_in
 
 
@@ -31,6 +32,25 @@ def test_fetch_returns_list(monkeypatch: pytest.MonkeyPatch) -> None:
     assert len(result) == 2
     assert result[0]["et"] == 42
     assert mocked_post.call_args.kwargs["timeout"] == OPENET_TIMEOUT_SECONDS
+
+
+def test_fetch_script_normalizes_openet_rows() -> None:
+    rows = normalize_openet_rows(
+        [
+            {"time": "2024-04-01", "et": 42.5, "count": 1},
+            {"time": "2024-05-01", "et": 88.25, "count": 1},
+        ]
+    )
+
+    assert rows == [
+        {"time": "2024-04-01", "et": 42.5, "count": 1, "date": "2024-04-01", "openet_et_mm": 42.5},
+        {"time": "2024-05-01", "et": 88.25, "count": 1, "date": "2024-05-01", "openet_et_mm": 88.25},
+    ]
+
+
+def test_fetch_script_rejects_unexpected_rows() -> None:
+    with pytest.raises(RuntimeError, match="date/time and ET value"):
+        normalize_openet_rows([{"time": "2024-04-01"}])
 
 
 def test_fetch_raises_on_http_error(monkeypatch: pytest.MonkeyPatch) -> None:

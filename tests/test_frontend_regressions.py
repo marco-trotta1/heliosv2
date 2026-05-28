@@ -248,11 +248,13 @@ const missingForecast = buildDecisionCardData({
   predicted: { moisture24h: 0, moisture48h: 0, moisture72h: 0 },
   inputSnapshot: { currentMoisture: 0 },
 });
-console.log(`${lowConf.state}|${lowConf.stressQualifier}|${lowConf.confidenceQualifier.italic}|${missingForecast.state}|${missingForecast.forecastStrip[0].isEmpty}`);
+// insufficient state forces ALL strip dots empty (per doc state table), even when moisture values are non-zero.
+const allEmpty = lowConf.forecastStrip.every((tick) => tick.isEmpty === true);
+console.log(`${lowConf.state}|${lowConf.stressQualifier}|${lowConf.confidenceQualifier.italic}|${missingForecast.state}|${missingForecast.forecastStrip[0].isEmpty}|allEmpty=${allEmpty}`);
 """
     )
 
-    assert output == "insufficient|null|true|insufficient|true"
+    assert output == "insufficient|null|true|insufficient|true|allEmpty=true"
 
 
 def test_decision_card_window_sentence_fallback() -> None:

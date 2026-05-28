@@ -63,11 +63,12 @@ export function buildDecisionCardData(run) {
     headline = `Soil's holding water — no irrigation needed ${timingSentence}.`;
   }
 
+  const forceEmpty = state === "insufficient";
   const forecastStrip = [
-    { label: "now", value: currentMoisture, stressLevel: classifyStressTickLevel(currentMoisture), isEmpty: currentMoisture === 0 },
-    { label: "24h", value: predicted.moisture24h, stressLevel: classifyStressTickLevel(predicted.moisture24h), isEmpty: predicted.moisture24h === 0 },
-    { label: "48h", value: predicted.moisture48h, stressLevel: classifyStressTickLevel(predicted.moisture48h), isEmpty: predicted.moisture48h === 0 },
-    { label: "72h", value: predicted.moisture72h, stressLevel: classifyStressTickLevel(predicted.moisture72h), isEmpty: predicted.moisture72h === 0 },
+    { label: "now", value: currentMoisture, stressLevel: classifyStressTickLevel(currentMoisture), isEmpty: forceEmpty || currentMoisture === 0 },
+    { label: "24h", value: predicted.moisture24h, stressLevel: classifyStressTickLevel(predicted.moisture24h), isEmpty: forceEmpty || predicted.moisture24h === 0 },
+    { label: "48h", value: predicted.moisture48h, stressLevel: classifyStressTickLevel(predicted.moisture48h), isEmpty: forceEmpty || predicted.moisture48h === 0 },
+    { label: "72h", value: predicted.moisture72h, stressLevel: classifyStressTickLevel(predicted.moisture72h), isEmpty: forceEmpty || predicted.moisture72h === 0 },
   ];
 
   const stressQualifier = state === "insufficient" ? null : classifyStressQualifier(stressProbability);

@@ -283,6 +283,53 @@ export function confidenceBar(value) {
     </div>
   `;
 }
+function decisionStripDot(tick) {
+  const dotStyle = tick.isEmpty
+    ? "border: 1px solid var(--hairline); background: var(--panel);"
+    : `background: var(--state-stress-${tick.stressLevel});`;
+  return `
+    <div class="relative z-10 flex flex-col items-center gap-1.5 bg-[var(--panel)] px-2">
+      <div class="h-3.5 w-3.5 rounded-full" style="${dotStyle}"></div>
+      <span style="font-size: var(--type-caption-size); font-weight: 600; letter-spacing: 0.06em; color: var(--text-muted);">${tick.label}</span>
+    </div>
+  `;
+}
+
+export function DecisionCard(data) {
+  if (!data) return "";
+  const { headline, state: cardState, forecastStrip, stressQualifier, confidenceQualifier } = data;
+  const confidenceStyleParts = [
+    `font-size: var(--type-body-size);`,
+    `color: ${confidenceQualifier.level === "high" ? "var(--ink)" : "var(--text-muted)"};`,
+  ];
+  if (confidenceQualifier.italic) confidenceStyleParts.push("font-style: italic;");
+  const confidenceStyle = confidenceStyleParts.join(" ");
+
+  return `
+    <div class="decision-card flex flex-col gap-6 rounded-[12px] border border-[var(--metric-border)] bg-[var(--panel)] p-6 shadow-[var(--shadow)]" data-state="${cardState}">
+      <h2 class="font-semibold leading-[1.3]" style="font-size: var(--type-headline-size); color: var(--ink);">${escapeHtml(headline)}</h2>
+
+      <div class="flex flex-col gap-2">
+        <div class="relative flex items-center justify-between">
+          <div class="absolute left-[8%] right-[8%] top-[7px] h-px bg-[var(--hairline)]"></div>
+          ${forecastStrip.map(decisionStripDot).join("")}
+        </div>
+        <p style="font-size: var(--type-caption-size); color: var(--text-muted);">soil moisture, next 72h</p>
+      </div>
+
+      <div class="flex items-center justify-between border-t border-dashed border-[var(--hairline)] pt-4">
+        <div class="flex items-center gap-2">
+          ${stressQualifier ? `
+            <span aria-hidden="true" style="color: var(--state-stress-${stressQualifier.level}); font-size: 14px;">${stressQualifier.icon}</span>
+            <span style="font-size: var(--type-body-size); color: var(--text);">${escapeHtml(stressQualifier.text)}</span>
+          ` : ""}
+        </div>
+        <div style="${confidenceStyle}">${escapeHtml(confidenceQualifier.text)}</div>
+      </div>
+    </div>
+  `;
+}
+
 export function metricCard({ label, value, unit = "", source = "", railClass = "" }) {
   return `
     <div class="metric-card rounded-[12px] border border-[var(--metric-border)] p-5 ${railClass}">

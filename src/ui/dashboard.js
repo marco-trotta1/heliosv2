@@ -1,7 +1,8 @@
 import { PRESETS } from "../constants.js";
-import { formatPercent, formatTimestamp, formatWindow, recommendationTone } from "../domain.js";
+import { buildDecisionCardData, formatPercent, formatTimestamp, formatWindow, recommendationTone } from "../domain.js";
 import { state } from "../state.js";
 import {
+  DecisionCard,
   confidenceBar,
   decisionPill,
   escapeHtml,
@@ -215,6 +216,10 @@ export function RecommendationHero(run, { showRunButton = true } = {}) {
             <span>RUN NEW ANALYSIS →</span>
           </button>
         ` : ""}
+      </div>
+
+      <div style="display: none;" data-debug="decision-card">
+        ${DecisionCard(buildDecisionCardData(run))}
       </div>
     </section>
   `;

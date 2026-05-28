@@ -3,7 +3,6 @@ import { buildDecisionCardData, formatPercent, formatTimestamp, formatWindow, re
 import { state } from "../state.js";
 import {
   DecisionCard,
-  confidenceBar,
   decisionPill,
   escapeHtml,
   etSourceTag,
@@ -149,9 +148,7 @@ export function RecommendationHero(run, { showRunButton = true } = {}) {
 
   const amount = (run.recommendedAmountIn ?? 0).toFixed(2);
   const timing = formatWindow(run.timingWindow).toUpperCase();
-  const confidencePct = Math.round((run.confidenceScore ?? 0) * 100);
-  const stressPct = Math.round((run.stressProbability ?? 0) * 100);
-  const stressLabel = stressPct >= 60 ? "HIGH" : stressPct >= 30 ? "MODERATE" : "LOW";
+  const decisionCardData = buildDecisionCardData(run);
   const soilTexture = run.inputSnapshot?.soilTexture ? escapeHtml(String(run.inputSnapshot.soilTexture).toUpperCase()) : "";
   const cropType = run.inputSnapshot?.cropType ? escapeHtml(String(run.inputSnapshot.cropType).toUpperCase()) : "";
   const growthStage = run.inputSnapshot?.growthStage ? escapeHtml(String(run.inputSnapshot.growthStage).replace(/_/g, " ").toUpperCase()) : "";
@@ -182,22 +179,8 @@ export function RecommendationHero(run, { showRunButton = true } = {}) {
           </div>
         </div>
 
-        <div class="metric-card self-center rounded-[12px] border border-[var(--metric-border)] p-5 rail-forest">
-          <div class="flex items-center gap-2">
-            <span class="eyebrow">CONFIDENCE</span>
-            <div class="h-px flex-1 bg-[var(--hairline)] opacity-40"></div>
-          </div>
-          <div class="mt-3 flex items-baseline gap-2">
-            <span class="num" style="font-size: 56px; font-weight: 800; line-height: 0.85; color: var(--ink); letter-spacing: -0.03em;">${confidencePct}</span>
-            <span class="num text-[20px] font-bold text-[var(--text-muted)]">%</span>
-          </div>
-          <div class="mt-3">
-            ${confidenceBar(run.confidenceScore)}
-          </div>
-          <div class="mt-5 flex items-center justify-between border-t border-dashed border-[var(--hairline)] pt-4">
-            <span class="text-[13px] font-semibold text-[var(--text-muted)]">Stress risk</span>
-            <span class="num text-[12px] font-extrabold tracking-[0.14em] text-[var(--ink)]">${stressLabel}</span>
-          </div>
+        <div class="self-center">
+          ${DecisionCard(decisionCardData)}
         </div>
       </div>
 
@@ -218,9 +201,6 @@ export function RecommendationHero(run, { showRunButton = true } = {}) {
         ` : ""}
       </div>
 
-      <div style="display: none;" data-debug="decision-card">
-        ${DecisionCard(buildDecisionCardData(run))}
-      </div>
     </section>
   `;
 }

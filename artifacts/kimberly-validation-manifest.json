@@ -1,0 +1,23 @@
+{
+  "generated_at": "2026-05-28T06:04:31.077665+00:00",
+  "git_commit": "6f6b1e86da4655c8c9156677c8d24be85b8181c9",
+  "app_name": "Helios",
+  "app_version": "0.2.0",
+  "validation_mode": true,
+  "model_path": "artifacts/moisture_model.pkl",
+  "metadata_path": "artifacts/model_metadata.json",
+  "model_exists": true,
+  "metadata_exists": true,
+  "model_hash": "487b359a6d4e587d20ac399439af3d6b19acfb2341a1f18422721cca635631ba",
+  "metadata_hash": "462b6e67abd322e4b780993ee11b87fa5772d8201fa49d2a30e7ce18eb7ec537",
+  "training_date": "2026-05-28T05:57:42.585065+00:00",
+  "training_rows": 7631,
+  "cv_rmse_mean": 0.01497301752859212,
+  "validation_rmse": 0.015167702920734882,
+  "training_data_hash": "1c90952cb57fe072b3e3b17ea23757d54c7baa08b6f10990e77fe4a495e922cf",
+  "checks": {
+    "model_artifact_present": true,
+    "metadata_present": true,
+    "validation_mode_enabled": true
+  }
+}

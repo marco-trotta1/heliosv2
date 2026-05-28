@@ -121,6 +121,7 @@ class RecommendationService:
                 model_rmse=float(self.model.metadata.get("cv_rmse_mean", 0.12)),
                 sensor_count=len(request.soil_moisture_readings),
                 physical_sensor_count=physical_sensor_count,
+                irrigation_type=request.irrigation_system.irrigation_type,
             )
         )
 

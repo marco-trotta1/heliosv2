@@ -2,7 +2,7 @@
 Rule-constrained irrigation optimizer.
 
 Applies water-rights windows, pump capacity limits, infiltration rate constraints,
-and soil saturation ceilings to generate a conservative 48-hour irrigation recommendation.
+and soil saturation ceilings to generate a conservative horizon-aware irrigation recommendation.
 Designed to support — not replace — operator judgment.
 """
 
@@ -19,6 +19,13 @@ SOIL_THRESHOLDS = {
 }
 
 DEFAULT_COST_PER_IN_ACRE = 82.25  # $/in/acre (converted from $8/mm/ha)
+HIGH_STRESS_THRESHOLD = 0.80
+MIN_ACTIONABLE_AMOUNT_IN = 0.01
+IRRIGATION_EFFICIENCY = {
+    "drip": 0.93,
+    "pivot": 0.82,
+    "flood": 0.68,
+}
 
 
 @dataclass
@@ -38,6 +45,7 @@ class OptimizationInputs:
     model_rmse: float
     sensor_count: int
     physical_sensor_count: int
+    irrigation_type: str = "pivot"
 
 
 def _allowed_hours(water_rights_schedule: list[str]) -> float:
@@ -81,7 +89,11 @@ def generate_irrigation_plan(inputs: OptimizationInputs) -> dict[str, Any]:
     dry_threshold = thresholds["dry"]
     wet_threshold = thresholds["wet"]
     predicted_48h = inputs.predicted_moisture["moisture_48h"]
-    needs_water = predicted_48h < dry_threshold
+    predicted_72h = inputs.predicted_moisture["moisture_72h"]
+    needs_water_48h = predicted_48h < dry_threshold
+    needs_water_72h = predicted_72h < dry_threshold and inputs.stress_probability >= HIGH_STRESS_THRESHOLD
+    needs_water = needs_water_48h or needs_water_72h
+    decision_moisture = predicted_48h if needs_water_48h else predicted_72h
 
     timing_window = _select_timing_window(
         water_rights_schedule=inputs.water_rights_schedule,
@@ -90,11 +102,11 @@ def generate_irrigation_plan(inputs: OptimizationInputs) -> dict[str, Any]:
     )
 
     target_moisture = min(wet_threshold, dry_threshold + 0.08 + inputs.estimated_et_in * 0.0508)
-    deficit = max(0.0, target_moisture - predicted_48h)
+    deficit = max(0.0, target_moisture - decision_moisture)
     root_zone_factor = {"sand": 4.331, "loam": 5.315, "clay": 6.102}.get(inputs.soil_texture, 5.315)
-    raw_amount_in = deficit * root_zone_factor
-    precip_adjustment = max(0.0, inputs.recent_precipitation_in * 0.7)
-    raw_amount_in = max(0.0, raw_amount_in - precip_adjustment)
+    net_amount_in = deficit * root_zone_factor
+    efficiency = IRRIGATION_EFFICIENCY.get(inputs.irrigation_type, IRRIGATION_EFFICIENCY["pivot"])
+    raw_amount_in = net_amount_in / efficiency
 
     pump_cap = inputs.pump_capacity_in_per_hour * _allowed_hours(inputs.water_rights_schedule)
     budget_cap = _compute_budget_cap(inputs.field_area_acres, inputs.budget_dollars)
@@ -110,10 +122,20 @@ def generate_irrigation_plan(inputs: OptimizationInputs) -> dict[str, Any]:
     if not needs_water:
         recommended_amount = 0.0
 
+    rounded_amount = round(max(0.0, recommended_amount), 2)
+    decision = "water" if needs_water and rounded_amount >= MIN_ACTIONABLE_AMOUNT_IN else "wait"
+    if decision == "wait":
+        rounded_amount = 0.0
+        timing_window = _select_timing_window(
+            water_rights_schedule=inputs.water_rights_schedule,
+            energy_price_window=inputs.energy_price_window,
+            needs_water=False,
+        )
+
     confidence = _confidence_score(inputs, dry_threshold=dry_threshold, timing_window=timing_window)
     return {
-        "decision": "water" if needs_water else "wait",
-        "recommended_amount_in": round(max(0.0, recommended_amount), 2),
+        "decision": decision,
+        "recommended_amount_in": rounded_amount,
         "timing_window": timing_window,
         "confidence_score": confidence,
         "soil_dry_threshold": dry_threshold,

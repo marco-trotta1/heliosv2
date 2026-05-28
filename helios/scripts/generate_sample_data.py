@@ -19,6 +19,7 @@ from helios.scripts.training_shared import (
     load_openet_monthly_et,
 )
 from helios.utils.evapotranspiration import estimate_reference_et_in
+from helios.utils.openet import DEFAULT_OPENET_MONTHLY_ET_IN
 
 TEXTURE_DRAINAGE_SPREAD = {
     "sand": 0.05,
@@ -138,8 +139,12 @@ def generate_sample_data(
             solar_radiation_mj_m2=rolling_solar_mean,
         )
 
-        # Real satellite ET for this month (in/day). Zero when no OpenET data provided.
-        openet_monthly_et_in = openet_monthly_et.get(season_month, 0.0)
+        # Real satellite ET for this month (in/day), falling back to climatology
+        # instead of a zero value that would skew training/inference parity.
+        openet_monthly_et_in = openet_monthly_et.get(
+            season_month,
+            DEFAULT_OPENET_MONTHLY_ET_IN[season_month],
+        )
 
         # Soil water balance targets derived from FAO-56 ET₀ and crop coefficients.
         # This breaks the circular dependency: targets are physics-grounded, not

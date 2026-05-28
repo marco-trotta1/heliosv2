@@ -161,6 +161,7 @@ def test_recommendation_service_passes_physical_sensor_count_to_optimizer(
 
     assert captured_inputs["value"].physical_sensor_count == 2
     assert captured_inputs["value"].sensor_count == 6
+    assert captured_inputs["value"].irrigation_type == "pivot"
 
 
 def test_recommendation_service_does_not_reload_model_on_each_prediction(

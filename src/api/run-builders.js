@@ -15,6 +15,9 @@ import { apiUrl, readJsonResponse } from "./http.js";
 export function buildPredictionRequest(inputs) {
   const now = new Date();
   const fieldId = inputs.farmId || inputs.fieldName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  const recentIrrigation24h = Number(inputs.recentIrrigation24h);
+  const recentIrrigation72h = Number(inputs.recentIrrigation72h);
+  const recentIrrigation24To72h = Math.max(0, recentIrrigation72h - recentIrrigation24h);
   return {
     field_id: fieldId,
     farm_id: inputs.farmId || fieldId,
@@ -73,11 +76,11 @@ export function buildPredictionRequest(inputs) {
     recent_irrigation_events: [
       {
         timestamp: new Date(now.getTime() - (24 * 60 * 60 * 1000)).toISOString(),
-        applied_in: Number(inputs.recentIrrigation24h),
+        applied_in: recentIrrigation24h,
       },
       {
         timestamp: new Date(now.getTime() - (72 * 60 * 60 * 1000)).toISOString(),
-        applied_in: Number(inputs.recentIrrigation72h),
+        applied_in: recentIrrigation24To72h,
       },
     ],
   };

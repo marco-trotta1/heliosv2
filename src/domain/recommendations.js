@@ -109,14 +109,15 @@ export function scoreConfidence({ forecast48h, dryThreshold, timingWindow, model
 export function generateIrrigationPlan(inputs, predicted, stressProbability, estimatedEtIn) {
   const thresholds = SOIL_THRESHOLDS[inputs.soilTexture] ?? SOIL_THRESHOLDS.loam;
   const predicted48h = predicted.moisture48h;
-  const needsWater = predicted48h < thresholds.dry;
+  const predicted72h = predicted.moisture72h;
+  const needsWater48h = predicted48h < thresholds.dry;
+  const needsWater72h = predicted72h < thresholds.dry && stressProbability >= 0.8;
+  const needsWater = needsWater48h || needsWater72h;
   const timingWindow = selectTimingWindow(inputs.waterWindow, inputs.energyWindow, needsWater);
   const targetMoisture = Math.min(thresholds.wet, thresholds.dry + 0.08 + estimatedEtIn * 0.0508);
-  const deficit = Math.max(0, targetMoisture - predicted48h);
-  const rawAmountIn = Math.max(
-    0,
-    deficit * (ROOT_ZONE_FACTORS[inputs.soilTexture] ?? ROOT_ZONE_FACTORS.loam) - inputs.precipitationIn * 0.7,
-  );
+  const decisionMoisture = needsWater48h ? predicted48h : predicted72h;
+  const deficit = Math.max(0, targetMoisture - decisionMoisture);
+  const rawAmountIn = deficit * (ROOT_ZONE_FACTORS[inputs.soilTexture] ?? ROOT_ZONE_FACTORS.loam);
   const efficiency = IRRIGATION_EFFICIENCY[inputs.irrigationType] || 0.82;
   const grossAmountNeeded = rawAmountIn / efficiency;
   const windowHours = allowedHours(inputs.waterWindow);
@@ -137,14 +138,19 @@ export function generateIrrigationPlan(inputs, predicted, stressProbability, est
   const bindingConstraint = Object.entries(constraints).reduce((min, curr) => curr[1] < min[1] ? curr : min)[0];
   const gaps = Object.fromEntries(Object.entries(constraints).map(([key, value]) => [key, round(value - recommendedAmountIn, 3)]));
 
+  const roundedAmount = round(needsWater ? recommendedAmountIn : 0, 2);
+  const decision = needsWater && roundedAmount >= 0.01 ? "water" : "wait";
+  const finalAmount = decision === "water" ? roundedAmount : 0;
+  const finalTimingWindow = decision === "water" ? timingWindow : selectTimingWindow(inputs.waterWindow, inputs.energyWindow, false);
+
   return {
-    decision: needsWater ? "water" : "wait",
-    recommendedAmountIn: round(needsWater ? recommendedAmountIn : 0, 2),
-    timingWindow,
+    decision,
+    recommendedAmountIn: finalAmount,
+    timingWindow: finalTimingWindow,
     confidenceScore: scoreConfidence({
       forecast48h: predicted48h,
       dryThreshold: thresholds.dry,
-      timingWindow,
+      timingWindow: finalTimingWindow,
       modelRmse: inputs.modelRmse,
       sensorCount: inputs.sensorCount,
       precipitationIn: inputs.precipitationIn,

@@ -4,7 +4,10 @@ import json
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
+from helios.models.train_model import train_model
+from helios.scripts.generate_sample_data import generate_sample_data
 from helios.scripts.rebuild_training_bundle import rebuild_training_bundle
 
 
@@ -133,3 +136,61 @@ def test_rebuild_training_bundle_creates_combined_dataset_and_metadata(tmp_path:
     assert metadata["training_rows"] == len(combined)
     assert metadata["training_data_hash"]
     assert metadata["model_hash"]
+    assert combined["openet_monthly_et_in"].min() > 0
+
+
+def test_generate_sample_data_uses_openet_climatology_without_csv(tmp_path: Path) -> None:
+    output_path = tmp_path / "sample.csv"
+
+    frame = generate_sample_data(
+        rows=30,
+        output_path=str(output_path),
+        seed=42,
+        openet_csv=None,
+    )
+
+    assert output_path.exists()
+    assert frame["openet_monthly_et_in"].min() > 0
+
+
+def test_train_model_rejects_missing_openet_feature(tmp_path: Path) -> None:
+    data_path = tmp_path / "training.csv"
+    pd.DataFrame(
+        [
+            {
+                "target_moisture_24h": 0.2,
+                "target_moisture_48h": 0.19,
+                "target_moisture_72h": 0.18,
+            }
+        ]
+    ).to_csv(data_path, index=False)
+
+    with pytest.raises(ValueError, match="openet_monthly_et_in"):
+        train_model(
+            data_path=str(data_path),
+            model_path=str(tmp_path / "model.pkl"),
+            metadata_path=str(tmp_path / "metadata.json"),
+            n_estimators=1,
+            learning_rate=0.1,
+        )
+
+
+def test_train_model_rejects_all_zero_openet_feature(tmp_path: Path) -> None:
+    data_path = tmp_path / "training.csv"
+    frame = generate_sample_data(
+        rows=30,
+        output_path=str(data_path),
+        seed=42,
+        openet_csv=None,
+    )
+    frame["openet_monthly_et_in"] = 0.0
+    frame.to_csv(data_path, index=False)
+
+    with pytest.raises(ValueError, match="all zero"):
+        train_model(
+            data_path=str(data_path),
+            model_path=str(tmp_path / "model.pkl"),
+            metadata_path=str(tmp_path / "metadata.json"),
+            n_estimators=1,
+            learning_rate=0.1,
+        )

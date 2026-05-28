@@ -70,7 +70,6 @@ function FieldProfileSection() {
         { value: "soybean", label: "Soybean" },
         { value: "potato", label: "Potato" },
         { value: "alfalfa", label: "Alfalfa" },
-        { value: "wheat", label: "Wheat" },
       ]))}
       ${inputGroup("Growth stage", selectInput("growthStage", state.form.growthStage, [
         { value: "emergence", label: "Emergence" },

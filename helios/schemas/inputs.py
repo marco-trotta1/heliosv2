@@ -1,12 +1,18 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 ALLOWED_HORIZONS = {24, 48, 72}
+FUTURE_TIMESTAMP_SKEW = timedelta(minutes=5)
+MIN_TEMPERATURE_F = -40.0
+MAX_TEMPERATURE_F = 130.0
+MAX_WIND_MPH = 80.0
+MAX_PRECIPITATION_IN = 12.0
+MAX_SOLAR_RADIATION_MJ_M2 = 35.0
 
 
 def _validate_allowed_horizon(value: int | None) -> int | None:
@@ -41,6 +47,15 @@ def _validate_sensor_readings(value: list["SoilMoistureReading"]) -> list["SoilM
     return value
 
 
+def _validate_prediction_timestamp(value: datetime) -> datetime:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError("prediction timestamps must be timezone-aware")
+    timestamp = value.astimezone(timezone.utc)
+    if timestamp > datetime.now(timezone.utc) + FUTURE_TIMESTAMP_SKEW:
+        raise ValueError("prediction timestamps cannot be in the future")
+    return timestamp
+
+
 class RequiredHorizonModel(BaseModel):
     @field_validator("forecast_horizon_hours", check_fields=False)
     @classmethod
@@ -51,19 +66,28 @@ class RequiredHorizonModel(BaseModel):
 
 
 class WeatherInput(RequiredHorizonModel):
-    temperature_f: float
+    temperature_f: float = Field(ge=MIN_TEMPERATURE_F, le=MAX_TEMPERATURE_F)
     humidity_pct: float = Field(ge=0, le=100)
-    wind_mph: float = Field(ge=0)
-    precipitation_in: float = Field(ge=0)
-    solar_radiation_mj_m2: float = Field(ge=0)
+    wind_mph: float = Field(ge=0, le=MAX_WIND_MPH)
+    precipitation_in: float = Field(ge=0, le=MAX_PRECIPITATION_IN)
+    solar_radiation_mj_m2: float = Field(ge=0, le=MAX_SOLAR_RADIATION_MJ_M2)
     forecast_horizon_hours: int
 
+
 class WeatherInputPatch(BaseModel):
-    temperature_f: float | None = None
+    temperature_f: float | None = Field(
+        default=None,
+        ge=MIN_TEMPERATURE_F,
+        le=MAX_TEMPERATURE_F,
+    )
     humidity_pct: float | None = Field(default=None, ge=0, le=100)
-    wind_mph: float | None = Field(default=None, ge=0)
-    precipitation_in: float | None = Field(default=None, ge=0)
-    solar_radiation_mj_m2: float | None = Field(default=None, ge=0)
+    wind_mph: float | None = Field(default=None, ge=0, le=MAX_WIND_MPH)
+    precipitation_in: float | None = Field(default=None, ge=0, le=MAX_PRECIPITATION_IN)
+    solar_radiation_mj_m2: float | None = Field(
+        default=None,
+        ge=0,
+        le=MAX_SOLAR_RADIATION_MJ_M2,
+    )
     forecast_horizon_hours: int | None = None
 
     @field_validator("forecast_horizon_hours")
@@ -85,6 +109,11 @@ class SoilMoistureReading(BaseModel):
     sensor_id: str
     volumetric_water_content: float = Field(ge=0, le=1)
 
+    @field_validator("timestamp")
+    @classmethod
+    def validate_timestamp(cls, value: datetime) -> datetime:
+        return _validate_prediction_timestamp(value)
+
 
 class SoilPropertiesInput(BaseModel):
     soil_texture: Literal["sand", "loam", "clay"]
@@ -94,7 +123,7 @@ class SoilPropertiesInput(BaseModel):
 
 
 class CropInput(BaseModel):
-    crop_type: str = Field(min_length=1)
+    crop_type: Literal["corn", "soybean", "alfalfa", "potato"]
     growth_stage: Literal["emergence", "vegetative", "flowering", "grain_fill", "maturity"]
 
 
@@ -107,6 +136,11 @@ class OperationalConstraintsInput(BaseModel):
 class IrrigationEventInput(BaseModel):
     timestamp: datetime
     applied_in: float = Field(ge=0)
+
+    @field_validator("timestamp")
+    @classmethod
+    def validate_timestamp(cls, value: datetime) -> datetime:
+        return _validate_prediction_timestamp(value)
 
 
 class PredictionRequest(RequiredHorizonModel):

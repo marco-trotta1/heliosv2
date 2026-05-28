@@ -107,8 +107,22 @@ def _fit_final_model(
     return model
 
 
+def _validate_training_data(data_frame: pd.DataFrame) -> None:
+    if "openet_monthly_et_in" not in data_frame.columns:
+        raise ValueError("Training data must include openet_monthly_et_in for inference parity.")
+
+    openet_values = pd.to_numeric(data_frame["openet_monthly_et_in"], errors="coerce")
+    if openet_values.isna().any():
+        raise ValueError("Training data openet_monthly_et_in contains non-numeric or missing values.")
+    if (openet_values < 0).any():
+        raise ValueError("Training data openet_monthly_et_in cannot contain negative values.")
+    if float(openet_values.max()) <= 0.0:
+        raise ValueError("Training data openet_monthly_et_in cannot be all zero.")
+
+
 def train_model(data_path: str, model_path: str, metadata_path: str, n_estimators: int, learning_rate: float) -> None:
     data_frame = pd.read_csv(data_path)
+    _validate_training_data(data_frame)
     features, targets = build_training_features(data_frame)
     feature_columns = list(features.columns)
     features = prepare_feature_matrix(features, feature_columns)

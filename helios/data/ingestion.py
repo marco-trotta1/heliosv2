@@ -81,15 +81,18 @@ def request_to_feature_frame(
         irrigation_df = irrigation_df.copy()
         irrigation_df["timestamp"] = pd.to_datetime(irrigation_df["timestamp"], utc=True)
         latest_timestamp = pd.to_datetime(latest_timestamp, utc=True)
+        irrigation_window = irrigation_df["timestamp"] <= latest_timestamp
         irrigation_24h = float(
             irrigation_df.loc[
-                irrigation_df["timestamp"] >= latest_timestamp - pd.Timedelta(hours=24),
+                irrigation_window
+                & (irrigation_df["timestamp"] >= latest_timestamp - pd.Timedelta(hours=24)),
                 "applied_in",
             ].sum()
         )
         irrigation_72h = float(
             irrigation_df.loc[
-                irrigation_df["timestamp"] >= latest_timestamp - pd.Timedelta(hours=72),
+                irrigation_window
+                & (irrigation_df["timestamp"] >= latest_timestamp - pd.Timedelta(hours=72)),
                 "applied_in",
             ].sum()
         )

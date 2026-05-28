@@ -153,3 +153,122 @@ def test_frontend_crop_select_excludes_unsupported_wheat() -> None:
     source = (PROJECT_ROOT / "src/ui/analysis-form.js").read_text()
 
     assert 'value: "wheat"' not in source
+
+
+def test_decision_card_action_branch() -> None:
+    """decision=water + adequate confidence + recommendedAmountIn>0 -> action headline with amount and timing."""
+    output = _run_node(
+        _browser_stubs()
+        + """
+const { buildDecisionCardData } = await import('./src/domain/output.js');
+const run = {
+  confidenceScore: 0.72,
+  stressProbability: 0.55,
+  recommendedAmountIn: 0.70,
+  decision: 'water',
+  timingWindow: 'tonight',
+  predicted: { moisture24h: 0.20, moisture48h: 0.17, moisture72h: 0.14 },
+  inputSnapshot: { currentMoisture: 0.22 },
+};
+const out = buildDecisionCardData(run);
+console.log(`${out.state}|${out.headline}|${out.stressQualifier.level}|${out.confidenceQualifier.level}|${out.forecastStrip.length}|${out.forecastStrip[3].stressLevel}`);
+"""
+    )
+
+    assert output == "action|We think you'll need to irrigate 0.70 inches tonight.|moderate|mostly|4|high"
+
+
+def test_decision_card_all_clear_branch() -> None:
+    """decision=wait + recommendedAmountIn=0 -> all-clear headline, no irrigation needed."""
+    output = _run_node(
+        _browser_stubs()
+        + """
+const { buildDecisionCardData } = await import('./src/domain/output.js');
+const run = {
+  confidenceScore: 0.85,
+  stressProbability: 0.10,
+  recommendedAmountIn: 0,
+  decision: 'wait',
+  timingWindow: 'monitor next forecast cycle',
+  predicted: { moisture24h: 0.32, moisture48h: 0.30, moisture72h: 0.28 },
+  inputSnapshot: { currentMoisture: 0.34 },
+};
+const out = buildDecisionCardData(run);
+console.log(`${out.state}|${out.headline}|${out.stressQualifier.level}|${out.confidenceQualifier.text}`);
+"""
+    )
+
+    assert output == "all-clear|Soil's holding water — no irrigation needed through the next forecast cycle.|low|high confidence"
+
+
+def test_decision_card_urgent_branch() -> None:
+    """stressProbability>=0.85 -> urgent headline regardless of decision."""
+    output = _run_node(
+        _browser_stubs()
+        + """
+const { buildDecisionCardData } = await import('./src/domain/output.js');
+const run = {
+  confidenceScore: 0.7,
+  stressProbability: 0.92,
+  recommendedAmountIn: 0.85,
+  decision: 'water',
+  timingWindow: 'tonight',
+  predicted: { moisture24h: 0.14, moisture48h: 0.12, moisture72h: 0.10 },
+  inputSnapshot: { currentMoisture: 0.16 },
+};
+const out = buildDecisionCardData(run);
+console.log(`${out.state}|${out.headline}|${out.stressQualifier.level}`);
+"""
+    )
+
+    assert output == "urgent|Stress is high — irrigate 0.85 inches as soon as you can.|high"
+
+
+def test_decision_card_insufficient_branch() -> None:
+    """confidenceScore<0.4 OR predicted.moisture24h===0 -> insufficient state, stressQualifier omitted."""
+    output = _run_node(
+        _browser_stubs()
+        + """
+const { buildDecisionCardData } = await import('./src/domain/output.js');
+const lowConf = buildDecisionCardData({
+  confidenceScore: 0.30,
+  stressProbability: 0.5,
+  recommendedAmountIn: 0.5,
+  decision: 'water',
+  timingWindow: 'tonight',
+  predicted: { moisture24h: 0.22, moisture48h: 0.20, moisture72h: 0.18 },
+  inputSnapshot: { currentMoisture: 0.24 },
+});
+const missingForecast = buildDecisionCardData({
+  confidenceScore: 0.80,
+  stressProbability: 0.5,
+  recommendedAmountIn: 0.5,
+  decision: 'water',
+  timingWindow: 'tonight',
+  predicted: { moisture24h: 0, moisture48h: 0, moisture72h: 0 },
+  inputSnapshot: { currentMoisture: 0 },
+});
+console.log(`${lowConf.state}|${lowConf.stressQualifier}|${lowConf.confidenceQualifier.italic}|${missingForecast.state}|${missingForecast.forecastStrip[0].isEmpty}`);
+"""
+    )
+
+    assert output == "insufficient|null|true|insufficient|true"
+
+
+def test_decision_card_window_sentence_fallback() -> None:
+    """formatWindowSentence returns 'soon' for unknown timing window values."""
+    output = _run_node(
+        _browser_stubs()
+        + """
+const { formatWindowSentence } = await import('./src/domain/output.js');
+console.log([
+  formatWindowSentence('tonight'),
+  formatWindowSentence('MONITOR NEXT FORECAST CYCLE'),
+  formatWindowSentence(''),
+  formatWindowSentence(undefined),
+  formatWindowSentence('weird-unknown-value'),
+].join('|'));
+"""
+    )
+
+    assert output == "tonight|through the next forecast cycle|soon|soon|soon"

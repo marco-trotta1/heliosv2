@@ -17,4 +17,9 @@ export {
   buildDrivers,
   buildSummary,
 } from "./domain/recommendations.js";
-export { recommendationTone, serializeRunForCopy } from "./domain/output.js";
+export {
+  recommendationTone,
+  serializeRunForCopy,
+  buildDecisionCardData,
+  formatWindowSentence,
+} from "./domain/output.js";

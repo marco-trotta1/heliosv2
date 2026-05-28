@@ -46,6 +46,15 @@
   --shadow: 0 10px 28px rgba(24, 38, 29, 0.06);
   --shadow-strong: 0 20px 48px -28px rgba(24, 38, 29, 0.3);
   --shadow-hero: 0 24px 60px -32px rgba(24, 38, 29, 0.32);
+
+  /* Decision Card design tokens (per design doc 2026-05-28-115410).
+     Color tokens derive from existing agricultural palette for coherence. */
+  --state-stress-high: #b3564a;
+  --state-stress-moderate: #c47a2c;
+  --state-stress-low: #2e6e52;
+  --type-headline-size: 28px;
+  --type-body-size: 14px;
+  --type-caption-size: 12px;
 }
 
 body.theme-light {

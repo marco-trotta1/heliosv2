@@ -37,6 +37,19 @@ class RecommendationAdjustment(BaseModel):
     reason: str
 
 
+class ValidationEvidencePacket(BaseModel):
+    validation_mode: Literal["enabled", "disabled"]
+    model_artifact_hash: str | None = None
+    model_training_date: str | None = None
+    et_source: str | None = None
+    feedback_adjustment_status: str
+    driving_zone: str
+    high_variability_flag: bool
+    confidence_caveat: str
+    field_test_caveat: str
+    preservation_note: str
+
+
 class PredictionResponse(BaseModel):
     decision: Literal["water", "wait"]
     recommended_amount_in: float = Field(ge=0)
@@ -47,6 +60,7 @@ class PredictionResponse(BaseModel):
     predicted_moisture: MoistureForecast
     regional_insights: RegionalInsights | None = None
     recommendation_adjustment: RecommendationAdjustment | None = None
+    validation_evidence: ValidationEvidencePacket | None = None
 
 
 class HealthResponse(BaseModel):

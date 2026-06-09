@@ -21,6 +21,26 @@ function runMetaLine(run) {
   return parts.join(" · ");
 }
 
+function evidencePacketSummary(run) {
+  const evidence = run.validationEvidence;
+  if (!evidence) {
+    return "";
+  }
+  return `
+    <div class="border-t border-dashed border-[var(--hairline)] bg-[var(--panel-muted)] px-4 py-3">
+      <p class="num text-[10px] font-extrabold tracking-[0.16em] text-[var(--text-muted)]">EVIDENCE PACKET</p>
+      <div class="mt-2 grid gap-2 text-xs leading-5 text-[var(--text-muted)] sm:grid-cols-2">
+        <p><span class="font-bold text-[var(--text)]">Feedback:</span> ${escapeHtml(evidence.feedbackAdjustmentStatus || "not recorded")}</p>
+        <p><span class="font-bold text-[var(--text)]">ET:</span> ${escapeHtml(evidence.etSource || run.etSource || "not recorded")}</p>
+        <p><span class="font-bold text-[var(--text)]">Driving zone:</span> ${escapeHtml(evidence.drivingZone || run.drivingZone || "not recorded")}</p>
+        <p><span class="font-bold text-[var(--text)]">Variability:</span> ${evidence.highVariabilityFlag ? "high" : "normal"}</p>
+      </div>
+      ${evidence.confidenceCaveat ? `<p class="mt-2 text-xs leading-5 text-[var(--text-muted)]">${escapeHtml(evidence.confidenceCaveat)}</p>` : ""}
+      ${evidence.fieldTestCaveat ? `<p class="mt-1 text-xs leading-5 text-[var(--text-muted)]">${escapeHtml(evidence.fieldTestCaveat)}</p>` : ""}
+    </div>
+  `;
+}
+
 export function ResultCard(run) {
   const isValidation = run.backendSnapshot?.validationMode === true;
   const fieldName = escapeHtml(run.inputSnapshot?.fieldName || "UNTITLED FIELD").toUpperCase();
@@ -53,9 +73,10 @@ export function ResultCard(run) {
           <span>COPY</span>
         </button>
       </div>
+      ${evidencePacketSummary(run)}
       <details class="tech-details border-t border-dashed border-[var(--hairline)]">
         <summary class="focus-outline flex cursor-pointer items-center justify-between gap-3 px-4 py-2.5">
-          <span class="num text-[10px] font-extrabold tracking-[0.16em] text-[var(--text-muted)]">TECHNICAL DETAILS</span>
+          <span class="num text-[10px] font-extrabold tracking-[0.16em] text-[var(--text-muted)]">TECHNICAL DETAILS & REVIEW EVIDENCE</span>
           <span class="tech-chevron text-[var(--text-muted)] transition-transform duration-200">
             ${icon("chevronDown", "h-4 w-4")}
           </span>

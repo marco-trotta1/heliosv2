@@ -22,4 +22,5 @@ export {
   serializeRunForCopy,
   buildDecisionCardData,
   formatWindowSentence,
+  normalizeValidationEvidence,
 } from "./domain/output.js";

@@ -6,7 +6,7 @@ import {
   SAVED_RUNS_KEY,
   THEME_KEY,
 } from "./constants.js";
-import { serializeRunForCopy } from "./domain.js";
+import { normalizeValidationEvidence, serializeRunForCopy } from "./domain.js";
 // NOTE: This creates a circular dependency with ui.js. It works because renderApp
 // is only called inside function bodies (never at top-level evaluation time).
 // Do NOT call renderApp at the module top level.
@@ -70,6 +70,7 @@ export function normalizeRun(run) {
           .map(([sensorId, value]) => [sensorId, Number(value)]),
       )
     : null;
+  const validationEvidence = normalizeValidationEvidence(run.validationEvidence || run.validation_evidence);
   const hadMissingId = !run.id;
   const normalized = {
     id: run.id || `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
@@ -93,9 +94,10 @@ export function normalizeRun(run) {
     drivingZone: typeof run.drivingZone === "string" ? run.drivingZone : "",
     zoneMoistureSummary,
     highVariabilityFlag: run.highVariabilityFlag === true,
+    validationEvidence,
     sourceLabel: run.sourceLabel || "",
   };
-  normalized.copyText = run.copyText || serializeRunForCopy(normalized);
+  normalized.copyText = validationEvidence ? serializeRunForCopy(normalized) : run.copyText || serializeRunForCopy(normalized);
   if (hadMissingId) {
     console.warn("[helios] normalizeRun: run was missing id, generated fallback:", normalized.id);
   }

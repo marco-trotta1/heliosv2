@@ -8,7 +8,11 @@ from helios.services.recommendation_service import RecommendationService, VALIDA
 
 class StubForecastModel:
     def __init__(self) -> None:
-        self.metadata = {"cv_rmse_mean": 0.1}
+        self.metadata = {
+            "cv_rmse_mean": 0.1,
+            "model_hash": "abc123def456",
+            "training_date": "2026-04-17T23:00:00+00:00",
+        }
         self.last_features = None
 
     def predict(self, features) -> dict[str, float]:
@@ -246,3 +250,61 @@ def test_recommendation_service_validation_mode_disables_feedback_adjustment(
     assert response.regional_insights is not None
     assert response.regional_insights.total_samples == 0
     assert "Validation mode is enabled" in response.recommendation_adjustment.reason
+
+
+def test_recommendation_service_adds_conservative_validation_evidence(
+    prediction_payload: dict,
+    monkeypatch,
+) -> None:
+    request = PredictionRequest(**prediction_payload)
+    _stub_feedback(monkeypatch)
+
+    service = RecommendationService(
+        model=StubForecastModel(),
+        model_path=Path("unused-model.pkl"),
+        metadata_path=Path("unused-metadata.json"),
+    )
+    response = service.predict_recommendation(request)
+
+    assert response.validation_evidence is not None
+    assert response.validation_evidence.validation_mode == "disabled"
+    assert response.validation_evidence.model_artifact_hash == "abc123def456"
+    assert response.validation_evidence.model_training_date == "2026-04-17T23:00:00+00:00"
+    assert response.validation_evidence.et_source == "openet-fallback"
+    assert response.validation_evidence.feedback_adjustment_status == "Nearby feedback adjustment available"
+    assert response.validation_evidence.driving_zone == response.explanation.driving_zone
+    assert response.validation_evidence.high_variability_flag is response.explanation.high_variability_flag
+    assert response.validation_evidence.confidence_caveat == "Heuristic confidence; not a calibrated uncertainty estimate."
+    assert "Field-test evidence" in response.validation_evidence.field_test_caveat
+    assert "scientifically validated" not in response.validation_evidence.field_test_caveat.lower()
+
+
+def test_recommendation_service_validation_mode_evidence_says_feedback_disabled(
+    prediction_payload: dict,
+    monkeypatch,
+) -> None:
+    request = PredictionRequest(**prediction_payload)
+
+    monkeypatch.setattr(
+        "helios.services.recommendation_service.get_regional_insights",
+        lambda **_: (_ for _ in ()).throw(AssertionError("Nearby feedback should not run.")),
+    )
+    monkeypatch.setattr(
+        "helios.services.recommendation_service.adjust_recommendation",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("Adjustment should not run.")),
+    )
+
+    service = RecommendationService(
+        model=StubForecastModel(),
+        model_path=Path("unused-model.pkl"),
+        metadata_path=Path("unused-metadata.json"),
+        validation_mode=True,
+    )
+    response = service.predict_recommendation(request)
+
+    assert response.validation_evidence is not None
+    assert response.validation_evidence.validation_mode == "enabled"
+    assert response.validation_evidence.feedback_adjustment_status == (
+        "Validation mode: feedback adjustments disabled"
+    )
+    assert "nearby feedback adjustments were disabled" in response.validation_evidence.preservation_note

@@ -274,3 +274,169 @@ console.log([
     )
 
     assert output == "tonight|through the next forecast cycle|soon|soon|soon"
+
+
+def test_frontend_maps_api_validation_evidence_into_copy_packet() -> None:
+    output = _run_node(
+        _browser_stubs()
+        + """
+const { state } = await import('./src/state.js');
+const { mapApiRun } = await import('./src/api/run-builders.js');
+state.backend.modelHash = 'runtimehash';
+state.backend.trainingDate = '2026-04-17T23:00:00+00:00';
+state.backend.apiVersion = '1.0.0';
+state.backend.validationMode = true;
+const inputs = {
+  fieldName: 'North Pivot',
+  analysisPrompt: 'Preserve this run for field-test review.',
+};
+const response = {
+  decision: 'water',
+  recommended_amount_in: 0.49,
+  timing_window: 'tonight',
+  confidence_score: 0.74,
+  et_source: 'openet-fallback',
+  explanation: {
+    stress_probability: 0.82,
+    drivers: ['low soil moisture'],
+    driving_zone: 'sensor-a',
+    zone_moisture_summary: { 'sensor-a': 0.20, 'sensor-b': 0.35 },
+    high_variability_flag: true,
+  },
+  predicted_moisture: {
+    moisture_24h: 0.2,
+    moisture_48h: 0.16,
+    moisture_72h: 0.13,
+  },
+  recommendation_adjustment: {
+    base_recommendation_in: 0.49,
+    adjusted_recommendation_in: 0.49,
+    adjustment_factor: 1,
+    reason: 'Validation mode is enabled, so nearby feedback adjustments were disabled for a clean field test.',
+  },
+  regional_insights: {
+    success_rate: 0,
+    total_samples: 0,
+    weighted_samples: 0,
+    comparable_samples: 0,
+    radius_miles: 31.07,
+  },
+  validation_evidence: {
+    validation_mode: 'enabled',
+    model_artifact_hash: 'abc123def456',
+    model_training_date: '2026-04-17T23:00:00+00:00',
+    et_source: 'openet-fallback',
+    feedback_adjustment_status: 'Validation mode: feedback adjustments disabled',
+    driving_zone: 'sensor-a',
+    high_variability_flag: true,
+    confidence_caveat: 'Heuristic confidence; not a calibrated uncertainty estimate.',
+    field_test_caveat: 'Field-test evidence only; no validation-score evidence is attached to this recommendation.',
+    preservation_note: 'Copy this evidence packet with the recommendation to preserve the exact field-test context.',
+  },
+};
+const run = mapApiRun(inputs, response);
+const banned = ['validated recommendation', 'proven accuracy', 'certified']
+  .some((claim) => run.copyText.toLowerCase().includes(claim));
+console.log([
+  run.validationEvidence.validationMode,
+  run.validationEvidence.feedbackAdjustmentStatus,
+  run.copyText.includes('Evidence packet'),
+  run.copyText.includes('Heuristic confidence; not a calibrated uncertainty estimate.'),
+  run.copyText.includes('Validation mode: feedback adjustments disabled'),
+  run.copyText.includes('Field-test evidence only'),
+  banned,
+].join('|'));
+"""
+    )
+
+    assert output == (
+        "enabled|Validation mode: feedback adjustments disabled|true|true|true|true|false"
+    )
+
+
+def test_frontend_result_card_renders_evidence_packet_without_overclaiming() -> None:
+    output = _run_node(
+        _browser_stubs()
+        + """
+const { ResultCard } = await import('./src/ui/results.js');
+const run = {
+  id: 'run-1',
+  inputSnapshot: { fieldName: 'North Pivot' },
+  timestamp: '2026-04-17T23:00:00+00:00',
+  decision: 'water',
+  recommendedAmountIn: 0.49,
+  timingWindow: 'tonight',
+  confidenceScore: 0.74,
+  validationEvidence: {
+    validationMode: 'enabled',
+    modelArtifactHash: 'abc123def456',
+    modelTrainingDate: '2026-04-17T23:00:00+00:00',
+    etSource: 'openet-fallback',
+    feedbackAdjustmentStatus: 'Validation mode: feedback adjustments disabled',
+    drivingZone: 'sensor-a',
+    highVariabilityFlag: true,
+    confidenceCaveat: 'Heuristic confidence; not a calibrated uncertainty estimate.',
+    fieldTestCaveat: 'Field-test evidence only; no validation-score evidence is attached to this recommendation.',
+    preservationNote: 'Copy this evidence packet with the recommendation to preserve the exact field-test context.',
+  },
+  backendSnapshot: { validationMode: true },
+  etSource: 'openet-fallback',
+  copyText: 'Evidence packet',
+};
+const html = ResultCard(run);
+const banned = ['validated recommendation', 'proven accuracy', 'certified']
+  .some((claim) => html.toLowerCase().includes(claim));
+console.log([
+  html.includes('EVIDENCE PACKET'),
+  html.includes('Validation mode: feedback adjustments disabled'),
+  html.includes('Heuristic confidence'),
+  banned,
+].join('|'));
+"""
+    )
+
+    assert output == "true|true|true|false"
+
+
+def test_frontend_normalize_run_preserves_validation_evidence_packet() -> None:
+    output = _run_node(
+        _browser_stubs()
+        + """
+const { normalizeRun } = await import('./src/state.js');
+const run = normalizeRun({
+  id: 'stored-run',
+  title: 'Stored Run',
+  timestamp: '2026-04-17T23:00:00+00:00',
+  decision: 'water',
+  recommendedAmountIn: 0.49,
+  timingWindow: 'tonight',
+  confidenceScore: 0.74,
+  stressProbability: 0.82,
+  estimatedEtIn: 0.21,
+  predicted: { moisture24h: 0.2, moisture48h: 0.16, moisture72h: 0.13 },
+  drivers: ['low soil moisture'],
+  inputSnapshot: { fieldName: 'North Pivot' },
+  copyText: 'stale copy without packet',
+  validation_evidence: {
+    validation_mode: 'enabled',
+    model_artifact_hash: 'abc123def456',
+    model_training_date: '2026-04-17T23:00:00+00:00',
+    et_source: 'openet-fallback',
+    feedback_adjustment_status: 'Validation mode: feedback adjustments disabled',
+    driving_zone: 'sensor-a',
+    high_variability_flag: true,
+    confidence_caveat: 'Heuristic confidence; not a calibrated uncertainty estimate.',
+    field_test_caveat: 'Field-test evidence only; no validation-score evidence is attached to this recommendation.',
+    preservation_note: 'Copy this evidence packet with the recommendation to preserve the exact field-test context.',
+  },
+});
+console.log([
+  run.validationEvidence.validationMode,
+  run.validationEvidence.modelArtifactHash,
+  run.copyText.includes('Evidence packet'),
+  run.copyText.includes('stale copy without packet'),
+].join('|'));
+"""
+    )
+
+    assert output == "enabled|abc123def456|true|false"

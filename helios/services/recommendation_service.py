@@ -16,6 +16,7 @@ from helios.schemas.outputs import (
     RecommendationAdjustment,
     RecommendationExplanation,
     RegionalInsights,
+    ValidationEvidencePacket,
 )
 from helios.utils.evapotranspiration import estimate_reference_et_in
 from helios.utils.openet import resolve_monthly_et_in
@@ -34,6 +35,8 @@ VALIDATION_REGIONAL_INSIGHTS = {
 VALIDATION_ADJUSTMENT_REASON = (
     "Validation mode is enabled, so nearby feedback adjustments were disabled for a clean field test."
 )
+CONFIDENCE_CAVEAT = "Heuristic confidence; not a calibrated uncertainty estimate."
+FIELD_TEST_CAVEAT = "Field-test evidence only; no validation-score evidence is attached to this recommendation."
 
 
 class RecommendationService:
@@ -174,6 +177,12 @@ class RecommendationService:
                 adjustment_factor=adjustment_data["adjustment_factor"],
                 reason=adjustment_data["reason"],
             ),
+            validation_evidence=self._build_validation_evidence(
+                et_source=openet_source,
+                driving_zone=primary_sensor_id,
+                high_variability_flag=high_variability_flag,
+                adjustment_factor=adjustment_data["adjustment_factor"],
+            ),
         )
         return response
 
@@ -234,3 +243,41 @@ class RecommendationService:
             sensor_id: float(latest_by_sensor[sensor_id][1])
             for sensor_id in sorted(latest_by_sensor)
         }
+
+    def _build_validation_evidence(
+        self,
+        *,
+        et_source: str | None,
+        driving_zone: str,
+        high_variability_flag: bool,
+        adjustment_factor: float,
+    ) -> ValidationEvidencePacket:
+        metadata = self.model.metadata
+        if self.validation_mode:
+            feedback_status = "Validation mode: feedback adjustments disabled"
+            preservation_note = (
+                "Copy this evidence packet with the recommendation to preserve the exact field-test context; "
+                "nearby feedback adjustments were disabled."
+            )
+        else:
+            feedback_status = (
+                "Nearby feedback adjustment applied"
+                if not math.isclose(adjustment_factor, 1.0)
+                else "Nearby feedback adjustment available"
+            )
+            preservation_note = (
+                "Copy this evidence packet with the recommendation to preserve the exact recommendation context."
+            )
+
+        return ValidationEvidencePacket(
+            validation_mode="enabled" if self.validation_mode else "disabled",
+            model_artifact_hash=metadata.get("model_hash") or metadata.get("model_artifact_hash"),
+            model_training_date=metadata.get("training_date") or metadata.get("trained_at"),
+            et_source=et_source,
+            feedback_adjustment_status=feedback_status,
+            driving_zone=driving_zone,
+            high_variability_flag=high_variability_flag,
+            confidence_caveat=CONFIDENCE_CAVEAT,
+            field_test_caveat=FIELD_TEST_CAVEAT,
+            preservation_note=preservation_note,
+        )

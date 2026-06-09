@@ -4,7 +4,7 @@ from datetime import datetime
 
 from fastapi.testclient import TestClient
 
-from helios.schemas.outputs import PredictionResponse
+from helios.schemas.outputs import PredictionResponse, ValidationEvidencePacket
 
 
 class DummyRecommendationService:
@@ -41,6 +41,43 @@ def test_predict_success_returns_structured_response(app_factory, prediction_pay
     assert body["decision"] == "water"
     assert body["regional_insights"]["comparable_samples"] == 4
     assert service.calls == 1
+
+
+def test_predict_serializes_validation_evidence(app_factory, prediction_payload, prediction_response) -> None:
+    evidence_response = prediction_response.model_copy(
+        update={
+            "validation_evidence": ValidationEvidencePacket(
+                validation_mode="enabled",
+                model_artifact_hash="abc123def456",
+                model_training_date="2026-04-17T23:00:00+00:00",
+                et_source="openet-fallback",
+                feedback_adjustment_status="Validation mode: feedback adjustments disabled",
+                driving_zone="sensor-a",
+                high_variability_flag=False,
+                confidence_caveat="Heuristic confidence; not a calibrated uncertainty estimate.",
+                field_test_caveat=(
+                    "Field-test evidence only; no validation-score evidence is attached to this recommendation."
+                ),
+                preservation_note=(
+                    "Copy this evidence packet with the recommendation to preserve the exact field-test context."
+                ),
+            )
+        }
+    )
+    service = DummyRecommendationService(evidence_response)
+
+    with app_factory(recommendation_service=service, database_ready=True) as client:
+        response = client.post("/predict", json=prediction_payload)
+
+    assert response.status_code == 200
+    evidence = response.json()["validation_evidence"]
+    assert evidence["validation_mode"] == "enabled"
+    assert evidence["model_artifact_hash"] == "abc123def456"
+    assert evidence["feedback_adjustment_status"] == "Validation mode: feedback adjustments disabled"
+    assert evidence["confidence_caveat"] == "Heuristic confidence; not a calibrated uncertainty estimate."
+    assert "Field-test evidence" in evidence["field_test_caveat"]
+    banned_claims = ("validated recommendation", "proven accuracy", "certified")
+    assert not any(claim in str(evidence).lower() for claim in banned_claims)
 
 
 def test_predict_returns_503_when_runtime_is_not_ready(app_factory, prediction_payload) -> None:
@@ -258,4 +295,3 @@ def test_predict_backfills_missing_weather_from_noaa(
     assert service.last_request.weather.solar_radiation_mj_m2 == 20.0
     assert service.last_request.weather.humidity_pct == prediction_payload["weather"]["humidity_pct"]
     assert service.last_request.weather.precipitation_in == prediction_payload["weather"]["precipitation_in"]
-

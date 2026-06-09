@@ -73,7 +73,6 @@ export function ResultCard(run) {
           <span>COPY</span>
         </button>
       </div>
-      ${evidencePacketSummary(run)}
       <details class="tech-details border-t border-dashed border-[var(--hairline)]">
         <summary class="focus-outline flex cursor-pointer items-center justify-between gap-3 px-4 py-2.5">
           <span class="num text-[10px] font-extrabold tracking-[0.16em] text-[var(--text-muted)]">TECHNICAL DETAILS & REVIEW EVIDENCE</span>
@@ -81,6 +80,7 @@ export function ResultCard(run) {
             ${icon("chevronDown", "h-4 w-4")}
           </span>
         </summary>
+        ${evidencePacketSummary(run)}
         <pre class="overflow-x-auto border-t border-dashed border-[var(--hairline)] bg-[var(--panel-muted)] p-4 font-mono text-[11px] leading-5 text-[var(--text-muted)]">${escapeHtml(run.copyText)}</pre>
       </details>
     </article>

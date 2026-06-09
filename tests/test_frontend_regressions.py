@@ -386,6 +386,9 @@ const run = {
 const html = ResultCard(run);
 const banned = ['validated recommendation', 'proven accuracy', 'certified']
   .some((claim) => html.toLowerCase().includes(claim));
+const detailsIndex = html.indexOf('TECHNICAL DETAILS & REVIEW EVIDENCE');
+const evidenceIndex = html.indexOf('evidence-packet-summary');
+const technicalTextIndex = html.indexOf('<pre');
 console.log([
   html.includes('EVIDENCE PACKET'),
   html.includes('Validation mode: feedback adjustments disabled'),
@@ -394,12 +397,14 @@ console.log([
   html.includes('mx-4 my-3'),
   html.includes('text-center'),
   html.includes('bg-[#fbfaf7]'),
+  detailsIndex > -1 && evidenceIndex > detailsIndex,
+  technicalTextIndex > evidenceIndex,
   banned,
 ].join('|'));
 """
     )
 
-    assert output == "true|true|true|true|true|true|true|false"
+    assert output == "true|true|true|true|true|true|true|true|true|false"
 
 
 def test_light_theme_uses_subtle_off_white_surfaces() -> None:

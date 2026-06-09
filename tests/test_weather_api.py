@@ -62,7 +62,9 @@ def test_fetch_noaa_weather_returns_normalized_weather(monkeypatch: pytest.Monke
         "temperature_f": 72.0,
         "humidity_pct": 41.0,
         "wind_mph": 7.5,
-        "precipitation_in": 0.1,
+        # PoP 80% × 0.2in reference = 0.16in expected precip (continuous, not a binary cliff)
+        "precipitation_in": 0.16,
+        "precipitation_probability_pct": 80.0,
         "solar_radiation_mj_m2": 15.2,
         "forecast_horizon_hours": 72,
     }

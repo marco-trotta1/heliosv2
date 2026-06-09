@@ -26,6 +26,11 @@ export function estimateReferenceEtIn({ temperatureF, humidityPct, windMph, sola
   return round(et0In, 4);
 }
 
+// PROTOTYPE ONLY — demo-mode heuristic, NOT the production forecast.
+// Live recommendations come from the trained XGBoost model in
+// helios/models/moisture_model.py via the backend /predict endpoint. The coefficients
+// below are hand-tuned for plausible demo behavior and are not calibrated against the
+// model or field data. Do not treat its output as a real moisture forecast.
 export function predictMoistureTrajectory(inputs, etIn) {
   const retention = TEXTURE_RETENTION[inputs.soilTexture] ?? 1;
   const drainage = DRAINAGE_FACTOR[inputs.drainageClass] ?? 1;
@@ -63,10 +68,12 @@ export function predictMoistureTrajectory(inputs, etIn) {
   };
 }
 
-export function computeStressProbability({ predictedMoisture48h, dryThreshold, estimatedEtIn, precipitationIn, growthStage }) {
+export function computeStressProbability({ predictedMoisture48h, dryThreshold, estimatedEtIn, growthStage }) {
   const stageModifier = GROWTH_STAGE_MODIFIER[growthStage] ?? 0.1;
   const moistureGap = dryThreshold - predictedMoisture48h;
-  const score = moistureGap * 18 + estimatedEtIn * 3.048 - precipitationIn * 2.032 + stageModifier;
+  // Precipitation already feeds the 48h moisture forecast, so it is not subtracted again
+  // here — matches helios/services/recommendation_service.py and avoids double-counting.
+  const score = moistureGap * 18 + estimatedEtIn * 3.048 + stageModifier;
   return round(clip(1 / (1 + Math.exp(-score)), 0.01, 0.99), 3);
 }
 
@@ -96,14 +103,23 @@ export function selectTimingWindow(waterWindows, energyWindows, needsWater) {
   return "next available permitted window";
 }
 
-export function scoreConfidence({ forecast48h, dryThreshold, timingWindow, modelRmse = 0.12, sensorCount = 1, precipitationIn = 0 }) {
-  const base = Math.max(0.1, 1 - Math.min(modelRmse, 0.50) / 0.50);
+// Mirrors helios/optimizer/irrigation_optimizer.py:_confidence_score so demo-mode
+// confidence matches what the backend would report. sensorCount is the physical sensor
+// count (tiered penalty); there is no precipitation penalty.
+export function scoreConfidence({ forecast48h, dryThreshold, timingWindow, modelRmse = 0.12, sensorCount = 1 }) {
+  const base = Math.max(0.2, 1 - Math.min(modelRmse, 0.35) / 0.35);
   const thresholdMargin = Math.abs(forecast48h - dryThreshold);
-  const marginBonus = Math.min(0.2, thresholdMargin / 0.30);
-  const sensorPenalty = Math.max(0, 0.12 - sensorCount * 0.03);
-  const precipPenalty = Math.min(0.10, precipitationIn * 0.20);
+  const marginBonus = Math.min(0.2, thresholdMargin / 0.15);
+  let sensorPenalty;
+  if (sensorCount >= 3) {
+    sensorPenalty = 0;
+  } else if (sensorCount === 2) {
+    sensorPenalty = 0.04;
+  } else {
+    sensorPenalty = 0.1;
+  }
   const timingPenalty = timingWindow === "next available permitted window" ? 0.05 : 0;
-  return round(clip(base + marginBonus - sensorPenalty - precipPenalty - timingPenalty, 0.05, 0.99), 3);
+  return round(clip(base + marginBonus - sensorPenalty - timingPenalty, 0.05, 0.99), 3);
 }
 
 export function generateIrrigationPlan(inputs, predicted, stressProbability, estimatedEtIn) {
@@ -126,7 +142,9 @@ export function generateIrrigationPlan(inputs, predicted, stressProbability, est
     maxVolume: inputs.maxIrrigationVolume,
     pumpCapacity: inputs.pumpCapacity * windowHours,
     budget: computeBudgetCap(inputs.fieldAreaAcres, inputs.budgetDollars),
-    infiltration: inputs.infiltrationRate * windowHours,
+    // Soft infiltration cap matches the backend's fixed ~2.5h intake window
+    // (helios/optimizer/irrigation_optimizer.py), independent of the water-rights window.
+    infiltration: inputs.infiltrationRate * 2.5,
   };
   const recommendedAmountIn = Math.min(
     constraints.need,
@@ -153,7 +171,6 @@ export function generateIrrigationPlan(inputs, predicted, stressProbability, est
       timingWindow: finalTimingWindow,
       modelRmse: inputs.modelRmse,
       sensorCount: inputs.sensorCount,
-      precipitationIn: inputs.precipitationIn,
     }),
     stressProbability,
     thresholds,

@@ -83,6 +83,31 @@ def test_recommendation_service_applies_feedback_adjustment(
     assert response.regional_insights is not None
 
 
+def test_recommendation_service_stress_probability_not_double_counting_precipitation(
+    prediction_payload: dict,
+    monkeypatch,
+) -> None:
+    _stub_feedback(monkeypatch)
+
+    dry_payload = dict(prediction_payload)
+    dry_payload["weather"] = {**prediction_payload["weather"], "precipitation_in": 0.0}
+    rainy_payload = dict(prediction_payload)
+    rainy_payload["weather"] = {**prediction_payload["weather"], "precipitation_in": 1.0}
+
+    service = RecommendationService(
+        model=StubForecastModel(),
+        model_path=Path("unused-model.pkl"),
+        metadata_path=Path("unused-metadata.json"),
+    )
+
+    dry_response = service.predict_recommendation(PredictionRequest(**dry_payload))
+    rainy_response = service.predict_recommendation(PredictionRequest(**rainy_payload))
+
+    # Precipitation already feeds the moisture forecast (here held fixed by the stub model),
+    # so it must not separately move the stress probability.
+    assert dry_response.explanation.stress_probability == rainy_response.explanation.stress_probability
+
+
 def test_recommendation_service_single_sensor_uses_only_sensor_as_driving_zone(
     single_sensor_prediction_payload: dict,
     monkeypatch,

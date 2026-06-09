@@ -109,3 +109,19 @@ def test_predictions_stay_above_floor_at_low_moisture(model):
         for key, val in pred.items():
             assert val >= 0.0, f"Negative prediction: {key}={val} at moisture={moisture}"
             assert val <= 0.55, f"Out-of-range prediction: {key}={val} at moisture={moisture}"
+
+
+def test_clip_to_texture_bounds_uses_physical_envelopes() -> None:
+    from helios.models.moisture_model import (
+        DEFAULT_MOISTURE_BOUNDS,
+        TEXTURE_MOISTURE_BOUNDS,
+        clip_to_texture_bounds,
+    )
+
+    sand_low, sand_high = TEXTURE_MOISTURE_BOUNDS["sand"]
+    clipped = clip_to_texture_bounds([-0.2, 0.15, 0.9], "sand")
+    assert clipped == [sand_low, 0.15, sand_high]
+
+    # Unknown texture falls back to the training-target clip range, not [0, 1].
+    default_low, default_high = DEFAULT_MOISTURE_BOUNDS
+    assert clip_to_texture_bounds([-1.0, 2.0], None) == [default_low, default_high]

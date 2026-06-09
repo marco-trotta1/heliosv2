@@ -386,16 +386,34 @@ const run = {
 const html = ResultCard(run);
 const banned = ['validated recommendation', 'proven accuracy', 'certified']
   .some((claim) => html.toLowerCase().includes(claim));
+const detailsIndex = html.indexOf('TECHNICAL DETAILS & REVIEW EVIDENCE');
+const evidenceIndex = html.indexOf('evidence-packet-summary');
+const technicalTextIndex = html.indexOf('<pre');
 console.log([
   html.includes('EVIDENCE PACKET'),
   html.includes('Validation mode: feedback adjustments disabled'),
   html.includes('Heuristic confidence'),
+  html.includes('evidence-packet-summary'),
+  html.includes('mx-4 my-3'),
+  html.includes('text-center'),
+  html.includes('bg-[#fbfaf7]'),
+  detailsIndex > -1 && evidenceIndex > detailsIndex,
+  technicalTextIndex > evidenceIndex,
   banned,
 ].join('|'));
 """
     )
 
-    assert output == "true|true|true|false"
+    assert output == "true|true|true|true|true|true|true|true|true|false"
+
+
+def test_light_theme_uses_subtle_off_white_surfaces() -> None:
+    source = (PROJECT_ROOT / "styles.css").read_text()
+
+    assert "--bg: #fbfaf7;" in source
+    assert "--bg-strong: #f3f2ec;" in source
+    assert "--panel: #fffefa;" in source
+    assert "--panel-muted: #f6f5f0;" in source
 
 
 def test_frontend_normalize_run_preserves_validation_evidence_packet() -> None:

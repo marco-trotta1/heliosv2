@@ -107,6 +107,23 @@ def _fit_final_model(
     return model
 
 
+def _feature_importances(
+    model: MultiOutputRegressor,
+    feature_columns: list[str],
+) -> dict[str, dict[str, float]]:
+    """Per-target feature importances so we can see which features the model actually uses.
+
+    Surfaces, for example, whether weather features carry weight or are being ignored
+    because the real (Mickelson) training rows hold them constant.
+    """
+    importances: dict[str, dict[str, float]] = {}
+    for target_name, estimator in zip(TARGET_COLUMNS, model.estimators_, strict=True):
+        scores = [float(value) for value in getattr(estimator, "feature_importances_", [])]
+        ranked = sorted(zip(feature_columns, scores), key=lambda item: item[1], reverse=True)
+        importances[target_name] = {name: round(score, 6) for name, score in ranked}
+    return importances
+
+
 def _validate_training_data(data_frame: pd.DataFrame) -> None:
     if "openet_monthly_et_in" not in data_frame.columns:
         raise ValueError("Training data must include openet_monthly_et_in for inference parity.")
@@ -133,6 +150,8 @@ def train_model(data_path: str, model_path: str, metadata_path: str, n_estimator
     model = _fit_final_model(features, targets, n_estimators, learning_rate)
     val_predictions = model.predict(x_val)
     validation_rmse = float(root_mean_squared_error(y_val, val_predictions))
+
+    feature_importances = _feature_importances(model, feature_columns)
 
     artifacts_dir = Path(model_path).parent
     artifacts_dir.mkdir(parents=True, exist_ok=True)
@@ -167,6 +186,7 @@ def train_model(data_path: str, model_path: str, metadata_path: str, n_estimator
             "irrigation_type": ["pivot", "drip", "flood"],
         },
         "fold_metrics": fold_metrics,
+        "feature_importances": feature_importances,
         "model_hash": model_hash,
         "training_data_hash": data_hash,
         "training_rows": len(data_frame),

@@ -1,0 +1,144 @@
+- generic [ref=e352]:
+  - complementary [ref=e353]:
+    - img "Irrigant" [ref=e356]
+    - navigation [ref=e357]:
+      - list [ref=e358]:
+        - listitem [ref=e359]:
+          - button "Dashboard" [ref=e360] [cursor=pointer]:
+            - img [ref=e362]
+            - generic [ref=e364]: Dashboard
+        - listitem [ref=e365]:
+          - button "Run Analysis" [ref=e366] [cursor=pointer]:
+            - img [ref=e368]
+            - generic [ref=e372]: Run Analysis
+        - listitem [ref=e373]:
+          - button "History" [ref=e374] [cursor=pointer]:
+            - img [ref=e376]
+            - generic [ref=e380]: History
+        - listitem [ref=e381]:
+          - button "Saved Runs" [ref=e382] [cursor=pointer]:
+            - img [ref=e384]
+            - generic [ref=e386]: Saved Runs
+        - listitem [ref=e387]:
+          - button "Settings" [ref=e388] [cursor=pointer]:
+            - img [ref=e390]
+            - generic [ref=e393]: Settings
+    - generic [ref=e395]:
+      - img [ref=e397]
+      - paragraph [ref=e401]: Field Ops
+  - generic [ref=e402]:
+    - banner [ref=e403]:
+      - generic [ref=e404]:
+        - paragraph [ref=e405]: Helios
+        - heading "Run Analysis" [level=1] [ref=e406]
+      - generic [ref=e407]:
+        - generic [ref=e409]:
+          - generic [ref=e411]: LIVE MODEL
+          - generic [ref=e412]: demo
+        - generic [ref=e413]: THU · MAY 28
+        - button "Toggle theme" [ref=e414] [cursor=pointer]:
+          - img [ref=e415]
+        - link "Open GitHub" [ref=e417] [cursor=pointer]:
+          - /url: https://github.com/marco-trotta1/heliosv2
+          - img [ref=e418]
+    - main [ref=e420]:
+      - generic [ref=e422]:
+        - generic [ref=e424]:
+          - generic [ref=e425]:
+            - paragraph [ref=e426]: Decision Brief
+            - heading "Describe the field and the decision" [level=2] [ref=e427]
+            - generic [ref=e428]:
+              - button "• Heat wave" [ref=e429] [cursor=pointer]:
+                - generic [ref=e430]: •
+                - generic [ref=e431]: Heat wave
+              - button "• Balanced day" [ref=e432] [cursor=pointer]:
+                - generic [ref=e433]: •
+                - generic [ref=e434]: Balanced day
+              - button "• Kimberly Farm" [ref=e435] [cursor=pointer]:
+                - generic [ref=e436]: •
+                - generic [ref=e437]: Kimberly Farm
+              - button "• Rain incoming" [ref=e438] [cursor=pointer]:
+                - generic [ref=e439]: •
+                - generic [ref=e440]: Rain incoming
+            - textbox "Describe the field situation" [ref=e441]: Review the next 72 hours of moisture risk and recommend whether this field should be irrigated now or held.
+          - generic [ref=e442]:
+            - generic [ref=e443]:
+              - paragraph [ref=e444]: Run status
+              - paragraph
+              - paragraph [ref=e445]: Live model-backed analysis did not finish. Failed to fetch Check backend health, then retry so the recommendation is based on the trained model and current evidence.
+              - generic [ref=e446]: Backend unavailable
+              - button "Run analysis" [ref=e448] [cursor=pointer]:
+                - img [ref=e449]
+                - generic [ref=e453]: Run analysis
+            - group [ref=e454]:
+              - generic "Advanced options" [ref=e455] [cursor=pointer]:
+                - paragraph [ref=e457]: Advanced options
+                - img [ref=e459]
+              - option "Helios Core" [selected]
+              - option "Helios Balanced"
+              - option "Helios Conservative"
+        - generic [ref=e462]:
+          - generic [ref=e463]:
+            - paragraph [ref=e464]: Current field status
+            - heading "No recent irrigation recommendation" [level=2] [ref=e465]
+            - paragraph [ref=e466]: Run an analysis to generate your first recommendation.
+          - button "RUN ANALYSIS →" [ref=e467] [cursor=pointer]:
+            - img [ref=e468]
+            - generic [ref=e472]: RUN ANALYSIS →
+        - generic [ref=e473]:
+          - generic [ref=e474]:
+            - paragraph [ref=e475]: FIELD INPUTS
+            - generic [ref=e476]: TAP TO EDIT
+          - generic [ref=e477]:
+            - group [ref=e478]:
+              - generic "🌱 FIELD LOAM · CORN · FLOWERING · 59.3AC" [ref=e479] [cursor=pointer]:
+                - generic [ref=e480]: 🌱
+                - generic [ref=e481]:
+                  - paragraph [ref=e482]: FIELD
+                  - paragraph [ref=e483]: LOAM · CORN · FLOWERING · 59.3AC
+                - img [ref=e485]
+              - option "Corn" [selected]
+              - option "Soybean"
+              - option "Potato"
+              - option "Alfalfa"
+              - option "Emergence"
+              - option "Vegetative"
+              - option "Flowering" [selected]
+              - option "Grain fill"
+              - option "Maturity"
+              - option "Sand"
+              - option "Loam" [selected]
+              - option "Clay"
+              - option "Poor"
+              - option "Moderate" [selected]
+              - option "Well drained"
+            - group [ref=e487]:
+              - generic "🌤 CONDITIONS 20% VWC · 78°F · 13 MPH · 0.00IN RAIN" [ref=e488] [cursor=pointer]:
+                - generic [ref=e489]: 🌤
+                - generic [ref=e490]:
+                  - paragraph [ref=e491]: CONDITIONS
+                  - paragraph [ref=e492]: 20% VWC · 78°F · 13 MPH · 0.00IN RAIN
+                - img [ref=e494]
+            - group [ref=e496]:
+              - generic "💧 IRRIGATION PIVOT · MAX 0.71IN · 2 WINDOWS" [ref=e497] [cursor=pointer]:
+                - generic [ref=e498]: 💧
+                - generic [ref=e499]:
+                  - paragraph [ref=e500]: IRRIGATION
+                  - paragraph [ref=e501]: PIVOT · MAX 0.71IN · 2 WINDOWS
+                - img [ref=e503]
+              - option "Pivot" [selected]
+              - option "Drip"
+              - option "Flood"
+        - generic [ref=e505]:
+          - button "Technical Details 0 stored" [ref=e506] [cursor=pointer]:
+            - paragraph [ref=e508]: Technical Details
+            - generic [ref=e509]:
+              - generic [ref=e510]: 0 stored
+              - img [ref=e513]
+          - generic [ref=e515]:
+            - generic [ref=e516]:
+              - heading [level=2] [ref=e518]: Recent analysis runs
+              - generic [ref=e520]: 0 total
+            - generic [ref=e522]:
+              - paragraph [ref=e523]: No analysis yet. Run a prompt to generate results.
+              - paragraph [ref=e524]: Recent field decisions will appear here for review, copying, and reuse.

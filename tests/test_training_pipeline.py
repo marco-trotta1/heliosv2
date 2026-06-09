@@ -138,6 +138,13 @@ def test_rebuild_training_bundle_creates_combined_dataset_and_metadata(tmp_path:
     assert metadata["model_hash"]
     assert combined["openet_monthly_et_in"].min() > 0
 
+    # Feature importances are logged per target so we can see which features the model uses.
+    importances = metadata["feature_importances"]
+    assert set(importances) == {"target_moisture_24h", "target_moisture_48h", "target_moisture_72h"}
+    for target_scores in importances.values():
+        assert target_scores  # non-empty mapping of feature -> importance
+        assert all(isinstance(value, (int, float)) for value in target_scores.values())
+
 
 def test_generate_sample_data_uses_openet_climatology_without_csv(tmp_path: Path) -> None:
     output_path = tmp_path / "sample.csv"

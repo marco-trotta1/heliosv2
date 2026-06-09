@@ -103,7 +103,6 @@ class RecommendationService:
             predicted_moisture_48h=predicted["moisture_48h"],
             dry_threshold=thresholds["dry"],
             estimated_et=estimated_et,
-            precipitation_in=request.weather.precipitation_in,
             growth_stage=request.crop.growth_stage,
         )
 
@@ -125,6 +124,9 @@ class RecommendationService:
                 sensor_count=len(request.soil_moisture_readings),
                 physical_sensor_count=physical_sensor_count,
                 irrigation_type=request.irrigation_system.irrigation_type,
+                growth_stage=request.crop.growth_stage,
+                drainage_class=request.soil_properties.drainage_class,
+                et_is_fallback=openet_source == "openet-fallback",
             )
         )
 
@@ -160,7 +162,9 @@ class RecommendationService:
             recommended_amount_in=adjustment_data["adjusted_recommendation_in"],
             timing_window=plan["timing_window"],
             confidence_score=plan["confidence_score"],
+            confidence_caveat=CONFIDENCE_CAVEAT,
             et_source=openet_source,
+            et_is_fallback=openet_source == "openet-fallback",
             explanation=RecommendationExplanation(
                 predicted_moisture_48h=predicted["moisture_48h"],
                 stress_probability=stress_probability,
@@ -191,7 +195,6 @@ class RecommendationService:
         predicted_moisture_48h: float,
         dry_threshold: float,
         estimated_et: float,
-        precipitation_in: float,
         growth_stage: str,
     ) -> float:
         stage_modifier = {
@@ -202,8 +205,9 @@ class RecommendationService:
             "maturity": 0.02,
         }.get(growth_stage, 0.1)
         moisture_gap = dry_threshold - predicted_moisture_48h
-        # ET is in in/day; precipitation is in inches — scale coefficients accordingly
-        score = (moisture_gap * 18.0) + (estimated_et * 3.048) - (precipitation_in * 2.032) + stage_modifier
+        # Precipitation is already an input to the 48h moisture forecast, so it is not
+        # subtracted again here — doing so would double-count the rain's drying offset.
+        score = (moisture_gap * 18.0) + (estimated_et * 3.048) + stage_modifier
         probability = 1.0 / (1.0 + math.exp(-score))
         return round(min(0.99, max(0.01, probability)), 3)
 

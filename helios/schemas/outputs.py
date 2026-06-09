@@ -55,7 +55,9 @@ class PredictionResponse(BaseModel):
     recommended_amount_in: float = Field(ge=0)
     timing_window: str
     confidence_score: float = Field(ge=0, le=1)
+    confidence_caveat: str | None = None
     et_source: str | None = None
+    et_is_fallback: bool = False
     explanation: RecommendationExplanation
     predicted_moisture: MoistureForecast
     regional_insights: RegionalInsights | None = None

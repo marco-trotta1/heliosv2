@@ -10,6 +10,10 @@ def _inputs(
     irrigation_type: str = "pivot",
     max_irrigation_volume_in: float = 5.0,
     recent_precipitation_in: float = 0.0,
+    estimated_et_in: float = 0.0,
+    growth_stage: str = "vegetative",
+    drainage_class: str = "moderate",
+    et_is_fallback: bool = False,
 ) -> OptimizationInputs:
     return OptimizationInputs(
         predicted_moisture=predicted_moisture,
@@ -22,12 +26,15 @@ def _inputs(
         max_irrigation_volume_in=max_irrigation_volume_in,
         field_area_acres=10.0,
         budget_dollars=10000.0,
-        estimated_et_in=0.0,
+        estimated_et_in=estimated_et_in,
         recent_precipitation_in=recent_precipitation_in,
         model_rmse=0.1,
         sensor_count=6,
         physical_sensor_count=2,
         irrigation_type=irrigation_type,
+        growth_stage=growth_stage,
+        drainage_class=drainage_class,
+        et_is_fallback=et_is_fallback,
     )
 
 
@@ -83,6 +90,57 @@ def test_precipitation_is_not_subtracted_after_model_forecast() -> None:
     )
 
     assert rainy_plan["recommended_amount_in"] == dry_plan["recommended_amount_in"]
+
+
+def test_peak_growth_stage_receives_more_water_than_low_demand_stage() -> None:
+    predicted = {
+        "moisture_24h": 0.20,
+        "moisture_48h": 0.16,
+        "moisture_72h": 0.15,
+    }
+
+    flowering_plan = generate_irrigation_plan(
+        _inputs(predicted_moisture=predicted, estimated_et_in=0.3, growth_stage="flowering")
+    )
+    maturity_plan = generate_irrigation_plan(
+        _inputs(predicted_moisture=predicted, estimated_et_in=0.3, growth_stage="maturity")
+    )
+
+    assert flowering_plan["recommended_amount_in"] > maturity_plan["recommended_amount_in"]
+
+
+def test_well_drained_soil_receives_more_gross_water_than_poorly_drained() -> None:
+    predicted = {
+        "moisture_24h": 0.20,
+        "moisture_48h": 0.16,
+        "moisture_72h": 0.15,
+    }
+
+    well_plan = generate_irrigation_plan(
+        _inputs(predicted_moisture=predicted, drainage_class="well")
+    )
+    poor_plan = generate_irrigation_plan(
+        _inputs(predicted_moisture=predicted, drainage_class="poor")
+    )
+
+    assert well_plan["recommended_amount_in"] > poor_plan["recommended_amount_in"]
+
+
+def test_climatology_fallback_et_lowers_confidence() -> None:
+    predicted = {
+        "moisture_24h": 0.20,
+        "moisture_48h": 0.16,
+        "moisture_72h": 0.15,
+    }
+
+    live_plan = generate_irrigation_plan(
+        _inputs(predicted_moisture=predicted, et_is_fallback=False)
+    )
+    fallback_plan = generate_irrigation_plan(
+        _inputs(predicted_moisture=predicted, et_is_fallback=True)
+    )
+
+    assert fallback_plan["confidence_score"] < live_plan["confidence_score"]
 
 
 def test_water_decision_requires_minimum_actionable_amount() -> None:

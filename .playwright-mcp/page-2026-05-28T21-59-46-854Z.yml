@@ -1,0 +1,204 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]: "Demo mode: browser-computed estimates only. Live backend required for farm use."
+  - generic [ref=e540]:
+    - complementary [ref=e541]:
+      - img "Irrigant" [ref=e544]
+      - navigation [ref=e545]:
+        - list [ref=e546]:
+          - listitem [ref=e547]:
+            - button "Dashboard" [ref=e548] [cursor=pointer]:
+              - img [ref=e550]
+              - generic [ref=e552]: Dashboard
+          - listitem [ref=e553]:
+            - button "Run Analysis" [ref=e554] [cursor=pointer]:
+              - img [ref=e556]
+              - generic [ref=e560]: Run Analysis
+          - listitem [ref=e561]:
+            - button "History" [ref=e562] [cursor=pointer]:
+              - img [ref=e564]
+              - generic [ref=e568]: History
+          - listitem [ref=e569]:
+            - button "Saved Runs" [ref=e570] [cursor=pointer]:
+              - img [ref=e572]
+              - generic [ref=e574]: Saved Runs
+          - listitem [ref=e575]:
+            - button "Settings" [ref=e576] [cursor=pointer]:
+              - img [ref=e578]
+              - generic [ref=e581]: Settings
+      - generic [ref=e583]:
+        - img [ref=e585]
+        - paragraph [ref=e589]: Field Ops
+    - generic [ref=e590]:
+      - banner [ref=e591]:
+        - generic [ref=e592]:
+          - paragraph [ref=e593]: Helios
+          - heading "Run Analysis" [level=1] [ref=e594]
+        - generic [ref=e595]:
+          - generic [ref=e597]:
+            - generic [ref=e599]: LIVE MODEL
+            - generic [ref=e600]: demo
+          - generic [ref=e601]: THU · MAY 28
+          - button "Toggle theme" [ref=e602] [cursor=pointer]:
+            - img [ref=e603]
+          - link "Open GitHub" [ref=e605] [cursor=pointer]:
+            - /url: https://github.com/marco-trotta1/heliosv2
+            - img [ref=e606]
+      - main [ref=e608]:
+        - generic [ref=e610]:
+          - generic [ref=e612]:
+            - generic [ref=e613]:
+              - paragraph [ref=e614]: Decision Brief
+              - heading "Describe the field and the decision" [level=2] [ref=e615]
+              - generic [ref=e616]:
+                - button "• Heat wave" [ref=e617] [cursor=pointer]:
+                  - generic [ref=e618]: •
+                  - generic [ref=e619]: Heat wave
+                - button "• Balanced day" [ref=e620] [cursor=pointer]:
+                  - generic [ref=e621]: •
+                  - generic [ref=e622]: Balanced day
+                - button "• Kimberly Farm" [ref=e623] [cursor=pointer]:
+                  - generic [ref=e624]: •
+                  - generic [ref=e625]: Kimberly Farm
+                - button "• Rain incoming" [ref=e626] [cursor=pointer]:
+                  - generic [ref=e627]: •
+                  - generic [ref=e628]: Rain incoming
+              - textbox "Describe the field situation" [ref=e629]: Review the next 72 hours of moisture risk and recommend whether this field should be irrigated now or held.
+            - generic [ref=e630]:
+              - generic [ref=e631]:
+                - paragraph [ref=e632]: Run status
+                - paragraph [ref=e633]: Live API mode sends requests to a hosted Helios backend. Recommendations are still prototype decision support and should be reviewed by the operator.
+                - generic [ref=e634]: Demo workspace
+                - button "Run analysis" [ref=e636] [cursor=pointer]:
+                  - img [ref=e637]
+                  - generic [ref=e641]: Run analysis
+              - group [ref=e642]:
+                - generic "Advanced options" [ref=e643] [cursor=pointer]:
+                  - paragraph [ref=e645]: Advanced options
+                  - img [ref=e647]
+                - option "Helios Core" [selected]
+                - option "Helios Balanced"
+                - option "Helios Conservative"
+          - generic [ref=e649]:
+            - generic [ref=e650]:
+              - generic [ref=e651]:
+                - generic [ref=e652]:
+                  - generic [ref=e653]:
+                    - generic [ref=e654]: APPLY
+                    - generic [ref=e656]: TONIGHT
+                  - generic [ref=e657]:
+                    - generic [ref=e658]: "0.57"
+                    - generic [ref=e659]:
+                      - generic [ref=e660]: inches
+                      - generic [ref=e661]: OF WATER
+                  - paragraph [ref=e663]: North Pivot 7 is forecast to move from 0.20 now to 0.06 in 48 hours. Apply 0.57 in during Tonight.
+                - generic [ref=e665]:
+                  - heading "Stress is high — irrigate 0.57 inches as soon as you can." [level=2] [ref=e666]
+                  - generic [ref=e667]:
+                    - generic [ref=e668]:
+                      - generic [ref=e672]: now
+                      - generic [ref=e675]: 24h
+                      - generic [ref=e678]: 48h
+                      - generic [ref=e681]: 72h
+                    - paragraph [ref=e682]: soil moisture, next 72h
+                  - generic [ref=e683]:
+                    - generic [ref=e684]:
+                      - generic [ref=e685]: ⬤
+                      - generic [ref=e686]: high stress in 24–72h
+                    - generic [ref=e687]: high confidence
+              - generic [ref=e689]:
+                - generic [ref=e690]: LOAM
+                - generic [ref=e691]: CORN · FLOWERING
+                - generic [ref=e692]: 86°F
+            - generic [ref=e693]:
+              - generic [ref=e694]:
+                - generic [ref=e695]:
+                  - paragraph [ref=e696]: FIELD CONTEXT
+                  - generic [ref=e697]: LATEST RUN
+                - generic [ref=e698]:
+                  - generic [ref=e699]:
+                    - generic [ref=e700]: DRIVING ZONE
+                    - generic [ref=e701]: UNAVAILABLE
+                  - generic [ref=e702]:
+                    - generic [ref=e703]: ZONE SPREAD
+                    - generic [ref=e704]: SINGLE PROBE
+                  - generic [ref=e705]:
+                    - generic [ref=e706]: LIMITED BY
+                    - generic [ref=e707]: BUDGET CAP
+                - paragraph [ref=e708]: Only one probe summary was available for this run.
+              - generic [ref=e709]:
+                - paragraph [ref=e710]: NEARBY FEEDBACK
+                - paragraph [ref=e711]: Demo mode does not use stored farmer feedback.
+                - button "SUBMIT FEEDBACK" [ref=e713] [cursor=pointer]
+          - generic [ref=e714]:
+            - generic [ref=e715]:
+              - paragraph [ref=e716]: FIELD INPUTS
+              - generic [ref=e717]: TAP TO EDIT
+            - generic [ref=e718]:
+              - group [ref=e719]:
+                - generic "🌱 FIELD LOAM · CORN · FLOWERING · 59.3AC" [ref=e720] [cursor=pointer]:
+                  - generic [ref=e721]: 🌱
+                  - generic [ref=e722]:
+                    - paragraph [ref=e723]: FIELD
+                    - paragraph [ref=e724]: LOAM · CORN · FLOWERING · 59.3AC
+                  - img [ref=e726]
+                - option "Corn" [selected]
+                - option "Soybean"
+                - option "Potato"
+                - option "Alfalfa"
+                - option "Emergence"
+                - option "Vegetative"
+                - option "Flowering" [selected]
+                - option "Grain fill"
+                - option "Maturity"
+                - option "Sand"
+                - option "Loam" [selected]
+                - option "Clay"
+                - option "Poor"
+                - option "Moderate" [selected]
+                - option "Well drained"
+              - group [ref=e728]:
+                - generic "🌤 CONDITIONS 20% VWC · 86°F · 17 MPH · 0.00IN RAIN" [ref=e729] [cursor=pointer]:
+                  - generic [ref=e730]: 🌤
+                  - generic [ref=e731]:
+                    - paragraph [ref=e732]: CONDITIONS
+                    - paragraph [ref=e733]: 20% VWC · 86°F · 17 MPH · 0.00IN RAIN
+                  - img [ref=e735]
+              - group [ref=e737]:
+                - generic "💧 IRRIGATION PIVOT · MAX 0.71IN · 2 WINDOWS" [ref=e738] [cursor=pointer]:
+                  - generic [ref=e739]: 💧
+                  - generic [ref=e740]:
+                    - paragraph [ref=e741]: IRRIGATION
+                    - paragraph [ref=e742]: PIVOT · MAX 0.71IN · 2 WINDOWS
+                  - img [ref=e744]
+                - option "Pivot" [selected]
+                - option "Drip"
+                - option "Flood"
+          - generic [ref=e746]:
+            - button "Technical Details 1 stored" [ref=e747] [cursor=pointer]:
+              - paragraph [ref=e749]: Technical Details
+              - generic [ref=e750]:
+                - generic [ref=e751]: 1 stored
+                - img [ref=e754]
+            - generic [ref=e756]:
+              - generic [ref=e757]:
+                - heading [level=2] [ref=e759]: Recent analysis runs
+                - generic [ref=e760]:
+                  - button [ref=e761] [cursor=pointer]:
+                    - img [ref=e762]
+                    - generic [ref=e764]: Save latest
+                  - generic [ref=e765]: 1 total
+              - article [ref=e767]:
+                - generic [ref=e768]:
+                  - generic [ref=e769]: APPLY
+                  - generic [ref=e770]:
+                    - generic [ref=e771]:
+                      - generic [ref=e772]: NORTH PIVOT 7
+                      - generic [ref=e773]: May 28, 3:57 PM
+                    - paragraph [ref=e774]: 87% CONF · 0.57 IN · TONIGHT
+                  - button [ref=e775] [cursor=pointer]:
+                    - img [ref=e776]
+                    - generic [ref=e779]: COPY
+                - group [ref=e780]:
+                  - generic [ref=e781] [cursor=pointer]:
+                    - generic [ref=e782]: TECHNICAL DETAILS
+                    - img [ref=e784]

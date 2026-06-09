@@ -27,16 +27,16 @@ function evidencePacketSummary(run) {
     return "";
   }
   return `
-    <div class="border-t border-dashed border-[var(--hairline)] bg-[var(--panel-muted)] px-4 py-3">
+    <div class="evidence-packet-summary mx-4 my-3 rounded-[8px] border border-[var(--border)] bg-[#fbfaf7] px-4 py-4 text-center shadow-[0_12px_28px_-22px_rgba(24,38,29,0.35)]">
       <p class="num text-[10px] font-extrabold tracking-[0.16em] text-[var(--text-muted)]">EVIDENCE PACKET</p>
-      <div class="mt-2 grid gap-2 text-xs leading-5 text-[var(--text-muted)] sm:grid-cols-2">
+      <div class="mx-auto mt-2 grid max-w-[620px] gap-2 text-xs leading-5 text-[var(--text-muted)] sm:grid-cols-2">
         <p><span class="font-bold text-[var(--text)]">Feedback:</span> ${escapeHtml(evidence.feedbackAdjustmentStatus || "not recorded")}</p>
         <p><span class="font-bold text-[var(--text)]">ET:</span> ${escapeHtml(evidence.etSource || run.etSource || "not recorded")}</p>
         <p><span class="font-bold text-[var(--text)]">Driving zone:</span> ${escapeHtml(evidence.drivingZone || run.drivingZone || "not recorded")}</p>
         <p><span class="font-bold text-[var(--text)]">Variability:</span> ${evidence.highVariabilityFlag ? "high" : "normal"}</p>
       </div>
-      ${evidence.confidenceCaveat ? `<p class="mt-2 text-xs leading-5 text-[var(--text-muted)]">${escapeHtml(evidence.confidenceCaveat)}</p>` : ""}
-      ${evidence.fieldTestCaveat ? `<p class="mt-1 text-xs leading-5 text-[var(--text-muted)]">${escapeHtml(evidence.fieldTestCaveat)}</p>` : ""}
+      ${evidence.confidenceCaveat ? `<p class="mx-auto mt-2 max-w-[620px] text-xs leading-5 text-[var(--text-muted)]">${escapeHtml(evidence.confidenceCaveat)}</p>` : ""}
+      ${evidence.fieldTestCaveat ? `<p class="mx-auto mt-1 max-w-[620px] text-xs leading-5 text-[var(--text-muted)]">${escapeHtml(evidence.fieldTestCaveat)}</p>` : ""}
     </div>
   `;
 }

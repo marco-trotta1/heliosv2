@@ -3,12 +3,12 @@
   --font-display: "Söhne", "Geist", "Inter", sans-serif;
   --font-data: "Geist", "Inter", SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   --font-accent: "PP Neue Montreal", "Söhne", "Geist", "Inter", sans-serif;
-  --bg: #fdf9f0;
-  --bg-strong: #f5eedb;
-  --paper-wash: linear-gradient(175deg, #fdf9f0 0%, #f5eedb 100%);
-  --panel: #ffffff;
-  --panel-muted: #f8f3e4;
-  --panel-hover: #f1ebd8;
+  --bg: #fbfaf7;
+  --bg-strong: #f3f2ec;
+  --paper-wash: linear-gradient(175deg, #fbfaf7 0%, #f3f2ec 100%);
+  --panel: #fffefa;
+  --panel-muted: #f6f5f0;
+  --panel-hover: #efeee8;
   --border: rgba(24, 38, 29, 0.14);
   --border-strong: rgba(24, 38, 29, 0.3);
   --hairline: rgba(24, 38, 29, 0.18);
@@ -34,10 +34,10 @@
   --rail-warm: #c47a2c;
   --rail-forest: #1a3a2a;
   --rail-sky: #426b79;
-  --metric-neutral-bg: linear-gradient(135deg, #efe3c8 0%, #e7efdf 100%);
-  --metric-warm-bg: linear-gradient(135deg, #f0ddbd 0%, #f7edda 100%);
-  --metric-forest-bg: linear-gradient(135deg, #dce9d6 0%, #eef5e9 100%);
-  --metric-sky-bg: linear-gradient(135deg, #dceaea 0%, #eef5ef 100%);
+  --metric-neutral-bg: linear-gradient(135deg, #fffefa 0%, #f4f5ef 100%);
+  --metric-warm-bg: linear-gradient(135deg, #fffefa 0%, #f6f1ea 100%);
+  --metric-forest-bg: linear-gradient(135deg, #fffefa 0%, #edf4ef 100%);
+  --metric-sky-bg: linear-gradient(135deg, #fffefa 0%, #eef4f6 100%);
   --metric-border: rgba(24, 38, 29, 0.2);
   --metric-shadow: 0 18px 36px -24px rgba(24, 38, 29, 0.42);
   --success: #2e6e52;
@@ -58,12 +58,12 @@
 }
 
 body.theme-light {
-  --bg: #fdf9f0;
-  --bg-strong: #f5eedb;
-  --paper-wash: linear-gradient(175deg, #fdf9f0 0%, #f5eedb 100%);
-  --panel: #ffffff;
-  --panel-muted: #f8f3e4;
-  --panel-hover: #f1ebd8;
+  --bg: #fbfaf7;
+  --bg-strong: #f3f2ec;
+  --paper-wash: linear-gradient(175deg, #fbfaf7 0%, #f3f2ec 100%);
+  --panel: #fffefa;
+  --panel-muted: #f6f5f0;
+  --panel-hover: #efeee8;
   --border: rgba(24, 38, 29, 0.14);
   --border-strong: rgba(24, 38, 29, 0.3);
   --hairline: rgba(24, 38, 29, 0.18);
@@ -89,10 +89,10 @@ body.theme-light {
   --rail-warm: #c47a2c;
   --rail-forest: #1a3a2a;
   --rail-sky: #426b79;
-  --metric-neutral-bg: linear-gradient(135deg, #efe3c8 0%, #e7efdf 100%);
-  --metric-warm-bg: linear-gradient(135deg, #f0ddbd 0%, #f7edda 100%);
-  --metric-forest-bg: linear-gradient(135deg, #dce9d6 0%, #eef5e9 100%);
-  --metric-sky-bg: linear-gradient(135deg, #dceaea 0%, #eef5ef 100%);
+  --metric-neutral-bg: linear-gradient(135deg, #fffefa 0%, #f4f5ef 100%);
+  --metric-warm-bg: linear-gradient(135deg, #fffefa 0%, #f6f1ea 100%);
+  --metric-forest-bg: linear-gradient(135deg, #fffefa 0%, #edf4ef 100%);
+  --metric-sky-bg: linear-gradient(135deg, #fffefa 0%, #eef4f6 100%);
   --metric-border: rgba(24, 38, 29, 0.2);
   --metric-shadow: 0 18px 36px -24px rgba(24, 38, 29, 0.42);
   --success: #2e6e52;

@@ -1,0 +1,90 @@
+<h2>How should "Run Analysis" feel to use?</h2>
+<p class="subtitle">The form is where the farmer actually works. Three patterns, same inputs — very different cognitive load.</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)" style="cursor:pointer">
+    <div class="card-image" style="background:#fdf9f0;padding:20px;color:#1a2a20;position:relative">
+      <div style="background:#fff;border-radius:18px;padding:16px;border:1px solid rgba(26,58,42,0.1);box-shadow:0 6px 22px -14px rgba(26,58,42,0.3);position:relative">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
+          <div style="width:6px;height:6px;border-radius:99px;background:#22c55e;box-shadow:0 0 8px rgba(34,197,94,0.9)"></div>
+          <span style="font-size:9px;font-weight:700;letter-spacing:0.18em;color:#15803d">PROMPT</span>
+        </div>
+        <div style="font-size:14px;color:#1a2a20;font-weight:500;line-height:1.4">Kimberly Farm, sandy loam alfalfa, heat coming tomorrow — how much should I irrigate?</div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px dashed rgba(26,58,42,0.15);display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:10px;color:#6b7a6f">AI inferred 9 fields · <strong style="color:#15803d">edit ▸</strong></span>
+          <button style="background:#1a3a2a;color:#fef9ec;border:none;padding:6px 14px;border-radius:99px;font-size:11px;font-weight:700;letter-spacing:0.1em">RUN</button>
+        </div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+        <span style="font-size:9px;padding:3px 8px;background:rgba(26,58,42,0.06);border-radius:99px;color:#4e5f55">soil: sandy loam ✓</span>
+        <span style="font-size:9px;padding:3px 8px;background:rgba(26,58,42,0.06);border-radius:99px;color:#4e5f55">crop: alfalfa ✓</span>
+        <span style="font-size:9px;padding:3px 8px;background:rgba(251,146,60,0.15);border-radius:99px;color:#9a4a14;font-weight:600">temp 97°F ⚡</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Prompt-first (AI does the work)</h3>
+      <p>Big textarea is the hero. Farmer types a sentence; AI extracts soil, crop, weather, timing as chips below. Click a chip to correct. Form fields collapse by default — only appear if you open "details".</p>
+      <p style="font-size:11px;opacity:0.7"><strong>Best for:</strong> daily use once trust is built. <strong>Risk:</strong> feels magical but can feel opaque if extraction is wrong.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)" style="cursor:pointer">
+    <div class="card-image" style="background:#fdf9f0;padding:20px;color:#1a2a20">
+      <div style="display:flex;gap:4px;margin-bottom:14px;align-items:center">
+        <div style="flex:1;height:3px;background:#1a3a2a;border-radius:99px"></div>
+        <div style="flex:1;height:3px;background:#1a3a2a;border-radius:99px"></div>
+        <div style="flex:1;height:3px;background:rgba(26,58,42,0.2);border-radius:99px"></div>
+        <div style="flex:1;height:3px;background:rgba(26,58,42,0.2);border-radius:99px"></div>
+      </div>
+      <div style="font-size:9px;letter-spacing:0.2em;color:#8a7a5e;font-weight:700;margin-bottom:4px">STEP 2 OF 4</div>
+      <div style="font-size:18px;font-weight:700;color:#1a3a2a;margin-bottom:12px">Today's conditions</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="padding:10px;background:#fff;border:1px solid rgba(26,58,42,0.1);border-radius:12px">
+          <div style="font-size:9px;color:#6b7a6f;letter-spacing:0.12em">SOIL MOIST</div>
+          <div style="font-size:18px;font-weight:700;color:#1a3a2a">32<span style="font-size:11px;font-weight:500;color:#6b7a6f">%</span></div>
+        </div>
+        <div style="padding:10px;background:#fff;border:1px solid rgba(26,58,42,0.1);border-radius:12px">
+          <div style="font-size:9px;color:#6b7a6f;letter-spacing:0.12em">AIR TEMP</div>
+          <div style="font-size:18px;font-weight:700;color:#1a3a2a">97<span style="font-size:11px;font-weight:500;color:#6b7a6f">°F</span></div>
+        </div>
+      </div>
+      <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;color:#6b7a6f">← back</span>
+        <button style="background:#1a3a2a;color:#fef9ec;border:none;padding:6px 14px;border-radius:99px;font-size:11px;font-weight:700">Continue →</button>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Guided Wizard</h3>
+      <p>Four short steps: Field → Conditions → Constraints → Review. Progress bar shows where you are. Only 2–4 fields visible at a time. Never scroll past what you need right now.</p>
+      <p style="font-size:11px;opacity:0.7"><strong>Best for:</strong> first-time users, infrequent use. <strong>Risk:</strong> power users find step-clicking tedious.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)" style="cursor:pointer">
+    <div class="card-image" style="background:#fdf9f0;padding:20px;color:#1a2a20">
+      <div style="background:#fff;border-radius:14px;padding:10px 14px;border:1px solid rgba(26,58,42,0.1);margin-bottom:8px">
+        <div style="font-size:9px;letter-spacing:0.15em;color:#8a7a5e;font-weight:700;margin-bottom:4px">🌱 FIELD · Kimberly</div>
+        <div style="display:flex;gap:6px;font-size:11px;color:#3d5245"><span>sandy loam</span>·<span>alfalfa</span>·<span>12ac</span></div>
+      </div>
+      <div style="background:#fff;border-radius:14px;padding:10px 14px;border:2px solid #1a3a2a;margin-bottom:8px;box-shadow:0 4px 16px -8px rgba(26,58,42,0.25)">
+        <div style="font-size:9px;letter-spacing:0.15em;color:#8a7a5e;font-weight:700;margin-bottom:6px">🌤 CONDITIONS</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:12px;color:#1a3a2a;font-weight:600">
+          <div>32% <span style="font-size:9px;color:#6b7a6f;font-weight:400">moist</span></div>
+          <div>97°F <span style="font-size:9px;color:#6b7a6f;font-weight:400">air</span></div>
+          <div>8mph <span style="font-size:9px;color:#6b7a6f;font-weight:400">wind</span></div>
+        </div>
+      </div>
+      <div style="background:#fff;border-radius:14px;padding:10px 14px;border:1px solid rgba(26,58,42,0.1);margin-bottom:8px">
+        <div style="font-size:9px;letter-spacing:0.15em;color:#8a7a5e;font-weight:700;margin-bottom:4px">💧 IRRIGATION</div>
+        <div style="font-size:11px;color:#3d5245">pivot · max 1.2 in · 6hr window</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Compact Stacked Cards</h3>
+      <p>Three themed sections (Field / Conditions / Irrigation) as slim cards. Each shows a summary line when collapsed; expands inline when you tap. Everything on one screen, no hidden state.</p>
+      <p style="font-size:11px;opacity:0.7"><strong>Best for:</strong> experts who tweak one thing. <strong>Risk:</strong> still feels form-y, just prettier.</p>
+    </div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:18px">A is the most "frontier AI" — the form melts away. B is the most farmer-friendly for first contact. C is the safest middle.</p>

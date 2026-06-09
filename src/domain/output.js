@@ -93,6 +93,64 @@ function formatZoneMoistureSummary(zoneMoistureSummary) {
     .join(", ");
 }
 
+function firstString(...values) {
+  const value = values.find((item) => typeof item === "string" && item.trim().length > 0);
+  return value ? value.trim() : "";
+}
+
+function firstBoolean(...values) {
+  const value = values.find((item) => typeof item === "boolean");
+  return typeof value === "boolean" ? value : false;
+}
+
+export function normalizeValidationEvidence(rawEvidence, fallback = {}) {
+  const raw = rawEvidence && typeof rawEvidence === "object" ? rawEvidence : {};
+  const validationMode = firstString(raw.validationMode, raw.validation_mode, fallback.validationMode);
+  const modelArtifactHash = firstString(raw.modelArtifactHash, raw.model_artifact_hash, fallback.modelArtifactHash);
+  const modelTrainingDate = firstString(raw.modelTrainingDate, raw.model_training_date, fallback.modelTrainingDate);
+  const etSource = firstString(raw.etSource, raw.et_source, fallback.etSource);
+  const feedbackAdjustmentStatus = firstString(
+    raw.feedbackAdjustmentStatus,
+    raw.feedback_adjustment_status,
+    fallback.feedbackAdjustmentStatus,
+  );
+  const drivingZone = firstString(raw.drivingZone, raw.driving_zone, fallback.drivingZone);
+  const confidenceCaveat = firstString(
+    raw.confidenceCaveat,
+    raw.confidence_caveat,
+    fallback.confidenceCaveat,
+  );
+  const fieldTestCaveat = firstString(raw.fieldTestCaveat, raw.field_test_caveat, fallback.fieldTestCaveat);
+  const preservationNote = firstString(raw.preservationNote, raw.preservation_note, fallback.preservationNote);
+
+  if (
+    !validationMode &&
+    !modelArtifactHash &&
+    !modelTrainingDate &&
+    !etSource &&
+    !feedbackAdjustmentStatus &&
+    !drivingZone &&
+    !confidenceCaveat &&
+    !fieldTestCaveat &&
+    !preservationNote
+  ) {
+    return null;
+  }
+
+  return {
+    validationMode: validationMode || "unknown",
+    modelArtifactHash: modelArtifactHash || null,
+    modelTrainingDate: modelTrainingDate || null,
+    etSource: etSource || null,
+    feedbackAdjustmentStatus,
+    drivingZone,
+    highVariabilityFlag: firstBoolean(raw.highVariabilityFlag, raw.high_variability_flag, fallback.highVariabilityFlag),
+    confidenceCaveat,
+    fieldTestCaveat,
+    preservationNote,
+  };
+}
+
 export function recommendationTone(run) {
   return run.decision === "water"
     ? {
@@ -149,6 +207,36 @@ export function serializeRunForCopy(run) {
     }
     if (run.backendSnapshot.apiVersion) {
       lines.push(`API version: ${run.backendSnapshot.apiVersion}`);
+    }
+  }
+  if (run.validationEvidence) {
+    lines.push("");
+    lines.push("Evidence packet:");
+    if (run.validationEvidence.fieldTestCaveat) {
+      lines.push(`Evidence status: ${run.validationEvidence.fieldTestCaveat}`);
+    }
+    lines.push(`Validation mode: ${run.validationEvidence.validationMode || "unknown"}`);
+    if (run.validationEvidence.modelArtifactHash) {
+      lines.push(`Model artifact: ${run.validationEvidence.modelArtifactHash}`);
+    }
+    if (run.validationEvidence.modelTrainingDate) {
+      lines.push(`Training date: ${run.validationEvidence.modelTrainingDate}`);
+    }
+    if (run.validationEvidence.etSource) {
+      lines.push(`Reference ET source: ${run.validationEvidence.etSource}`);
+    }
+    if (run.validationEvidence.feedbackAdjustmentStatus) {
+      lines.push(`Feedback adjustment: ${run.validationEvidence.feedbackAdjustmentStatus}`);
+    }
+    if (run.validationEvidence.drivingZone) {
+      lines.push(`Driving zone evidence: ${run.validationEvidence.drivingZone}`);
+    }
+    lines.push(`High variability flag: ${run.validationEvidence.highVariabilityFlag ? "Yes" : "No"}`);
+    if (run.validationEvidence.confidenceCaveat) {
+      lines.push(run.validationEvidence.confidenceCaveat);
+    }
+    if (run.validationEvidence.preservationNote) {
+      lines.push(run.validationEvidence.preservationNote);
     }
   }
   lines.push("");

@@ -8,6 +8,7 @@ import {
   buildSummary,
   serializeRunForCopy,
   formatWindow,
+  normalizeValidationEvidence,
 } from "../domain.js";
 import { isLiveApiMode, state } from "../state.js";
 import { apiUrl, readJsonResponse } from "./http.js";
@@ -106,6 +107,23 @@ function buildApiSummary(inputs, response) {
 
 export function mapApiRun(inputs, response) {
   const estimatedEtIn = estimateReferenceEtIn(inputs);
+  const validationMode = state.backend.validationMode === true
+    ? "enabled"
+    : state.backend.validationMode === false
+      ? "disabled"
+      : "";
+  const validationEvidence = normalizeValidationEvidence(response.validation_evidence, {
+    validationMode,
+    modelArtifactHash: state.backend.modelHash,
+    modelTrainingDate: state.backend.trainingDate,
+    etSource: response.et_source || null,
+    feedbackAdjustmentStatus: response.recommendation_adjustment?.reason || "",
+    drivingZone: response.explanation?.driving_zone || "",
+    highVariabilityFlag: response.explanation?.high_variability_flag === true,
+    confidenceCaveat: "Heuristic confidence; not a calibrated uncertainty estimate.",
+    fieldTestCaveat: "Field-test evidence only; no validation-score evidence is attached to this recommendation.",
+    preservationNote: "Copy this evidence packet with the recommendation to preserve the exact recommendation context.",
+  });
   const run = {
     id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
     title: `${inputs.fieldName} • ${PAGE_TITLES["run-analysis"]}`,
@@ -152,6 +170,7 @@ export function mapApiRun(inputs, response) {
     drivingZone: response.explanation?.driving_zone || "",
     zoneMoistureSummary: response.explanation?.zone_moisture_summary || null,
     highVariabilityFlag: response.explanation?.high_variability_flag === true,
+    validationEvidence,
     sourceLabel: state.backend.validationMode === true
       ? "Live API validation build with nearby feedback adjustments disabled"
       : state.backend.validationMode === false
@@ -206,6 +225,14 @@ export function buildLocalRun(inputs) {
     drivingZone: "",
     zoneMoistureSummary: null,
     highVariabilityFlag: false,
+    validationEvidence: normalizeValidationEvidence(null, {
+      validationMode: "not applicable",
+      etSource: "local estimate",
+      feedbackAdjustmentStatus: "No backend feedback adjustment used",
+      confidenceCaveat: "Heuristic confidence; not a calibrated uncertainty estimate.",
+      fieldTestCaveat: "Local prototype estimate only; no live backend validation evidence.",
+      preservationNote: "Copy this run with the input snapshot if you need to preserve the local estimate context.",
+    }),
     sourceLabel: isLiveApiMode() ? "Local fallback estimate" : "Static demo estimate",
     copyText: "",
   };

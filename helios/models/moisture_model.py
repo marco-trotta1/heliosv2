@@ -12,6 +12,32 @@ import pandas as pd
 from helios.data.feature_engineering import prepare_feature_matrix
 
 
+# Physically plausible volumetric water content envelopes by soil texture. Lower bounds sit
+# near the permanent wilting point and upper bounds near saturation, kept wide enough to
+# bracket each texture's dry/wet decision thresholds. Replaces a meaningless [0, 1] clip
+# that allowed agronomically impossible predictions.
+TEXTURE_MOISTURE_BOUNDS = {
+    "sand": (0.04, 0.30),
+    "loam": (0.06, 0.42),
+    "clay": (0.10, 0.48),
+}
+# Fallback envelope matching the training-target clip range when texture is unknown.
+DEFAULT_MOISTURE_BOUNDS = (0.05, 0.50)
+
+
+def _texture_from_features(features: pd.DataFrame) -> str | None:
+    for texture in TEXTURE_MOISTURE_BOUNDS:
+        column = f"soil_texture_{texture}"
+        if column in features.columns and float(features.iloc[0][column]) >= 0.5:
+            return texture
+    return None
+
+
+def clip_to_texture_bounds(values: list[float], texture: str | None) -> list[float]:
+    low, high = TEXTURE_MOISTURE_BOUNDS.get(texture, DEFAULT_MOISTURE_BOUNDS)
+    return [float(max(low, min(high, value))) for value in values]
+
+
 @dataclass
 class MoistureForecastModel:
     model: Any
@@ -26,7 +52,7 @@ class MoistureForecastModel:
         matrix = prepare_feature_matrix(features, self.feature_columns)
         raw_prediction = self.model.predict(matrix)[0]
         keys = ["moisture_24h", "moisture_48h", "moisture_72h"]
-        clipped = [float(max(0.0, min(1.0, value))) for value in raw_prediction]
+        clipped = clip_to_texture_bounds(list(raw_prediction), _texture_from_features(features))
         return dict(zip(keys, clipped, strict=True))
 
 

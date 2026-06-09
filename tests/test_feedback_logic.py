@@ -59,23 +59,42 @@ def test_adjust_recommendation_reinforces_and_reduces_conservatively() -> None:
     stronger = adjust_recommendation(
         0.394,  # ~10 mm in inches
         {
-            "success_rate": 0.82,
+            "success_rate": 0.85,
+            "avg_yield_delta": 6.0,
+            "total_samples": 16,
+            "weighted_samples": 12.0,
+            "comparable_samples": 12,
+        },
+    )
+    weaker = adjust_recommendation(
+        0.394,  # ~10 mm in inches
+        {
+            "success_rate": 0.2,
+            "avg_yield_delta": -8.0,
+            "total_samples": 16,
+            "weighted_samples": 12.0,
+            "comparable_samples": 12,
+        },
+    )
+
+    assert stronger["adjusted_recommendation_in"] == round(0.394 * 1.08, 2)
+    assert weaker["adjusted_recommendation_in"] == round(0.394 * 0.88, 2)
+
+
+def test_adjust_recommendation_holds_when_success_rate_not_statistically_conclusive() -> None:
+    # Same high success rate, but only n=4 effective samples — the confidence interval
+    # still straddles the neutral midpoint, so no adjustment should fire.
+    adjustment = adjust_recommendation(
+        0.394,
+        {
+            "success_rate": 0.85,
             "avg_yield_delta": 6.0,
             "total_samples": 6,
             "weighted_samples": 4.0,
             "comparable_samples": 4,
         },
     )
-    weaker = adjust_recommendation(
-        0.394,  # ~10 mm in inches
-        {
-            "success_rate": 0.25,
-            "avg_yield_delta": -8.0,
-            "total_samples": 6,
-            "weighted_samples": 4.0,
-            "comparable_samples": 4,
-        },
-    )
 
-    assert stronger["adjusted_recommendation_in"] == round(0.394 * 1.08, 2)
-    assert weaker["adjusted_recommendation_in"] == round(0.394 * 0.88, 2)
+    assert adjustment["adjustment_factor"] == 1.0
+    assert adjustment["adjusted_recommendation_in"] == round(0.394, 2)
+    assert "not statistically conclusive" in adjustment["reason"]

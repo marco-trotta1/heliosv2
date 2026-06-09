@@ -11,6 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from helios.scripts.training_shared import CROP_KC, DRAINAGE_FACTOR
+
 
 SOIL_THRESHOLDS = {
     "sand": {"dry": 0.12, "wet": 0.28},
@@ -46,6 +48,9 @@ class OptimizationInputs:
     sensor_count: int
     physical_sensor_count: int
     irrigation_type: str = "pivot"
+    growth_stage: str = "vegetative"
+    drainage_class: str = "moderate"
+    et_is_fallback: bool = False
 
 
 def _allowed_hours(water_rights_schedule: list[str]) -> float:
@@ -80,7 +85,10 @@ def _confidence_score(inputs: OptimizationInputs, dry_threshold: float, timing_w
     else:
         sensor_penalty = 0.10
     timing_penalty = 0.05 if timing_window == "next available permitted window" else 0.0
-    confidence = base + margin_bonus - sensor_penalty - timing_penalty
+    # Climatology-fallback ET is a regional average, not a field-specific reading;
+    # surface that added uncertainty by trimming confidence.
+    et_fallback_penalty = 0.05 if inputs.et_is_fallback else 0.0
+    confidence = base + margin_bonus - sensor_penalty - timing_penalty - et_fallback_penalty
     return round(min(0.99, max(0.05, confidence)), 3)
 
 
@@ -101,10 +109,16 @@ def generate_irrigation_plan(inputs: OptimizationInputs) -> dict[str, Any]:
         needs_water=needs_water,
     )
 
-    target_moisture = min(wet_threshold, dry_threshold + 0.08 + inputs.estimated_et_in * 0.0508)
+    # Crop water demand scales the ET buffer by growth-stage Kc (flowering pulls more
+    # than emergence), matching the FAO-56 water balance used to build the training set.
+    crop_kc = CROP_KC.get(inputs.growth_stage, 1.0)
+    target_moisture = min(wet_threshold, dry_threshold + 0.08 + inputs.estimated_et_in * crop_kc * 0.0508)
     deficit = max(0.0, target_moisture - decision_moisture)
     root_zone_factor = {"sand": 4.331, "loam": 5.315, "clay": 6.102}.get(inputs.soil_texture, 5.315)
-    net_amount_in = deficit * root_zone_factor
+    # Well-drained soils shed water faster and need a larger gross application than poorly
+    # drained ones; this mirrors the drainage term in the training water balance.
+    drainage_factor = DRAINAGE_FACTOR.get(inputs.drainage_class, 1.0)
+    net_amount_in = deficit * root_zone_factor * drainage_factor
     efficiency = IRRIGATION_EFFICIENCY.get(inputs.irrigation_type, IRRIGATION_EFFICIENCY["pivot"])
     raw_amount_in = net_amount_in / efficiency
 

@@ -18,6 +18,9 @@ NOAA_HEADERS = {
     "User-Agent": "Helios/0.2.0 (NOAA weather enrichment)",
 }
 NOAA_TIMEOUT_SECONDS = 10.0
+# Reference depth (inches) for a precipitating hour, used to turn NOAA's probability of
+# precipitation into a continuous expected-precip estimate until QPF is wired in.
+PRECIP_REFERENCE_IN = 0.2
 
 
 def _seasonal_solar_radiation() -> float:
@@ -54,7 +57,12 @@ def fetch_noaa_weather(lat: float, lon: float) -> dict[str, Any]:
             "temperature_f": temperature_f,
             "humidity_pct": humidity_pct,
             "wind_mph": wind_mph,
-            "precipitation_in": 0.1 if precipitation_probability > 50 else 0.0,
+            # NOAA's hourly forecast exposes probability of precipitation but no
+            # quantitative amount. Estimate expected precip as PoP scaled by a light-rain
+            # reference depth so the value varies continuously with forecast confidence
+            # instead of snapping at a 50% cliff. Replace with NOAA QPF when wired in.
+            "precipitation_in": round((precipitation_probability / 100.0) * PRECIP_REFERENCE_IN, 3),
+            "precipitation_probability_pct": round(precipitation_probability, 1),
             "solar_radiation_mj_m2": _seasonal_solar_radiation(),
             "forecast_horizon_hours": 72,
         }

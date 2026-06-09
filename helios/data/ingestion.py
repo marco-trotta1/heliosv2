@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import statistics
 from typing import Any
 
 import pandas as pd
 
 from helios.schemas.inputs import IrrigationEventInput, PredictionRequest, SoilMoistureReading
 from helios.utils.openet import DEFAULT_OPENET_MONTHLY_ET_IN
+
+# A reading this many median-absolute-deviations from the field median is treated as a
+# malfunctioning probe and excluded from primary-sensor selection.
+SENSOR_OUTLIER_MAD_MULTIPLIER = 3.0
 
 def soil_moisture_series_to_frame(readings: list[SoilMoistureReading]) -> pd.DataFrame:
     frame = pd.DataFrame([reading.model_dump() for reading in readings])
@@ -32,6 +37,31 @@ def fallback_openet_monthly_et_in(month: int) -> float:
     return DEFAULT_OPENET_MONTHLY_ET_IN.get(month, DEFAULT_OPENET_MONTHLY_ET_IN[8])
 
 
+def _select_primary_sensor(
+    sensor_snapshots: dict[str, dict[str, float]],
+) -> tuple[str, dict[str, float]]:
+    """Pick the sensor that drives the recommendation.
+
+    Keeps the conservative "driest zone leads" behavior, but with 3+ sensors first
+    discards outliers (e.g. a probe stuck low) using a median-absolute-deviation filter
+    so a single malfunctioning sensor cannot force over-irrigation.
+    """
+    values = [snapshot["current_vwc"] for snapshot in sensor_snapshots.values()]
+    inliers = sensor_snapshots
+    if len(values) >= 3:
+        median = statistics.median(values)
+        mad = statistics.median([abs(value - median) for value in values])
+        if mad > 0:
+            kept = {
+                sensor_id: snapshot
+                for sensor_id, snapshot in sensor_snapshots.items()
+                if abs(snapshot["current_vwc"] - median) <= SENSOR_OUTLIER_MAD_MULTIPLIER * mad
+            }
+            if kept:
+                inliers = kept
+    return min(inliers.items(), key=lambda item: (item[1]["current_vwc"], item[0]))
+
+
 def request_to_feature_frame(
     request: PredictionRequest,
     *,
@@ -51,10 +81,7 @@ def request_to_feature_frame(
             "lag_2": lag_2,
         }
 
-    primary_sensor_id, primary_sensor = min(
-        sensor_snapshots.items(),
-        key=lambda item: (item[1]["current_vwc"], item[0]),
-    )
+    primary_sensor_id, primary_sensor = _select_primary_sensor(sensor_snapshots)
     current_values = [sensor["current_vwc"] for sensor in sensor_snapshots.values()]
     moisture_min = min(current_values)
     moisture_max = max(current_values)

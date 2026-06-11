@@ -116,6 +116,7 @@ def test_rebuild_training_bundle_creates_combined_dataset_and_metadata(tmp_path:
         seed=42,
         sample_output=str(sample_output),
         mickelson_output=str(mickelson_output),
+        usda_lirf_csv=None,
         combined_output=str(combined_output),
         model_path=str(model_path),
         metadata_path=str(metadata_path),

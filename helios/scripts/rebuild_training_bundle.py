@@ -23,6 +23,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--sample-output", default="data/sample_training_data.csv")
     parser.add_argument("--mickelson-output", default="data/mickelson_training_data.csv")
+    parser.add_argument(
+        "--usda-lirf-csv",
+        default=None,
+        help="Optional USDA LIRF Helios-compatible training CSV from parse_usda_lirf_data.",
+    )
     parser.add_argument("--combined-output", default="data/combined_training_data.csv")
     parser.add_argument("--model-path", default="artifacts/moisture_model.pkl")
     parser.add_argument("--metadata-path", default="artifacts/model_metadata.json")
@@ -44,6 +49,7 @@ def _record_training_provenance(
     metadata_path: str,
     mickelson_workbook: str,
     openet_csv: str | None,
+    usda_lirf_csv: str | None,
     openet_latitude: float | None,
     openet_longitude: float | None,
     openet_coordinate_note: str,
@@ -53,6 +59,7 @@ def _record_training_provenance(
     metadata["training_inputs"] = {
         "mickelson_workbook": mickelson_workbook,
         "openet_csv": openet_csv,
+        "usda_lirf_csv": usda_lirf_csv,
     }
     if openet_latitude is not None and openet_longitude is not None:
         metadata["openet_coordinate"] = {
@@ -71,6 +78,7 @@ def rebuild_training_bundle(
     seed: int,
     sample_output: str,
     mickelson_output: str,
+    usda_lirf_csv: str | None,
     combined_output: str,
     model_path: str,
     metadata_path: str,
@@ -94,7 +102,17 @@ def rebuild_training_bundle(
         openet_csv=openet_path,
     )
 
-    combined = pd.concat([sample_frame, mickelson_frame], ignore_index=True)
+    frames = [sample_frame, mickelson_frame]
+    usda_lirf_rows = 0
+    if usda_lirf_csv is not None:
+        usda_lirf_path = Path(usda_lirf_csv)
+        if not usda_lirf_path.exists():
+            raise FileNotFoundError(f"USDA LIRF CSV not found: {usda_lirf_csv}")
+        usda_lirf_frame = pd.read_csv(usda_lirf_path)
+        usda_lirf_rows = len(usda_lirf_frame)
+        frames.append(usda_lirf_frame)
+
+    combined = pd.concat(frames, ignore_index=True)
     combined_path = Path(combined_output)
     combined_path.parent.mkdir(parents=True, exist_ok=True)
     combined.to_csv(combined_path, index=False)
@@ -110,6 +128,7 @@ def rebuild_training_bundle(
         metadata_path=metadata_path,
         mickelson_workbook=mickelson_workbook,
         openet_csv=openet_path,
+        usda_lirf_csv=usda_lirf_csv,
         openet_latitude=openet_latitude,
         openet_longitude=openet_longitude,
         openet_coordinate_note=openet_coordinate_note,
@@ -118,6 +137,7 @@ def rebuild_training_bundle(
     return {
         "synthetic_rows": len(sample_frame),
         "mickelson_rows": len(mickelson_frame),
+        "usda_lirf_rows": usda_lirf_rows,
         "combined_rows": len(combined),
         "combined_output": str(combined_path),
         "model_path": model_path,
@@ -134,6 +154,7 @@ def main() -> None:
         seed=args.seed,
         sample_output=args.sample_output,
         mickelson_output=args.mickelson_output,
+        usda_lirf_csv=args.usda_lirf_csv,
         combined_output=args.combined_output,
         model_path=args.model_path,
         metadata_path=args.metadata_path,
@@ -145,6 +166,7 @@ def main() -> None:
     )
     logger.info(
         "Rebuilt Helios bundle: synthetic_rows={synthetic_rows} mickelson_rows={mickelson_rows} "
+        "usda_lirf_rows={usda_lirf_rows} "
         "combined_rows={combined_rows} model={model_path}".format(**result)
     )
 

@@ -1,0 +1,166 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pandas as pd
+
+from helios.data.feature_engineering import TARGET_COLUMNS, build_training_features
+from helios.scripts.download_public_datasets import find_dataset, load_registry
+from helios.scripts.parse_usda_lirf_data import parse_usda_lirf
+
+
+def _write_usda_fixture(path: Path) -> None:
+    dates = pd.date_range("2012-06-01", periods=5, freq="D")
+    water_rows = []
+    for index, date in enumerate(dates):
+        water_rows.append(
+            {
+                "Year": 2012,
+                "DOY": int(date.dayofyear),
+                "Date": date,
+                "Trt_code": 1,
+                "Growth_stage": "V6" if index < 3 else "R1",
+                "Nitrogen_Appl (kg/ha)": 42.0,
+                "LAI": 1.2 + index,
+                "Plant_height (cm)": 35.0 + index,
+                "root_depth (cm)": 105.0,
+                "canopy_cover": 10.0 + index,
+                "SWC_15": 25.0 - index,
+                "SWC_30": 24.0 - index,
+                "SWC_60": 23.0 - index,
+                "SWC_90": 22.0 - index,
+                "SWC_120": 21.0 - index,
+                "SWC_150": 20.0 - index,
+                "SWC_200": 19.0 - index,
+                "SWD_105": 10.0 + index,
+                "SWD_RZ": 11.0 + index,
+                "precip_gross (mm)": 2.54 if index == 0 else 0.0,
+                "precip_eff (mm)": 2.0 if index == 0 else 0.0,
+                "irr_gross (mm)": 5.08 if index == 1 else 0.0,
+                "irr_eff (mm)": 4.0 if index == 1 else 0.0,
+                "ETr (mm)": 2.54 * (index + 1),
+                "Kcb_cc": 0.8,
+                "Ks": 1.0,
+                "deep_perc (mm)": 0.0,
+                "Soil_Evap (mm)": 1.0,
+                "ETc_WB (mm)": 5.0,
+                "ETc_BREB (mm)": 5.1,
+                "SWD_Pred_105": 12.0,
+                "SWD_Pred_RZ": 13.0,
+            }
+        )
+
+    weather_rows = []
+    for date in dates:
+        weather_rows.append(
+            {
+                "Year": 2012,
+                "DOY": int(date.dayofyear),
+                "TIMESTAMP": date + pd.Timedelta(hours=12),
+                "AirTemp_C": 25.0,
+                "RH_fraction": 0.45,
+                "Vap_Press_kPa": 1.2,
+                "HrlySolRad_kJ_m^2_min^1": 10.0,
+                "WindSpeed_m_s^1": 3.0,
+                "WindDir_Deg": 180.0,
+                "WindDir_STDD_Deg": 5.0,
+                "Rain-Tot": 0.0,
+                "SoilTemp_5cm_C": 20.0,
+                "SoilTemp_15cm_C": 18.0,
+                "HWG_maxspeed_m_s^1": 4.0,
+                "HWG_time": 1200,
+                "HWG_Dir": 180.0,
+                "BaPress_kPa": 86.0,
+                "ETr": 0.0,
+                "ETo": 0.0,
+                "ETr-Daily": 2.54 * (date.day - dates[0].day + 1),
+                "ETo-Daily": 5.0,
+                "Rain-Daily": 0.0,
+            }
+        )
+
+    with pd.ExcelWriter(path) as writer:
+        pd.DataFrame([{"ignored": "title"}]).to_excel(writer, sheet_name="Water Balance ET", index=False, header=False)
+        pd.DataFrame(water_rows).to_excel(writer, sheet_name="Water Balance ET", index=False, startrow=1)
+        pd.DataFrame(weather_rows).to_excel(writer, sheet_name="Weather data", index=False)
+
+
+def test_public_dataset_registry_has_usda_provenance() -> None:
+    registry = load_registry()
+    usda = find_dataset(registry, "usda_lirf_2012_2013")
+
+    assert usda["doi"] == "10.15482/USDA.ADC/1439968"
+    assert usda["license"] == "U.S. Public Domain"
+    assert usda["role"] == "training_candidate"
+    assert {file_info["name"] for file_info in usda["raw_files"]} >= {
+        "2012-2013_Maize_Compiled database 06012018.xlsx",
+        "Data Description 06012018.xlsx",
+        "Data_Dictionary_Water_Prod_2012.csv",
+        "Plot map 2012 2013.pdf",
+    }
+
+
+def test_parse_usda_lirf_builds_horizons_without_future_features(tmp_path: Path) -> None:
+    workbook = tmp_path / "usda_fixture.xlsx"
+    training_output = tmp_path / "usda_training.csv"
+    normalized_output = tmp_path / "usda_normalized.csv"
+    report_output = tmp_path / "report.json"
+    _write_usda_fixture(workbook)
+
+    report = parse_usda_lirf(
+        input_path=str(workbook),
+        output_path=str(training_output),
+        normalized_output_path=str(normalized_output),
+        report_output_path=str(report_output),
+    )
+
+    training = pd.read_csv(training_output)
+    normalized = pd.read_csv(normalized_output)
+    report_from_disk = json.loads(report_output.read_text())
+
+    assert report["usable_for_training"] is True
+    assert report_from_disk["training_rows"] == len(training)
+    assert set(normalized["horizon_hours"]) == {24, 48, 72}
+    assert set(TARGET_COLUMNS).issubset(training.columns)
+    assert len(training) == 2
+
+    first_row = training.iloc[0]
+    assert first_row["current_soil_moisture"] == 0.2329
+    assert first_row["target_moisture_24h"] == 0.2229
+    assert first_row["target_moisture_48h"] == 0.2129
+    assert first_row["target_moisture_72h"] == 0.2029
+    assert first_row["precipitation_in"] == 0.1
+    assert first_row["cumulative_irrigation_24h"] == 0.0
+    assert first_row["reference_et_in"] == 0.1
+    assert first_row["openet_monthly_et_in"] == 0.1
+
+    second_row = training.iloc[1]
+    assert second_row["reference_et_in"] == 0.2
+    assert second_row["openet_monthly_et_in"] == 0.15
+
+    normalized["feature_cutoff_at"] = pd.to_datetime(normalized["feature_cutoff_at"])
+    normalized["label_time"] = pd.to_datetime(normalized["label_time"])
+    assert (normalized["feature_cutoff_at"] < normalized["label_time"]).all()
+
+
+def test_usda_training_output_matches_feature_schema(tmp_path: Path) -> None:
+    workbook = tmp_path / "usda_fixture.xlsx"
+    training_output = tmp_path / "usda_training.csv"
+    normalized_output = tmp_path / "usda_normalized.csv"
+    _write_usda_fixture(workbook)
+
+    parse_usda_lirf(
+        input_path=str(workbook),
+        output_path=str(training_output),
+        normalized_output_path=str(normalized_output),
+        report_output_path=None,
+    )
+    training = pd.read_csv(training_output)
+
+    features, targets = build_training_features(training)
+
+    assert not features.empty
+    assert list(targets.columns) == TARGET_COLUMNS
+    assert training["openet_monthly_et_in"].min() > 0
+    assert training["growth_stage"].isin(["vegetative", "flowering"]).all()

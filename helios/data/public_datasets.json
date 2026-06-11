@@ -1,0 +1,103 @@
+{
+  "datasets": [
+    {
+      "source_id": "usda_lirf_2012_2013",
+      "name": "USDA-ARS Colorado Maize Water Productivity Dataset 2012-2013",
+      "role": "training_candidate",
+      "status": "approved_for_preparation",
+      "source_url": "https://agdatacommons.nal.usda.gov/articles/dataset/USDA-ARS_Colorado_Maize_Water_Productivity_Dataset_2012-2013/24662391",
+      "api_url": "https://api.figshare.com/v2/articles/24662391",
+      "doi": "10.15482/USDA.ADC/1439968",
+      "license": "U.S. Public Domain",
+      "license_url": "https://www.usa.gov/publicdomain/label/1.0/",
+      "metadata_retrieved_at_utc": "2026-06-11T22:06:11Z",
+      "temporal_extent": {
+        "start_date": "2012-01-01",
+        "end_date": "2013-12-31"
+      },
+      "location": {
+        "description": "Limited Irrigation Research Farm, northeastern Colorado near Greeley",
+        "latitude": 40.433333,
+        "longitude": -104.633333
+      },
+      "raw_files": [
+        {
+          "name": "2012-2013_Maize_Compiled database 06012018.xlsx",
+          "figshare_file_id": 44526245,
+          "download_url": "https://ndownloader.figshare.com/files/44526245",
+          "md5": "350d76673022fda33c30ffd710411340",
+          "size_bytes": 4312151
+        },
+        {
+          "name": "Data Description 06012018.xlsx",
+          "figshare_file_id": 44526242,
+          "download_url": "https://ndownloader.figshare.com/files/44526242",
+          "md5": "5cbb6972b62144bb003b9684c2187827",
+          "size_bytes": 18893
+        },
+        {
+          "name": "Data_Dictionary_Water_Prod_2012.csv",
+          "figshare_file_id": 44526248,
+          "download_url": "https://ndownloader.figshare.com/files/44526248",
+          "md5": "3eeb0dc007e0b968d18b8cece8a10ed3",
+          "size_bytes": 16017
+        },
+        {
+          "name": "Plot map 2012 2013.pdf",
+          "figshare_file_id": 44526239,
+          "download_url": "https://ndownloader.figshare.com/files/44526239",
+          "md5": "ba97725995ad292c7d0debebef8424a2",
+          "size_bytes": 325724
+        }
+      ],
+      "notes": [
+        "Daily treatment-level water balance data includes measured soil water content by depth, irrigation, precipitation, ET, crop stage, LAI, canopy cover, and root depth.",
+        "Hourly weather is provided separately and can be aggregated only up to the prediction origin to avoid leakage.",
+        "Prepared rows should be reviewed before promotion from training_candidate to production training input."
+      ]
+    },
+    {
+      "source_id": "morris_nebraska_crns_ameriflux",
+      "name": "Morris/Franz Nebraska CRNS and AmeriFlux Maize-Soybean Dataset",
+      "role": "evaluation_pending",
+      "status": "not_approved_for_training",
+      "source_url": "https://github.com/tanessamorris/Effect-of-biomass-water-dynamics-in-cosmic-ray-neutron-sensor-observations",
+      "paper_url": "https://www.mdpi.com/1424-8220/24/13/4094",
+      "doi": "10.3390/s24134094",
+      "license": "CC0-1.0",
+      "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "metadata_retrieved_at_utc": "2026-06-11T22:06:11Z",
+      "raw_files": [
+        {
+          "name": "Data/Data_Excel/Ameriflux_Summary.xlsx",
+          "download_url": "https://raw.githubusercontent.com/tanessamorris/Effect-of-biomass-water-dynamics-in-cosmic-ray-neutron-sensor-observations/main/Data/Data_Excel/Ameriflux_Summary.xlsx"
+        },
+        {
+          "name": "Data/Data_Excel/BWE_Summary.xlsx",
+          "download_url": "https://raw.githubusercontent.com/tanessamorris/Effect-of-biomass-water-dynamics-in-cosmic-ray-neutron-sensor-observations/main/Data/Data_Excel/BWE_Summary.xlsx"
+        },
+        {
+          "name": "Data/Data_Excel/Field_Logs.xlsx",
+          "download_url": "https://raw.githubusercontent.com/tanessamorris/Effect-of-biomass-water-dynamics-in-cosmic-ray-neutron-sensor-observations/main/Data/Data_Excel/Field_Logs.xlsx"
+        },
+        {
+          "name": "Data/Data_Excel/Gravimetric_Sampling_Summary.xlsx",
+          "download_url": "https://raw.githubusercontent.com/tanessamorris/Effect-of-biomass-water-dynamics-in-cosmic-ray-neutron-sensor-observations/main/Data/Data_Excel/Gravimetric_Sampling_Summary.xlsx"
+        },
+        {
+          "name": "Data/Data_Excel/Neutron_Count_Data.xlsx",
+          "download_url": "https://raw.githubusercontent.com/tanessamorris/Effect-of-biomass-water-dynamics-in-cosmic-ray-neutron-sensor-observations/main/Data/Data_Excel/Neutron_Count_Data.xlsx"
+        },
+        {
+          "name": "Data/Data_Excel/Precipitation_Irrigation_Summary.xlsx",
+          "download_url": "https://raw.githubusercontent.com/tanessamorris/Effect-of-biomass-water-dynamics-in-cosmic-ray-neutron-sensor-observations/main/Data/Data_Excel/Precipitation_Irrigation_Summary.xlsx"
+        }
+      ],
+      "notes": [
+        "Useful fields include TDR SWC, precipitation, irrigation, biomass water equivalent, neutron counts, and CSP1/CSP2/CSP3 site metadata.",
+        "Treat as validation/generalization first because CRNS is area-integrated and the study target is biomass correction, not Helios irrigation decisions.",
+        "Training use requires a separate source-aware split and target-source weighting decision."
+      ]
+    }
+  ]
+}

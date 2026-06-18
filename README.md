@@ -124,6 +124,8 @@ This repo intentionally separates public code/artifacts from private farm data.
 - Derived `data/*.csv` files are kept out of the public repo.
 - Public commits should contain code, tests, docs, and refreshed artifacts/metadata, not raw or derived farm datasets.
 
+Generated training/model artifacts may be rewritten during local experiments, but the shipped files in `artifacts/moisture_model.pkl` and `artifacts/model_metadata.json` should only be replaced after a leakage-free evaluation proves the candidate is better. Raw private/local farm inputs must not be newly added to commits, and artifacts derived from private/local inputs must label that provenance in metadata or docs.
+
 If you are rebuilding locally, expect to supply your own local copies of:
 
 - `data/Water_usage_2024.xlsx`
@@ -155,6 +157,18 @@ Outputs written locally:
 - `data/combined_training_data.csv`
 - `artifacts/moisture_model.pkl`
 - `artifacts/model_metadata.json`
+
+Public maize rows are evaluated candidate-first. To compare the current base training data against USDA LIRF maize rows, build separate baseline and maize candidates under `artifacts/candidates/`, then run:
+
+```bash
+python3 -m helios.scripts.evaluate_maize_baseline \
+  --base-csv data/combined_baseline.csv \
+  --maize-csv data/public/usda_lirf_2012_2013/processed/usda_lirf_training_data.csv \
+  --out-json artifacts/maize_baseline_eval.json \
+  --out-md artifacts/maize_baseline_eval.md
+```
+
+The current USDA LIRF 2012-2013 evaluation verdict is `CANDIDATE_FAIL`: GroupKFold corn holdouts improved and base no-regression passed, but cross-season LOYO failed the persistence gate. The shipped model artifacts were therefore not replaced.
 
 ### Mickelson parsing details
 
@@ -194,6 +208,8 @@ The current feature space includes:
 - monthly ET context from OpenET-style features
 
 The target-generation logic is still physics-informed and heuristic rather than true sensor-ground-truth supervision. Mickelson history improves realism, but Helios should still be treated as a prototype agronomic aid.
+
+USDA LIRF maize data is available as a candidate evaluation source, not a validated Idaho accuracy improvement. Any accuracy claim must cite `artifacts/maize_baseline_eval.json`; tests passing alone is not an accuracy claim.
 
 ## Running Tests
 

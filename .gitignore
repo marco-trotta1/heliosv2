@@ -24,4 +24,5 @@ artifacts/*.json
 artifacts/*.pkl
 data/*.csv
 data/*.db
+data/candidates/
 data/public/

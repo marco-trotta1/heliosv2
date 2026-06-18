@@ -90,6 +90,7 @@ def _build_training_record(
     )
 
     return {
+        "source_id": "mickelson",
         "field_id": field_id,
         "forecast_horizon_hours": 72,
         "temperature_f": 72.0,

@@ -45,6 +45,7 @@ DRAINAGE_FACTOR = {
 }
 
 SCHEMA_COLUMNS = [
+    "source_id",
     "field_id",
     "forecast_horizon_hours",
     "temperature_f",

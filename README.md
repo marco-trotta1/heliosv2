@@ -42,6 +42,11 @@ At prediction time Helios:
 5. Generates a conservative irrigation recommendation subject to pump, budget, infiltration, and water-window limits.
 6. Optionally nudges the recommendation using comparable nearby feedback already stored in SQLite.
 
+For source-backed implementation detail, see:
+
+- [How Helios works](docs/helios-architecture.md)
+- [How to run Helios locally](docs/how-to-run-helios.md)
+
 The external API remains:
 
 - `GET /livez`

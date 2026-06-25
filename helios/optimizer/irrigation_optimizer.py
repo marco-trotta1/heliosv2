@@ -11,23 +11,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from helios.scripts.training_shared import CROP_KC, DRAINAGE_FACTOR
+from helios.agronomy import SOIL_THRESHOLDS, gross_application_in, target_moisture
 
-
-SOIL_THRESHOLDS = {
-    "sand": {"dry": 0.12, "wet": 0.28},
-    "loam": {"dry": 0.18, "wet": 0.35},
-    "clay": {"dry": 0.22, "wet": 0.40},
-}
 
 DEFAULT_COST_PER_IN_ACRE = 82.25  # $/in/acre (converted from $8/mm/ha)
 HIGH_STRESS_THRESHOLD = 0.80
 MIN_ACTIONABLE_AMOUNT_IN = 0.01
-IRRIGATION_EFFICIENCY = {
-    "drip": 0.93,
-    "pivot": 0.82,
-    "flood": 0.68,
-}
 
 
 @dataclass
@@ -111,16 +100,21 @@ def generate_irrigation_plan(inputs: OptimizationInputs) -> dict[str, Any]:
 
     # Crop water demand scales the ET buffer by growth-stage Kc (flowering pulls more
     # than emergence), matching the FAO-56 water balance used to build the training set.
-    crop_kc = CROP_KC.get(inputs.growth_stage, 1.0)
-    target_moisture = min(wet_threshold, dry_threshold + 0.08 + inputs.estimated_et_in * crop_kc * 0.0508)
-    deficit = max(0.0, target_moisture - decision_moisture)
-    root_zone_factor = {"sand": 4.331, "loam": 5.315, "clay": 6.102}.get(inputs.soil_texture, 5.315)
-    # Well-drained soils shed water faster and need a larger gross application than poorly
-    # drained ones; this mirrors the drainage term in the training water balance.
-    drainage_factor = DRAINAGE_FACTOR.get(inputs.drainage_class, 1.0)
-    net_amount_in = deficit * root_zone_factor * drainage_factor
-    efficiency = IRRIGATION_EFFICIENCY.get(inputs.irrigation_type, IRRIGATION_EFFICIENCY["pivot"])
-    raw_amount_in = net_amount_in / efficiency
+    target = target_moisture(
+        dry_threshold=dry_threshold,
+        wet_threshold=wet_threshold,
+        estimated_et_in=inputs.estimated_et_in,
+        growth_stage=inputs.growth_stage,
+    )
+    deficit = max(0.0, target - decision_moisture)
+    # Inverse application sizing uses the conservative REFILL_DEPTH (not the full root-zone
+    # depletion depth) — see helios/agronomy and CONTEXT.md for why the two differ ~3.3x.
+    raw_amount_in = gross_application_in(
+        deficit=deficit,
+        soil_texture=inputs.soil_texture,
+        drainage_class=inputs.drainage_class,
+        irrigation_type=inputs.irrigation_type,
+    )
 
     pump_cap = inputs.pump_capacity_in_per_hour * _allowed_hours(inputs.water_rights_schedule)
     budget_cap = _compute_budget_cap(inputs.field_area_acres, inputs.budget_dollars)

@@ -1,29 +1,19 @@
-export const SOIL_THRESHOLDS = {
-  sand: { dry: 0.12, wet: 0.28 },
-  loam: { dry: 0.18, wet: 0.35 },
-  clay: { dry: 0.22, wet: 0.4 },
-};
+// Shared decision-policy constants: single-sourced from helios/agronomy so the demo
+// cannot drift from the backend. DO NOT hand-edit these values — change them in
+// helios/agronomy and run `python3 -m helios.scripts.export_frontend_constants`.
+export {
+  SOIL_THRESHOLDS,
+  ROOT_ZONE_FACTORS,
+  IRRIGATION_EFFICIENCY,
+  GROWTH_STAGE_MODIFIER,
+  DRAINAGE_FACTOR,
+  CROP_KC,
+  COST_PER_IN_ACRE,
+} from "./generated/agronomy-constants.js";
 
-export const ROOT_ZONE_FACTORS = {
-  sand: 4.331,  // inches (was 110 mm)
-  loam: 5.315,  // inches (was 135 mm)
-  clay: 6.102,  // inches (was 155 mm)
-};
-
-export const IRRIGATION_EFFICIENCY = {
-  pivot: 0.82,
-  drip: 0.93,
-  flood: 0.68,
-};
-
-export const GROWTH_STAGE_MODIFIER = {
-  emergence: 0.05,
-  vegetative: 0.1,
-  flowering: 0.18,
-  grain_fill: 0.14,
-  maturity: 0.02,
-};
-
+// Demo-only forecast tuning. These model the trained model's behavior approximately and
+// have no Python equivalent (the backend forecast is XGBoost, not this formula), so they
+// stay hand-maintained here.
 export const TEXTURE_RETENTION = {
   sand: 0.91,
   loam: 1,
@@ -34,12 +24,6 @@ export const INFILTRATION_RATE_BY_TEXTURE = {
   sand: 1.00,   // in/hr — coarse, fast-draining
   loam: 0.47,   // in/hr — typical (matches default)
   clay: 0.20,   // in/hr — fine-grained, slow
-};
-
-export const DRAINAGE_FACTOR = {
-  poor: 0.88,
-  moderate: 1,
-  well: 1.12,
 };
 
 export const PAGE_TITLES = {

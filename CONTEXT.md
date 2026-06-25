@@ -49,6 +49,26 @@ choice, **not a bug** — do not "reconcile" them.
   target. Changing it would shift every recommendation ~3.3× and requires field re-validation
   (the Kimberly harness) before it could be trusted — out of scope for the consolidation.
 
+## Demo adapter
+
+The browser demo (`src/domain/recommendations.js`) is a second **adapter** onto the same
+decision policy the backend runs — it executes in demo mode and as a live-mode fallback when
+the backend is unreachable. Its shared agronomic constants are **single-sourced** from
+`helios.agronomy`: `python3 -m helios.scripts.export_frontend_constants` writes
+`src/generated/agronomy-constants.js` (machine-owned), which `src/constants.js` re-exports.
+Two guards keep the adapter honest:
+
+- **Constant drift** — `tests/test_frontend_constants_generated.py` (pure Python) fails if the
+  generated file is hand-edited or the Python constants change without regenerating.
+- **Formula parity** — `tests/test_demo_backend_parity.py` runs the JS policy (via Node) and
+  the Python policy over a scenario grid and asserts identical decision, amount, timing,
+  confidence, stress, and which drivers fire. Drivers are worded differently by design (demo
+  prose vs terse backend), so parity compares *which rule fired*, not the text.
+
+Demo-only tuning that has no backend twin (`TEXTURE_RETENTION`,
+`INFILTRATION_RATE_BY_TEXTURE` — they approximate the XGBoost forecast the demo lacks) stays
+hand-maintained in `src/constants.js`.
+
 ## Behavior-preserving consolidation
 
 The mandate for the agronomy refactor: centralize the constants and dedupe the formulas while

@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "type": "module",
+  "description": "Module-resolution marker only — lets Node execute the static-site ES modules (e.g. for the demo/backend parity test). No build step, no dependencies; the browser ignores this file."
+}

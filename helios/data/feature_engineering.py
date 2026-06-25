@@ -5,6 +5,11 @@ from typing import Iterable
 
 import pandas as pd
 
+from helios.data.training_schema import (
+    CATEGORICAL_COLUMNS,
+    NON_FEATURE_COLUMNS,
+    TARGET_COLUMNS,
+)
 from helios.scripts.training_shared import (
     CROP_TYPES,
     DRAINAGE_CLASSES,
@@ -16,20 +21,8 @@ from helios.utils.evapotranspiration import estimate_reference_et_in
 
 logger = logging.getLogger(__name__)
 
-
-TARGET_COLUMNS = [
-    "target_moisture_24h",
-    "target_moisture_48h",
-    "target_moisture_72h",
-]
-
-CATEGORICAL_COLUMNS = [
-    "soil_texture",
-    "drainage_class",
-    "irrigation_type",
-    "growth_stage",
-    "crop_type",
-]
+# TARGET_COLUMNS and CATEGORICAL_COLUMNS are single-sourced from helios.data.training_schema
+# and re-exported here for the trainer and tests that import them from this module.
 
 
 def _one_hot_encode(df: pd.DataFrame) -> pd.DataFrame:
@@ -53,7 +46,7 @@ def _ensure_reference_et(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _drop_non_feature_columns(df: pd.DataFrame) -> pd.DataFrame:
-    return df.drop(columns=[col for col in ["field_id", "primary_sensor_id"] if col in df.columns], errors="ignore")
+    return df.drop(columns=[col for col in NON_FEATURE_COLUMNS if col in df.columns], errors="ignore")
 
 
 def build_training_features(

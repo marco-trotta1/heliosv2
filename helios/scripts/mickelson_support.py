@@ -5,6 +5,7 @@ import datetime as _dt
 import pandas as pd
 
 from helios.agronomy import step_forward
+from helios.data.training_schema import REQUIRED_COLUMNS
 from helios.scripts.training_shared import load_openet_monthly_et
 
 
@@ -39,46 +40,9 @@ DEFAULT_BASE_MOISTURE = {
 MOISTURE_MIN = 0.10
 MOISTURE_MAX = 0.45
 
-SCHEMA_COLUMNS = [
-    "field_id",
-    "forecast_horizon_hours",
-    "temperature_f",
-    "humidity_pct",
-    "wind_mph",
-    "precipitation_in",
-    "solar_radiation_mj_m2",
-    "rolling_temp_mean",
-    "rolling_humidity_mean",
-    "rolling_precip_in",
-    "rolling_solar_mean",
-    "current_soil_moisture",
-    "soil_moisture_lag_1",
-    "soil_moisture_lag_2",
-    "soil_moisture_delta_1",
-    "soil_moisture_delta_2",
-    "pump_capacity_in_per_hour",
-    "water_rights_schedule_count",
-    "energy_window_count",
-    "irrigation_type",
-    "soil_texture",
-    "infiltration_rate_in_per_hour",
-    "slope_pct",
-    "drainage_class",
-    "crop_type",
-    "growth_stage",
-    "max_irrigation_volume_in",
-    "field_area_acres",
-    "budget_dollars",
-    "cumulative_irrigation_24h",
-    "cumulative_irrigation_72h",
-    "sensor_count",
-    "season_month",
-    "openet_monthly_et_in",
-    "reference_et_in",
-    "target_moisture_24h",
-    "target_moisture_48h",
-    "target_moisture_72h",
-]
+# Mickelson emits exactly the required columns (it omits the optional per-zone sensor
+# spread columns). Single-sourced from the training-row contract.
+SCHEMA_COLUMNS = REQUIRED_COLUMNS
 GALLONS_PER_ACRE_INCH = 27154.0
 
 

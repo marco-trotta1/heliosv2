@@ -4,7 +4,8 @@ import datetime as _dt
 
 import pandas as pd
 
-from helios.scripts.training_shared import CROP_KC, INCHES_PER_MM, IRRIGATION_EFFICIENCY, load_openet_monthly_et
+from helios.agronomy import step_forward
+from helios.scripts.training_shared import load_openet_monthly_et
 
 
 CROP_MAPPING = {
@@ -37,12 +38,6 @@ DEFAULT_BASE_MOISTURE = {
 
 MOISTURE_MIN = 0.10
 MOISTURE_MAX = 0.45
-ROOT_ZONE_DEPTH_IN = {
-    "loam": 17.717,
-}
-DRAINAGE_FACTOR = {
-    "moderate": 1.0,
-}
 
 SCHEMA_COLUMNS = [
     "field_id",
@@ -221,15 +216,17 @@ def daily_moisture_step(
     daily_reference_et_in: float,
     growth_stage: str,
 ) -> float:
-    kc = CROP_KC[growth_stage]
-    root_depth = ROOT_ZONE_DEPTH_IN[DEFAULT_SOIL_TEXTURE]
-    irrigation_efficiency = IRRIGATION_EFFICIENCY[DEFAULT_IRRIGATION_TYPE]
-    drainage_factor = DRAINAGE_FACTOR[DEFAULT_DRAINAGE_CLASS]
-    infiltration_efficiency = 0.90
-    et_depletion = (daily_reference_et_in * kc * drainage_factor) / root_depth
-    precip_gain = daily_precip_in * infiltration_efficiency / root_depth
-    irrigation_gain = daily_irrigation_in * irrigation_efficiency / root_depth
-    return clamp(moisture - et_depletion + precip_gain + irrigation_gain, MOISTURE_MIN, MOISTURE_MAX)
+    raw = step_forward(
+        moisture,
+        reference_et_in=daily_reference_et_in,
+        precip_in=daily_precip_in,
+        irrigation_in=daily_irrigation_in,
+        growth_stage=growth_stage,
+        soil_texture=DEFAULT_SOIL_TEXTURE,
+        drainage_class=DEFAULT_DRAINAGE_CLASS,
+        irrigation_type=DEFAULT_IRRIGATION_TYPE,
+    )
+    return clamp(raw, MOISTURE_MIN, MOISTURE_MAX)
 
 
 def simulate_weekly_start_state(

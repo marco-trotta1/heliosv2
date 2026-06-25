@@ -7,6 +7,7 @@ from typing import Any
 
 import pandas as pd
 
+from helios.data.training_schema import CANONICAL_COLUMNS
 from helios.scripts.mickelson_support import (
     DEFAULT_BUDGET_DOLLARS,
     DEFAULT_DRAINAGE_CLASS,
@@ -33,51 +34,9 @@ DEPTH_LAYERS_CM = [
     ("SWC_200", 175.0, 225.0),
 ]
 
-TRAINING_COLUMNS = [
-    "field_id",
-    "forecast_horizon_hours",
-    "temperature_f",
-    "humidity_pct",
-    "wind_mph",
-    "precipitation_in",
-    "solar_radiation_mj_m2",
-    "rolling_temp_mean",
-    "rolling_humidity_mean",
-    "rolling_precip_in",
-    "rolling_solar_mean",
-    "current_soil_moisture",
-    "soil_moisture_lag_1",
-    "soil_moisture_lag_2",
-    "soil_moisture_delta_1",
-    "soil_moisture_delta_2",
-    "moisture_min",
-    "moisture_max",
-    "moisture_mean",
-    "moisture_spread",
-    "physical_sensor_count",
-    "pump_capacity_in_per_hour",
-    "water_rights_schedule_count",
-    "energy_window_count",
-    "irrigation_type",
-    "soil_texture",
-    "infiltration_rate_in_per_hour",
-    "slope_pct",
-    "drainage_class",
-    "crop_type",
-    "growth_stage",
-    "max_irrigation_volume_in",
-    "field_area_acres",
-    "budget_dollars",
-    "cumulative_irrigation_24h",
-    "cumulative_irrigation_72h",
-    "sensor_count",
-    "season_month",
-    "openet_monthly_et_in",
-    "reference_et_in",
-    "target_moisture_24h",
-    "target_moisture_48h",
-    "target_moisture_72h",
-]
+# USDA LIRF emits the full canonical training row (including the optional per-zone sensor
+# spread columns). Single-sourced from the training-row contract.
+TRAINING_COLUMNS = CANONICAL_COLUMNS
 
 
 def parse_args() -> argparse.Namespace:

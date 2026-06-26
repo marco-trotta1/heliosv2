@@ -24,6 +24,7 @@ coverage.xml
 htmlcov/
 artifacts/*.json
 artifacts/*.pkl
+artifacts/candidates/pre_pilot/
 data/*.csv
 data/*.xlsx
 data/*.db

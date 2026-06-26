@@ -24,6 +24,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--n-estimators", type=int, default=400)
     parser.add_argument("--learning-rate", type=float, default=0.05)
     parser.add_argument("--group-column", default=None)
+    parser.add_argument(
+        "--target-mode",
+        choices=["raw", "residual_from_current"],
+        default="raw",
+        help="Train raw future moisture targets or residuals from current_soil_moisture.",
+    )
     return parser.parse_args()
 
 
@@ -201,6 +207,28 @@ def _validate_training_data(data_frame: pd.DataFrame) -> None:
         raise ValueError("Training data openet_monthly_et_in cannot be all zero.")
 
 
+def _build_targets_for_mode(
+    data_frame: pd.DataFrame,
+    targets: pd.DataFrame,
+    *,
+    target_mode: str,
+) -> pd.DataFrame:
+    if target_mode == "raw":
+        return targets.copy()
+    if target_mode != "residual_from_current":
+        raise ValueError("target_mode must be one of: raw, residual_from_current")
+    if "current_soil_moisture" not in data_frame.columns:
+        raise ValueError("residual_from_current target mode requires current_soil_moisture.")
+
+    current = pd.to_numeric(data_frame["current_soil_moisture"], errors="coerce")
+    if current.isna().any():
+        raise ValueError("current_soil_moisture contains non-numeric values.")
+    residual_targets = targets.copy()
+    for column in TARGET_COLUMNS:
+        residual_targets[column] = pd.to_numeric(targets[column], errors="coerce") - current
+    return residual_targets
+
+
 def train_model(
     data_path: str,
     model_path: str,
@@ -208,6 +236,7 @@ def train_model(
     n_estimators: int,
     learning_rate: float,
     group_column: str | None = None,
+    target_mode: str = "raw",
 ) -> None:
     data_frame = pd.read_csv(data_path)
     _validate_training_data(data_frame)
@@ -218,7 +247,8 @@ def train_model(
         if data_frame[group_column].isna().any():
             raise ValueError(f"group_column {group_column!r} contains missing values.")
         groups = data_frame[group_column].copy()
-    features, targets = build_training_features(data_frame)
+    features, raw_targets = build_training_features(data_frame)
+    targets = _build_targets_for_mode(data_frame, raw_targets, target_mode=target_mode)
     feature_columns = list(features.columns)
     features = prepare_feature_matrix(features, feature_columns)
 
@@ -248,6 +278,7 @@ def train_model(
         "training_date": trained_at,
         "feature_columns": feature_columns,
         "target_columns": TARGET_COLUMNS,
+        "target_mode": target_mode,
         "cv_rmse_mean": float(sum(metric["rmse_mean"] for metric in fold_metrics) / len(fold_metrics)),
         "cv_rmse_by_target": rmse_by_target,
         "validation_rmse": validation_rmse,
@@ -286,6 +317,7 @@ def main() -> None:
         n_estimators=args.n_estimators,
         learning_rate=args.learning_rate,
         group_column=args.group_column,
+        target_mode=args.target_mode,
     )
 
 

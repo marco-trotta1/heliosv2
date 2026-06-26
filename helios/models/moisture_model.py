@@ -51,6 +51,9 @@ class MoistureForecastModel:
     def predict(self, features: pd.DataFrame) -> dict[str, float]:
         matrix = prepare_feature_matrix(features, self.feature_columns)
         raw_prediction = self.model.predict(matrix)[0]
+        if self.metadata.get("target_mode", "raw") == "residual_from_current":
+            current = float(features.iloc[0]["current_soil_moisture"])
+            raw_prediction = [current + float(value) for value in raw_prediction]
         keys = ["moisture_24h", "moisture_48h", "moisture_72h"]
         clipped = clip_to_texture_bounds(list(raw_prediction), _texture_from_features(features))
         return dict(zip(keys, clipped, strict=True))

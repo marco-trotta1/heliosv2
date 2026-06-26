@@ -14,6 +14,7 @@ from sklearn.model_selection import GroupKFold, GroupShuffleSplit, KFold, train_
 from sklearn.multioutput import MultiOutputRegressor
 
 from helios.data.feature_engineering import TARGET_COLUMNS, build_training_features, prepare_feature_matrix
+from helios.data.training_schema import validate_training_frame
 
 
 def parse_args() -> argparse.Namespace:
@@ -195,16 +196,7 @@ def _feature_importances(
 
 
 def _validate_training_data(data_frame: pd.DataFrame) -> None:
-    if "openet_monthly_et_in" not in data_frame.columns:
-        raise ValueError("Training data must include openet_monthly_et_in for inference parity.")
-
-    openet_values = pd.to_numeric(data_frame["openet_monthly_et_in"], errors="coerce")
-    if openet_values.isna().any():
-        raise ValueError("Training data openet_monthly_et_in contains non-numeric or missing values.")
-    if (openet_values < 0).any():
-        raise ValueError("Training data openet_monthly_et_in cannot contain negative values.")
-    if float(openet_values.max()) <= 0.0:
-        raise ValueError("Training data openet_monthly_et_in cannot be all zero.")
+    validate_training_frame(data_frame, source="combined training data")
 
 
 def _build_targets_for_mode(

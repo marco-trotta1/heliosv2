@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from helios.data.training_schema import validate_training_frame
 from helios.models.train_model import train_model
 from helios.scripts.download_public_datasets import find_dataset, load_registry
 from helios.scripts.generate_sample_data import generate_sample_data
@@ -151,6 +152,11 @@ def rebuild_training_bundle(
         openet_csv=openet_path,
     )
 
+    # Validate each source before concat so a malformed frame names its source instead of
+    # surfacing as a confusing combined-frame failure downstream.
+    validate_training_frame(sample_frame, source="synthetic")
+    validate_training_frame(mickelson_frame, source="mickelson")
+
     frames = [sample_frame, mickelson_frame]
     usda_lirf_rows = 0
     if usda_lirf_csv is not None:
@@ -158,6 +164,7 @@ def rebuild_training_bundle(
         if not usda_lirf_path.exists():
             raise FileNotFoundError(f"USDA LIRF CSV not found: {usda_lirf_csv}")
         usda_lirf_frame = pd.read_csv(usda_lirf_path)
+        validate_training_frame(usda_lirf_frame, source="usda_lirf")
         usda_lirf_rows = len(usda_lirf_frame)
         frames.append(usda_lirf_frame)
 

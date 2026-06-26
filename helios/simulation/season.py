@@ -5,15 +5,12 @@ from datetime import date, timedelta
 import numpy as np
 import pandas as pd
 
+from helios.agronomy import CROP_KC, DRAINAGE_FACTOR, IRRIGATION_EFFICIENCY, ROOT_ZONE_DEPTH_IN
 from helios.scripts.training_shared import (
-    CROP_KC,
     CROP_TYPES,
     DRAINAGE_CLASSES,
-    DRAINAGE_FACTOR,
     GROWTH_STAGES,
-    IRRIGATION_EFFICIENCY,
     IRRIGATION_TYPES,
-    ROOT_ZONE_DEPTH_IN,
     SOIL_TEXTURES,
 )
 from helios.utils.evapotranspiration import estimate_reference_et_in

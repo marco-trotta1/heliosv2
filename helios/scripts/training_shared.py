@@ -3,37 +3,14 @@ from __future__ import annotations
 import pandas as pd
 
 
+# Training-schema vocabulary (one-hot categories + sampling domains). The agronomic
+# constant tables (CROP_KC, ROOT_ZONE_DEPTH_IN, DRAINAGE_FACTOR, IRRIGATION_EFFICIENCY)
+# now live in helios.agronomy — the single home for the water-balance physics.
 SOIL_TEXTURES = ["sand", "loam", "clay"]
 DRAINAGE_CLASSES = ["poor", "moderate", "well"]
 IRRIGATION_TYPES = ["pivot", "drip", "flood"]
 GROWTH_STAGES = ["emergence", "vegetative", "flowering", "grain_fill", "maturity"]
 CROP_TYPES = ["corn", "soybean", "alfalfa", "potato"]
-
-CROP_KC = {
-    "emergence": 0.3,
-    "vegetative": 0.7,
-    "flowering": 1.15,
-    "grain_fill": 1.0,
-    "maturity": 0.5,
-}
-
-ROOT_ZONE_DEPTH_IN = {
-    "sand": 11.811,
-    "loam": 17.717,
-    "clay": 19.685,
-}
-
-IRRIGATION_EFFICIENCY = {
-    "pivot": 0.82,
-    "drip": 0.93,
-    "flood": 0.68,
-}
-
-DRAINAGE_FACTOR = {
-    "poor": 0.75,
-    "moderate": 1.0,
-    "well": 1.15,
-}
 
 INCHES_PER_MM = 0.039370
 

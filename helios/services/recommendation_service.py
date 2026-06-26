@@ -8,7 +8,10 @@ from helios.data.feature_engineering import build_inference_features
 from helios.data.ingestion import request_to_feature_frame
 from helios.lib.feedback import adjust_recommendation, get_regional_insights
 from helios.models.moisture_model import MoistureForecastModel
-from helios.optimizer.irrigation_optimizer import OptimizationInputs, SOIL_THRESHOLDS, generate_irrigation_plan
+from helios.agronomy import SOIL_THRESHOLDS
+from helios.agronomy import drivers as agronomy_drivers
+from helios.agronomy import stress_probability as agronomy_stress_probability
+from helios.optimizer.irrigation_optimizer import OptimizationInputs, generate_irrigation_plan
 from helios.schemas.inputs import PredictionRequest
 from helios.schemas.outputs import (
     MoistureForecast,
@@ -99,10 +102,10 @@ class RecommendationService:
             wind_mph=request.weather.wind_mph,
             solar_radiation_mj_m2=request.weather.solar_radiation_mj_m2,
         )
-        stress_probability = self._compute_stress_probability(
+        stress_probability = agronomy_stress_probability(
             predicted_moisture_48h=predicted["moisture_48h"],
             dry_threshold=thresholds["dry"],
-            estimated_et=estimated_et,
+            estimated_et_in=estimated_et,
             growth_stage=request.crop.growth_stage,
         )
 
@@ -130,12 +133,16 @@ class RecommendationService:
             )
         )
 
-        drivers = self._build_drivers(
-            request=request,
-            predicted=predicted,
-            stress_probability=stress_probability,
-            estimated_et=estimated_et,
+        drivers = agronomy_drivers(
+            estimated_et_in=estimated_et,
             current_moisture=float(raw_frame.iloc[0]["current_soil_moisture"]),
+            soil_texture=request.soil_properties.soil_texture,
+            precipitation_in=request.weather.precipitation_in,
+            water_rights_window_count=len(request.irrigation_system.water_rights_schedule),
+            growth_stage=request.crop.growth_stage,
+            stress_probability=stress_probability,
+            predicted_moisture_24h=predicted["moisture_24h"],
+            predicted_moisture_72h=predicted["moisture_72h"],
         )
         if self.validation_mode:
             insights_data = dict(VALIDATION_REGIONAL_INSIGHTS)
@@ -189,50 +196,6 @@ class RecommendationService:
             ),
         )
         return response
-
-    def _compute_stress_probability(
-        self,
-        predicted_moisture_48h: float,
-        dry_threshold: float,
-        estimated_et: float,
-        growth_stage: str,
-    ) -> float:
-        stage_modifier = {
-            "emergence": 0.05,
-            "vegetative": 0.1,
-            "flowering": 0.18,
-            "grain_fill": 0.14,
-            "maturity": 0.02,
-        }.get(growth_stage, 0.1)
-        moisture_gap = dry_threshold - predicted_moisture_48h
-        # Precipitation is already an input to the 48h moisture forecast, so it is not
-        # subtracted again here — doing so would double-count the rain's drying offset.
-        score = (moisture_gap * 18.0) + (estimated_et * 3.048) + stage_modifier
-        probability = 1.0 / (1.0 + math.exp(-score))
-        return round(min(0.99, max(0.01, probability)), 3)
-
-    def _build_drivers(
-        self,
-        request: PredictionRequest,
-        predicted: dict[str, float],
-        stress_probability: float,
-        estimated_et: float,
-        current_moisture: float,
-    ) -> list[str]:
-        drivers: list[str] = []
-        if estimated_et >= 0.217:  # ~5.5 mm/day in inches
-            drivers.append("high evapotranspiration")
-        if current_moisture <= SOIL_THRESHOLDS[request.soil_properties.soil_texture]["dry"] + 0.04:
-            drivers.append("low soil moisture")
-        if request.weather.precipitation_in < 0.059:  # ~1.5 mm in inches
-            drivers.append("limited forecast precipitation")
-        if len(request.irrigation_system.water_rights_schedule) <= 1:
-            drivers.append("restrictive water rights window")
-        if request.crop.growth_stage in {"flowering", "grain_fill"}:
-            drivers.append("sensitive crop growth stage")
-        if stress_probability > 0.8 and predicted["moisture_72h"] < predicted["moisture_24h"]:
-            drivers.append("continued drying trend")
-        return drivers[:3] or ["stable near-threshold moisture"]
 
     def _latest_zone_moisture_summary(self, request: PredictionRequest) -> dict[str, float]:
         latest_by_sensor: dict[str, tuple[object, float]] = {}

@@ -6,15 +6,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from helios.agronomy import step_forward
 from helios.scripts.training_shared import (
-    CROP_KC,
     CROP_TYPES,
     DRAINAGE_CLASSES,
-    DRAINAGE_FACTOR,
     GROWTH_STAGES,
-    IRRIGATION_EFFICIENCY,
     IRRIGATION_TYPES,
-    ROOT_ZONE_DEPTH_IN,
     SOIL_TEXTURES,
     load_openet_monthly_et,
 )
@@ -148,21 +145,20 @@ def generate_sample_data(
 
         # Soil water balance targets derived from FAO-56 ET₀ and crop coefficients.
         # This breaks the circular dependency: targets are physics-grounded, not
-        # derived from the same heuristics the optimizer uses.
-        kc = CROP_KC[growth_stage]
-        root_depth = ROOT_ZONE_DEPTH_IN[soil_texture]
-        eff = IRRIGATION_EFFICIENCY[irrigation_type]
-        drainage = DRAINAGE_FACTOR[drainage_class]
-        infiltration_efficiency = 0.90  # fraction of precipitation entering root zone
-
+        # derived from the same heuristics the optimizer uses. The forward physics lives
+        # in helios.agronomy; the clamp bounds and sampling noise are local sampling policy.
         def _step(moisture: float, precip: float, irrigation: float) -> float:
-            et_depletion = (reference_et_in * kc * drainage) / root_depth
-            precip_gain = precip * infiltration_efficiency / root_depth
-            irrigation_gain = irrigation * eff / root_depth
-            return float(np.clip(
-                moisture - et_depletion + precip_gain + irrigation_gain + rng.normal(0, 0.012),
-                0.05, 0.50,
-            ))
+            raw = step_forward(
+                moisture,
+                reference_et_in=reference_et_in,
+                precip_in=precip,
+                irrigation_in=irrigation,
+                growth_stage=growth_stage,
+                soil_texture=soil_texture,
+                drainage_class=drainage_class,
+                irrigation_type=irrigation_type,
+            )
+            return float(np.clip(raw + rng.normal(0, 0.012), 0.05, 0.50))
 
         target_24h = _step(current_soil_moisture, precipitation_in, cumulative_irrigation_24h)
         target_48h = _step(target_24h, precipitation_in * 0.5, 0.0)

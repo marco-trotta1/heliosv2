@@ -5,6 +5,8 @@ import {
   GROWTH_STAGE_MODIFIER,
   TEXTURE_RETENTION,
   DRAINAGE_FACTOR,
+  CROP_KC,
+  COST_PER_IN_ACRE,
 } from "../constants.js";
 import { clip, formatWindow, round } from "./format.js";
 
@@ -81,8 +83,7 @@ export function computeBudgetCap(fieldAreaAcres, budgetDollars) {
   if (fieldAreaAcres <= 0) {
     return 0;
   }
-  const BUDGET_CONSTANT = 82.25;
-  return budgetDollars / (BUDGET_CONSTANT * fieldAreaAcres);
+  return budgetDollars / (COST_PER_IN_ACRE * fieldAreaAcres);
 }
 
 export function allowedHours(waterWindows) {
@@ -130,10 +131,18 @@ export function generateIrrigationPlan(inputs, predicted, stressProbability, est
   const needsWater72h = predicted72h < thresholds.dry && stressProbability >= 0.8;
   const needsWater = needsWater48h || needsWater72h;
   const timingWindow = selectTimingWindow(inputs.waterWindow, inputs.energyWindow, needsWater);
-  const targetMoisture = Math.min(thresholds.wet, thresholds.dry + 0.08 + estimatedEtIn * 0.0508);
+  // Crop water demand scales the ET buffer by growth-stage Kc, matching the backend
+  // (helios/agronomy water_balance.target_moisture).
+  const cropKc = CROP_KC[inputs.growthStage] ?? 1;
+  const targetMoisture = Math.min(thresholds.wet, thresholds.dry + 0.08 + estimatedEtIn * cropKc * 0.0508);
   const decisionMoisture = needsWater48h ? predicted48h : predicted72h;
   const deficit = Math.max(0, targetMoisture - decisionMoisture);
-  const rawAmountIn = deficit * (ROOT_ZONE_FACTORS[inputs.soilTexture] ?? ROOT_ZONE_FACTORS.loam);
+  // Well-drained soils need a larger gross application; mirrors the drainage term in
+  // the backend (helios/agronomy water_balance.gross_application_in).
+  const rawAmountIn =
+    deficit *
+    (ROOT_ZONE_FACTORS[inputs.soilTexture] ?? ROOT_ZONE_FACTORS.loam) *
+    (DRAINAGE_FACTOR[inputs.drainageClass] ?? 1);
   const efficiency = IRRIGATION_EFFICIENCY[inputs.irrigationType] || 0.82;
   const grossAmountNeeded = rawAmountIn / efficiency;
   const windowHours = allowedHours(inputs.waterWindow);

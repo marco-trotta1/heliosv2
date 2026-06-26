@@ -10,7 +10,7 @@ import joblib
 import pandas as pd
 from xgboost import XGBRegressor
 from sklearn.metrics import root_mean_squared_error
-from sklearn.model_selection import KFold, train_test_split
+from sklearn.model_selection import GroupKFold, GroupShuffleSplit, KFold, train_test_split
 from sklearn.multioutput import MultiOutputRegressor
 
 from helios.data.feature_engineering import TARGET_COLUMNS, build_training_features, prepare_feature_matrix
@@ -24,21 +24,79 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--metadata-path", default="artifacts/model_metadata.json")
     parser.add_argument("--n-estimators", type=int, default=400)
     parser.add_argument("--learning-rate", type=float, default=0.05)
+    parser.add_argument("--group-column", default=None)
+    parser.add_argument(
+        "--target-mode",
+        choices=["raw", "residual_from_current"],
+        default="raw",
+        help="Train raw future moisture targets or residuals from current_soil_moisture.",
+    )
     return parser.parse_args()
 
 
-def _build_estimator(n_estimators: int, learning_rate: float) -> XGBRegressor:
-    return XGBRegressor(
-        objective="reg:squarederror",
-        eval_metric="rmse",
-        n_estimators=n_estimators,
-        learning_rate=learning_rate,
-        max_depth=6,
-        subsample=0.9,
-        colsample_bytree=0.9,
-        early_stopping_rounds=25,
-        random_state=42,
-        verbosity=0,
+def _build_estimator(n_estimators: int, learning_rate: float, *, early_stopping: bool = True) -> XGBRegressor:
+    kwargs = {
+        "objective": "reg:squarederror",
+        "eval_metric": "rmse",
+        "n_estimators": n_estimators,
+        "learning_rate": learning_rate,
+        "max_depth": 6,
+        "subsample": 0.9,
+        "colsample_bytree": 0.9,
+        "random_state": 42,
+        "verbosity": 0,
+    }
+    if early_stopping:
+        kwargs["early_stopping_rounds"] = 25
+    return XGBRegressor(**kwargs)
+
+
+def _build_cross_validation_splits(
+    *,
+    row_count: int,
+    groups: pd.Series | None = None,
+) -> list[tuple[list[int], list[int]]]:
+    row_index = list(range(row_count))
+    if groups is None:
+        return [(train.tolist(), test.tolist()) for train, test in KFold(n_splits=5, shuffle=True, random_state=42).split(row_index)]
+
+    if groups.isna().any():
+        raise ValueError("group_column contains missing values.")
+    unique_group_count = int(groups.nunique(dropna=True))
+    if unique_group_count < 2:
+        raise ValueError("group_column must contain at least 2 distinct non-null groups.")
+    splitter = GroupKFold(n_splits=min(5, unique_group_count))
+    return [
+        (train.tolist(), test.tolist())
+        for train, test in splitter.split(row_index, groups=groups)
+    ]
+
+
+def _train_validation_split(
+    features: pd.DataFrame,
+    targets: pd.DataFrame,
+    *,
+    groups: pd.Series | None,
+    test_size: float,
+    allow_small_group_train: bool = False,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame | None, pd.DataFrame | None]:
+    if groups is None:
+        x_train, x_val, y_train, y_val = train_test_split(features, targets, test_size=test_size, random_state=42)
+        return x_train, y_train, x_val, y_val
+
+    unique_group_count = int(groups.nunique(dropna=True))
+    if unique_group_count < 2:
+        raise ValueError("group_column must contain at least 2 distinct non-null groups.")
+    if allow_small_group_train and unique_group_count < 3:
+        return features, targets, None, None
+
+    splitter = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=42)
+    train_idx, val_idx = next(splitter.split(features, groups=groups))
+    return (
+        features.iloc[train_idx],
+        targets.iloc[train_idx],
+        features.iloc[val_idx],
+        targets.iloc[val_idx],
     )
 
 
@@ -47,36 +105,43 @@ def _cross_validate(
     targets: pd.DataFrame,
     n_estimators: int,
     learning_rate: float,
+    groups: pd.Series | None = None,
 ) -> tuple[list[dict[str, float]], dict[str, float]]:
     fold_metrics: list[dict[str, float]] = []
-    kfold = KFold(n_splits=5, shuffle=True, random_state=42)
 
-    for train_idx, test_idx in kfold.split(features):
+    for train_idx, test_idx in _build_cross_validation_splits(row_count=len(features), groups=groups):
         x_train_fold = features.iloc[train_idx]
         x_test_fold = features.iloc[test_idx]
         y_train_fold = targets.iloc[train_idx]
         y_test_fold = targets.iloc[test_idx]
+        train_groups = groups.iloc[train_idx] if groups is not None else None
 
-        x_train_inner, x_val, y_train_inner, y_val = train_test_split(
+        x_train_inner, y_train_inner, x_val, y_val = _train_validation_split(
             x_train_fold,
             y_train_fold,
+            groups=train_groups,
             test_size=0.15,
-            random_state=42,
+            allow_small_group_train=True,
         )
 
         target_rmse: dict[str, float] = {}
         for target_name in TARGET_COLUMNS:
-            estimator = _build_estimator(n_estimators=n_estimators, learning_rate=learning_rate)
-            estimator.fit(
-                x_train_inner,
-                y_train_inner[target_name],
-                eval_set=[(x_val, y_val[target_name])],
-                verbose=False,
+            estimator = _build_estimator(
+                n_estimators=n_estimators,
+                learning_rate=learning_rate,
+                early_stopping=x_val is not None,
             )
+            fit_kwargs = {"verbose": False}
+            if x_val is not None and y_val is not None:
+                fit_kwargs["eval_set"] = [(x_val, y_val[target_name])]
+            estimator.fit(x_train_inner, y_train_inner[target_name], **fit_kwargs)
             predictions = estimator.predict(x_test_fold)
             target_rmse[target_name] = float(root_mean_squared_error(y_test_fold[target_name], predictions))
 
         target_rmse["rmse_mean"] = float(sum(target_rmse.values()) / len(TARGET_COLUMNS))
+        if groups is not None:
+            target_rmse["train_groups"] = sorted(str(value) for value in groups.iloc[train_idx].dropna().unique())  # type: ignore[assignment]
+            target_rmse["test_groups"] = sorted(str(value) for value in groups.iloc[test_idx].dropna().unique())  # type: ignore[assignment]
         fold_metrics.append(target_rmse)
 
     rmse_by_target = {
@@ -91,18 +156,23 @@ def _fit_final_model(
     targets: pd.DataFrame,
     n_estimators: int,
     learning_rate: float,
+    groups: pd.Series | None = None,
 ) -> MultiOutputRegressor:
-    x_train, x_val, y_train, y_val = train_test_split(features, targets, test_size=0.1, random_state=42)
+    x_train, y_train, x_val, y_val = _train_validation_split(features, targets, groups=groups, test_size=0.1)
+    train_group_count = int(groups.loc[x_train.index].nunique(dropna=True)) if groups is not None else 0
+    use_early_stopping = x_val is not None and (groups is None or train_group_count >= 3)
     model = MultiOutputRegressor(_build_estimator(n_estimators=n_estimators, learning_rate=learning_rate))
     model.estimators_ = []
     for target_name in TARGET_COLUMNS:
-        estimator = _build_estimator(n_estimators=n_estimators, learning_rate=learning_rate)
-        estimator.fit(
-            x_train,
-            y_train[target_name],
-            eval_set=[(x_val, y_val[target_name])],
-            verbose=False,
+        estimator = _build_estimator(
+            n_estimators=n_estimators,
+            learning_rate=learning_rate,
+            early_stopping=use_early_stopping,
         )
+        fit_kwargs = {"verbose": False}
+        if use_early_stopping and x_val is not None and y_val is not None:
+            fit_kwargs["eval_set"] = [(x_val, y_val[target_name])]
+        estimator.fit(x_train, y_train[target_name], **fit_kwargs)
         model.estimators_.append(estimator)
     model.n_features_in_ = x_train.shape[1]
     return model
@@ -129,17 +199,58 @@ def _validate_training_data(data_frame: pd.DataFrame) -> None:
     validate_training_frame(data_frame, source="combined training data")
 
 
-def train_model(data_path: str, model_path: str, metadata_path: str, n_estimators: int, learning_rate: float) -> None:
+def _build_targets_for_mode(
+    data_frame: pd.DataFrame,
+    targets: pd.DataFrame,
+    *,
+    target_mode: str,
+) -> pd.DataFrame:
+    if target_mode == "raw":
+        return targets.copy()
+    if target_mode != "residual_from_current":
+        raise ValueError("target_mode must be one of: raw, residual_from_current")
+    if "current_soil_moisture" not in data_frame.columns:
+        raise ValueError("residual_from_current target mode requires current_soil_moisture.")
+
+    current = pd.to_numeric(data_frame["current_soil_moisture"], errors="coerce")
+    if current.isna().any():
+        raise ValueError("current_soil_moisture contains non-numeric values.")
+    residual_targets = targets.copy()
+    for column in TARGET_COLUMNS:
+        residual_targets[column] = pd.to_numeric(targets[column], errors="coerce") - current
+    return residual_targets
+
+
+def train_model(
+    data_path: str,
+    model_path: str,
+    metadata_path: str,
+    n_estimators: int,
+    learning_rate: float,
+    group_column: str | None = None,
+    target_mode: str = "raw",
+) -> None:
     data_frame = pd.read_csv(data_path)
     _validate_training_data(data_frame)
-    features, targets = build_training_features(data_frame)
+    groups = None
+    if group_column is not None:
+        if group_column not in data_frame.columns:
+            raise ValueError(f"group_column {group_column!r} is not present in training data.")
+        if data_frame[group_column].isna().any():
+            raise ValueError(f"group_column {group_column!r} contains missing values.")
+        groups = data_frame[group_column].copy()
+    features, raw_targets = build_training_features(data_frame)
+    targets = _build_targets_for_mode(data_frame, raw_targets, target_mode=target_mode)
     feature_columns = list(features.columns)
     features = prepare_feature_matrix(features, feature_columns)
 
-    fold_metrics, rmse_by_target = _cross_validate(features, targets, n_estimators, learning_rate)
+    fold_metrics, rmse_by_target = _cross_validate(features, targets, n_estimators, learning_rate, groups=groups)
 
-    x_train, x_val, y_train, y_val = train_test_split(features, targets, test_size=0.1, random_state=42)
-    model = _fit_final_model(features, targets, n_estimators, learning_rate)
+    x_train, y_train, x_val, y_val = _train_validation_split(features, targets, groups=groups, test_size=0.1)
+    model = _fit_final_model(features, targets, n_estimators, learning_rate, groups=groups)
+    if x_val is None or y_val is None:
+        x_val = x_train
+        y_val = y_train
     val_predictions = model.predict(x_val)
     validation_rmse = float(root_mean_squared_error(y_val, val_predictions))
 
@@ -159,6 +270,7 @@ def train_model(data_path: str, model_path: str, metadata_path: str, n_estimator
         "training_date": trained_at,
         "feature_columns": feature_columns,
         "target_columns": TARGET_COLUMNS,
+        "target_mode": target_mode,
         "cv_rmse_mean": float(sum(metric["rmse_mean"] for metric in fold_metrics) / len(fold_metrics)),
         "cv_rmse_by_target": rmse_by_target,
         "validation_rmse": validation_rmse,
@@ -178,6 +290,8 @@ def train_model(data_path: str, model_path: str, metadata_path: str, n_estimator
             "irrigation_type": ["pivot", "drip", "flood"],
         },
         "fold_metrics": fold_metrics,
+        "group_column": group_column,
+        "cv_splitter": "GroupKFold" if group_column is not None else "KFold",
         "feature_importances": feature_importances,
         "model_hash": model_hash,
         "training_data_hash": data_hash,
@@ -194,6 +308,8 @@ def main() -> None:
         metadata_path=args.metadata_path,
         n_estimators=args.n_estimators,
         learning_rate=args.learning_rate,
+        group_column=args.group_column,
+        target_mode=args.target_mode,
     )
 
 

@@ -74,10 +74,10 @@ def test_missing_required_column_rejected(synthetic_frame):
 
 
 def test_unregistered_column_rejected(synthetic_frame):
-    # The corn-baseline guard: a new column (e.g. source_id) must be registered in the schema.
+    # The schema guard: a new column must be registered before training accepts it.
     frame = synthetic_frame.copy()
-    frame["source_id"] = "usda_lirf_2012_2013"
-    with pytest.raises(TrainingSchemaError, match="source_id"):
+    frame["unregistered_source_group"] = "usda_lirf_2012_2013"
+    with pytest.raises(TrainingSchemaError, match="unregistered_source_group"):
         validate_training_frame(frame, source="x")
 
 

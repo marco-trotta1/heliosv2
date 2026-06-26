@@ -42,7 +42,7 @@ MOISTURE_MAX = 0.45
 
 # Mickelson emits exactly the required columns (it omits the optional per-zone sensor
 # spread columns). Single-sourced from the training-row contract.
-SCHEMA_COLUMNS = REQUIRED_COLUMNS
+SCHEMA_COLUMNS = ["source_id", *REQUIRED_COLUMNS]
 GALLONS_PER_ACRE_INCH = 27154.0
 
 

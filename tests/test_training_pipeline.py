@@ -8,7 +8,9 @@ import pytest
 
 from helios.models.train_model import train_model
 from helios.scripts.generate_sample_data import generate_sample_data
+from helios.scripts.parse_usda_lirf_data import parse_usda_lirf
 from helios.scripts.rebuild_training_bundle import rebuild_training_bundle
+from tests.test_usda_lirf_ingestion import _write_usda_fixture
 
 
 def _write_minimal_mickelson_workbook(path: Path) -> None:
@@ -145,6 +147,67 @@ def test_rebuild_training_bundle_creates_combined_dataset_and_metadata(tmp_path:
     for target_scores in importances.values():
         assert target_scores  # non-empty mapping of feature -> importance
         assert all(isinstance(value, (int, float)) for value in target_scores.values())
+
+
+def test_rebuild_training_bundle_records_source_provenance_with_usda(tmp_path: Path) -> None:
+    workbook_path = tmp_path / "Water_usage_2024.xlsx"
+    openet_csv = tmp_path / "openet.csv"
+    usda_workbook = tmp_path / "usda_fixture.xlsx"
+    usda_training_output = tmp_path / "usda_training.csv"
+    usda_normalized_output = tmp_path / "usda_normalized.csv"
+    sample_output = tmp_path / "sample.csv"
+    mickelson_output = tmp_path / "mickelson.csv"
+    combined_output = tmp_path / "combined.csv"
+    model_path = tmp_path / "artifacts" / "moisture_model.pkl"
+    metadata_path = tmp_path / "artifacts" / "model_metadata.json"
+
+    _write_minimal_mickelson_workbook(workbook_path)
+    _write_usda_fixture(usda_workbook)
+    parse_usda_lirf(
+        input_path=str(usda_workbook),
+        output_path=str(usda_training_output),
+        normalized_output_path=str(usda_normalized_output),
+        report_output_path=None,
+    )
+    pd.DataFrame(
+        [
+            {"date": "2024-07-01", "openet_et_mm": 85.0},
+            {"date": "2024-08-01", "openet_et_mm": 70.0},
+        ]
+    ).to_csv(openet_csv, index=False)
+
+    rebuild_training_bundle(
+        mickelson_workbook=str(workbook_path),
+        openet_csv=str(openet_csv),
+        synthetic_rows=30,
+        seed=42,
+        sample_output=str(sample_output),
+        mickelson_output=str(mickelson_output),
+        usda_lirf_csv=str(usda_training_output),
+        combined_output=str(combined_output),
+        model_path=str(model_path),
+        metadata_path=str(metadata_path),
+        n_estimators=10,
+        learning_rate=0.1,
+    )
+
+    combined = pd.read_csv(combined_output)
+    metadata = json.loads(metadata_path.read_text())
+
+    assert combined["field_id"].notna().all()
+    assert combined["source_id"].notna().all()
+    assert set(combined["source_id"]) == {"synthetic", "mickelson", "usda_lirf_2012_2013"}
+
+    provenance = metadata["training_provenance"]
+    assert provenance["source_counts"]["synthetic"] == 30
+    assert provenance["source_counts"]["mickelson"] >= 3
+    assert provenance["source_counts"]["usda_lirf_2012_2013"] == 2
+    assert provenance["maize_years"] == [2012]
+    assert provenance["maize_treatments"] == [1]
+    assert provenance["maize_label_counts"] == {"measured": 6, "interpolated": 0}
+    assert provenance["maize_dataset"]["doi"] == "10.15482/USDA.ADC/1439968"
+    assert provenance["maize_dataset"]["license"] == "U.S. Public Domain"
+    assert provenance["contains_private_local_derivatives"] is True
 
 
 def test_generate_sample_data_uses_openet_climatology_without_csv(tmp_path: Path) -> None:

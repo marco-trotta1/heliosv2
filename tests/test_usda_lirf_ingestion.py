@@ -120,16 +120,42 @@ def test_parse_usda_lirf_builds_horizons_without_future_features(tmp_path: Path)
     report_from_disk = json.loads(report_output.read_text())
 
     assert report["usable_for_training"] is True
+    assert report["measured_label_count"] > 0
+    assert report["vwc_range"] == {"min": 0.1929, "max": 0.2329}
     assert report_from_disk["training_rows"] == len(training)
     assert set(normalized["horizon_hours"]) == {24, 48, 72}
     assert set(TARGET_COLUMNS).issubset(training.columns)
+    assert {
+        "source_id",
+        "prediction_time",
+        "target_source_24h",
+        "target_source_48h",
+        "target_source_72h",
+    }.issubset(training.columns)
     assert len(training) == 2
+    assert set(training["source_id"]) == {"usda_lirf_2012_2013"}
+    assert set(training["target_source_24h"]) == {"root_zone_weighted_swc"}
+    assert set(training["target_source_48h"]) == {"root_zone_weighted_swc"}
+    assert set(training["target_source_72h"]) == {"root_zone_weighted_swc"}
+    assert (
+        int((training["target_source_48h"] == "root_zone_weighted_swc").sum())
+        == int(
+            (
+                (normalized["horizon_hours"] == 48)
+                & (normalized["target_source"] == "root_zone_weighted_swc")
+            ).sum()
+        )
+    )
 
     first_row = training.iloc[0]
+    assert first_row["source_id"] == "usda_lirf_2012_2013"
     assert first_row["current_soil_moisture"] == 0.2329
     assert first_row["target_moisture_24h"] == 0.2229
     assert first_row["target_moisture_48h"] == 0.2129
     assert first_row["target_moisture_72h"] == 0.2029
+    assert first_row["target_source_24h"] == "root_zone_weighted_swc"
+    assert first_row["target_source_48h"] == "root_zone_weighted_swc"
+    assert first_row["target_source_72h"] == "root_zone_weighted_swc"
     assert first_row["precipitation_in"] == 0.1
     assert first_row["cumulative_irrigation_24h"] == 0.0
     assert first_row["reference_et_in"] == 0.1
@@ -142,6 +168,119 @@ def test_parse_usda_lirf_builds_horizons_without_future_features(tmp_path: Path)
     normalized["feature_cutoff_at"] = pd.to_datetime(normalized["feature_cutoff_at"])
     normalized["label_time"] = pd.to_datetime(normalized["label_time"])
     assert (normalized["feature_cutoff_at"] < normalized["label_time"]).all()
+    assert pd.to_datetime(training["prediction_time"], errors="coerce").notna().all()
+
+
+def test_parse_usda_lirf_report_tracks_group_counts(tmp_path: Path) -> None:
+    workbook = tmp_path / "usda_fixture.xlsx"
+    training_output = tmp_path / "usda_training.csv"
+    normalized_output = tmp_path / "usda_normalized.csv"
+    _write_usda_fixture(workbook)
+
+    report = parse_usda_lirf(
+        input_path=str(workbook),
+        output_path=str(training_output),
+        normalized_output_path=str(normalized_output),
+        report_output_path=None,
+    )
+
+    assert report["usable_for_training"] is True
+    assert report["measured_label_count"] == 6
+    assert report["year_treatment_training_counts"] == {"2012_trt_1": 2}
+    assert report["year_treatment_measured_counts"] == {"2012_trt_1": 6}
+
+
+def test_parse_usda_lirf_requires_water_balance_columns(tmp_path: Path) -> None:
+    workbook = tmp_path / "missing_water_columns.xlsx"
+    dates = pd.date_range("2012-06-01", periods=5, freq="D")
+
+    water_rows = []
+    for date in dates:
+        water_rows.append(
+            {
+                "Year": 2012,
+                "DOY": int(date.dayofyear),
+                "Date": date,
+                "Growth_stage": "V6",
+                "root_depth (cm)": 105.0,
+                "SWC_15": 25.0,
+                "SWC_30": 24.0,
+                "SWC_60": 23.0,
+                "SWC_90": 22.0,
+                "SWC_120": 21.0,
+                "SWC_150": 20.0,
+                "SWC_200": 19.0,
+                "SWD_RZ": 11.0,
+                "precip_gross (mm)": 0.0,
+                "irr_gross (mm)": 0.0,
+                "ETr (mm)": 2.54,
+            }
+        )
+
+    weather_rows = []
+    for date in dates:
+        weather_rows.append(
+            {
+                "TIMESTAMP": date + pd.Timedelta(hours=12),
+                "AirTemp_C": 25.0,
+                "RH_fraction": 0.45,
+                "WindSpeed_m_s^1": 3.0,
+                "HrlySolRad_kJ_m^2_min^1": 10.0,
+                "Rain-Tot": 0.0,
+                "ETr-Daily": 2.54,
+            }
+        )
+
+    with pd.ExcelWriter(workbook) as writer:
+        pd.DataFrame([{"ignored": "title"}]).to_excel(writer, sheet_name="Water Balance ET", index=False, header=False)
+        pd.DataFrame(water_rows).to_excel(writer, sheet_name="Water Balance ET", index=False, startrow=1)
+        pd.DataFrame(weather_rows).to_excel(writer, sheet_name="Weather data", index=False)
+
+    try:
+        parse_usda_lirf(
+            input_path=str(workbook),
+            output_path=str(tmp_path / "training.csv"),
+            normalized_output_path=str(tmp_path / "normalized.csv"),
+            report_output_path=None,
+        )
+    except ValueError as exc:
+        assert str(exc) == "USDA water balance sheet missing required columns: Trt_code"
+    else:
+        raise AssertionError("expected missing water balance column error")
+
+
+def test_parse_usda_lirf_requires_weather_columns(tmp_path: Path) -> None:
+    workbook = tmp_path / "missing_weather_columns.xlsx"
+    dates = pd.date_range("2012-06-01", periods=5, freq="D")
+    _write_usda_fixture(workbook)
+    water_balance = pd.read_excel(workbook, sheet_name="Water Balance ET", header=1)
+
+    weather = pd.DataFrame(
+        {
+            "TIMESTAMP": dates + pd.Timedelta(hours=12),
+            "AirTemp_C": [25.0] * len(dates),
+            "RH_fraction": [0.45] * len(dates),
+            "WindSpeed_m_s^1": [3.0] * len(dates),
+            "Rain-Tot": [0.0] * len(dates),
+            "ETr-Daily": [2.54] * len(dates),
+        }
+    )
+    with pd.ExcelWriter(workbook) as writer:
+        pd.DataFrame([{"ignored": "title"}]).to_excel(writer, sheet_name="Water Balance ET", index=False, header=False)
+        water_balance.to_excel(writer, sheet_name="Water Balance ET", index=False, startrow=1)
+        weather.to_excel(writer, sheet_name="Weather data", index=False)
+
+    try:
+        parse_usda_lirf(
+            input_path=str(workbook),
+            output_path=str(tmp_path / "training.csv"),
+            normalized_output_path=str(tmp_path / "normalized.csv"),
+            report_output_path=None,
+        )
+    except ValueError as exc:
+        assert str(exc) == "USDA weather sheet missing required columns: HrlySolRad_kJ_m^2_min^1"
+    else:
+        raise AssertionError("expected missing weather column error")
 
 
 def test_usda_training_output_matches_feature_schema(tmp_path: Path) -> None:

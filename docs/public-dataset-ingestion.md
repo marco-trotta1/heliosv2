@@ -4,7 +4,7 @@ Helios now has a reproducible path for preparing public irrigation and soil-wate
 
 ## USDA LIRF 2012-2013
 
-Status: training candidate.
+Status: evaluated training candidate. The current artifact-backed verdict is `CANDIDATE_FAIL`, so the shipped model artifacts were not replaced.
 
 Source:
 
@@ -27,6 +27,15 @@ The parser converts depth-specific SWC percentages into root-zone weighted VWC. 
 - `target_moisture_72h`
 
 The raw downloads and generated CSVs live under `data/public/`, which is ignored by git.
+
+The current processed outputs are:
+
+- Wide training CSV: 897 complete 24 h / 48 h / 72 h examples.
+- Normalized examples: 2691 horizon rows.
+- Measured labels: 588.
+- Interpolated labels: 2103.
+
+The wide CSV now includes `source_id`, `prediction_time`, and per-horizon `target_source_*` columns so evaluation can separate measured labels from daily interpolations without joining to the normalized file.
 
 ## Morris Nebraska CRNS
 
@@ -57,14 +66,39 @@ python3 -m helios.scripts.parse_usda_lirf_data \
   --normalized-output data/public/usda_lirf_2012_2013/processed/usda_lirf_normalized_examples.csv
 ```
 
-Rebuild local training artifacts with USDA rows included:
+Build candidate and baseline artifacts for evaluation:
 
 ```bash
 python3 -m helios.scripts.rebuild_training_bundle \
   --mickelson-workbook data/Water_usage_2024.xlsx \
   --openet-csv data/openet_sample.csv \
   --usda-lirf-csv data/public/usda_lirf_2012_2013/processed/usda_lirf_training_data.csv \
-  --synthetic-rows 5000
+  --synthetic-rows 5000 \
+  --sample-output data/candidates/maize/sample_training_data.csv \
+  --mickelson-output data/candidates/maize/mickelson_training_data.csv \
+  --combined-output data/combined_candidate.csv \
+  --model-path artifacts/candidates/maize/moisture_model.pkl \
+  --metadata-path artifacts/candidates/maize/model_metadata.json
+
+python3 -m helios.scripts.rebuild_training_bundle \
+  --mickelson-workbook data/Water_usage_2024.xlsx \
+  --openet-csv data/openet_sample.csv \
+  --synthetic-rows 5000 \
+  --sample-output data/candidates/baseline/sample_training_data.csv \
+  --mickelson-output data/candidates/baseline/mickelson_training_data.csv \
+  --combined-output data/combined_baseline.csv \
+  --model-path artifacts/candidates/baseline/moisture_model.pkl \
+  --metadata-path artifacts/candidates/baseline/model_metadata.json
+```
+
+Run the candidate gate:
+
+```bash
+python3 -m helios.scripts.evaluate_maize_baseline \
+  --base-csv data/combined_baseline.csv \
+  --maize-csv data/public/usda_lirf_2012_2013/processed/usda_lirf_training_data.csv \
+  --out-json artifacts/maize_baseline_eval.json \
+  --out-md artifacts/maize_baseline_eval.md
 ```
 
 Run tests:
@@ -84,4 +118,8 @@ python3 -m pytest -q
 
 ## Current Training Status
 
-USDA rows are usable as prepared model-training rows after download and normalization. They are optional: Helios will not include them in training unless `--usda-lirf-csv` is passed to `rebuild_training_bundle`.
+USDA rows are usable as prepared candidate rows after download and normalization. They must remain candidate-only unless `artifacts/maize_baseline_eval.json` reports `CANDIDATE_PASS`.
+
+The current evaluation showed strong GroupKFold corn-holdout improvement and base no-regression pass, but failed the cross-season LOYO persistence gate at 72 h. Because the verdict is `CANDIDATE_FAIL`, `artifacts/moisture_model.pkl` and `artifacts/model_metadata.json` remain unchanged.
+
+The 2008-2011 LIRF dataset is available as a follow-up acquisition target; see `docs/maize-2008-2011-acquisition-audit.md`.

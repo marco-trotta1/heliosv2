@@ -13,6 +13,8 @@ ENV/
 env/
 venv/
 __pycache__/
+.playwright-mcp/
+.superpowers/
 *.egg-info/
 *.log
 *.py[cod]
@@ -22,6 +24,10 @@ coverage.xml
 htmlcov/
 artifacts/*.json
 artifacts/*.pkl
+artifacts/candidates/pre_pilot/
 data/*.csv
+data/*.xlsx
 data/*.db
+data/candidates/
 data/public/
+newtrainingdata.txt

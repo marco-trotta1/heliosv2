@@ -166,6 +166,7 @@ def generate_sample_data(
 
         records.append(
             {
+                "source_id": "synthetic",
                 "field_id": f"field-{idx % 48:03d}",
                 "forecast_horizon_hours": forecast_horizon_hours,
                 "temperature_f": round(temperature_f, 3),

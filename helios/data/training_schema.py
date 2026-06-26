@@ -113,6 +113,11 @@ CATEGORICAL_COLUMNS = [
 NON_FEATURE_COLUMNS = [
     "field_id",
     "primary_sensor_id",
+    "source_id",
+    "prediction_time",
+    "target_source_24h",
+    "target_source_48h",
+    "target_source_72h",
 ]
 
 # Columns every source must emit and the validator requires present (order preserved, so
@@ -151,7 +156,7 @@ def validate_training_frame(df: pd.DataFrame, *, source: str = "training data") 
     if missing:
         raise TrainingSchemaError(f"{source}: missing required columns {missing}")
 
-    allowed = set(CANONICAL_COLUMNS) | _KNOWN_EXTRA_COLUMNS
+    allowed = set(CANONICAL_COLUMNS) | set(NON_FEATURE_COLUMNS) | _KNOWN_EXTRA_COLUMNS
     unknown = sorted(columns - allowed)
     if unknown:
         raise TrainingSchemaError(

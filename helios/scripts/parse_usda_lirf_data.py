@@ -36,7 +36,42 @@ DEPTH_LAYERS_CM = [
 
 # USDA LIRF emits the full canonical training row (including the optional per-zone sensor
 # spread columns). Single-sourced from the training-row contract.
-TRAINING_COLUMNS = CANONICAL_COLUMNS
+TRAINING_COLUMNS = [
+    "source_id",
+    "prediction_time",
+    *CANONICAL_COLUMNS,
+    "target_source_24h",
+    "target_source_48h",
+    "target_source_72h",
+]
+
+WATER_BALANCE_REQUIRED_COLUMNS = [
+    "Year",
+    "Date",
+    "Trt_code",
+    "Growth_stage",
+    "root_depth (cm)",
+    "precip_gross (mm)",
+    "irr_gross (mm)",
+    "ETr (mm)",
+    *[column for column, _, _ in DEPTH_LAYERS_CM],
+]
+
+WEATHER_REQUIRED_COLUMNS = [
+    "TIMESTAMP",
+    "AirTemp_C",
+    "RH_fraction",
+    "WindSpeed_m_s^1",
+    "HrlySolRad_kJ_m^2_min^1",
+    "Rain-Tot",
+    "ETr-Daily",
+]
+
+
+def _require_columns(frame: pd.DataFrame, required: list[str], label: str) -> None:
+    missing = [column for column in required if column not in frame.columns]
+    if missing:
+        raise ValueError(f"{label} missing required columns: {', '.join(missing)}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -117,6 +152,7 @@ def _root_zone_vwc(row: pd.Series) -> float | None:
 
 def _daily_weather(weather: pd.DataFrame) -> pd.DataFrame:
     working = weather.copy()
+    _require_columns(working, WEATHER_REQUIRED_COLUMNS, "USDA weather sheet")
     working["Date"] = pd.to_datetime(working["TIMESTAMP"], errors="coerce").dt.normalize()
     working = _coerce_numeric(
         working,
@@ -148,6 +184,7 @@ def _daily_weather(weather: pd.DataFrame) -> pd.DataFrame:
 
 def _prepare_water_balance(excel: pd.ExcelFile) -> pd.DataFrame:
     water = _sheet(excel, "Water Balance ET", header=1)
+    _require_columns(water, WATER_BALANCE_REQUIRED_COLUMNS, "USDA water balance sheet")
     water["Date"] = pd.to_datetime(water["Date"], errors="coerce").dt.normalize()
     water = water.dropna(subset=["Year", "Date", "Trt_code"]).copy()
     numeric_columns = [
@@ -239,6 +276,7 @@ def _build_rows(features: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
         trt_code = int(row["Trt_code"])
         prediction_time = pd.Timestamp(row["Date"])
         horizon_targets: dict[int, tuple[float, str]] = {}
+        origin_normalized_rows: list[dict[str, Any]] = []
         for horizon in (24, 48, 72):
             label_time = prediction_time + pd.Timedelta(hours=horizon)
             target_info = lookup.get((year, trt_code, label_time))
@@ -246,7 +284,7 @@ def _build_rows(features: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
                 continue
             target, target_source = target_info
             horizon_targets[horizon] = target_info
-            normalized_rows.append(
+            origin_normalized_rows.append(
                 {
                     "source_id": SOURCE_ID,
                     "field_id": f"{SOURCE_ID}_{year}_trt_{trt_code}",
@@ -273,6 +311,7 @@ def _build_rows(features: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
 
         if set(horizon_targets) != {24, 48, 72}:
             continue
+        normalized_rows.extend(origin_normalized_rows)
 
         swc_values = [
             float(row[column])
@@ -282,7 +321,9 @@ def _build_rows(features: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
         moisture_values = [value / 100.0 for value in swc_values] or [float(row["observed_vwc"])]
         training_rows.append(
             {
+                "source_id": SOURCE_ID,
                 "field_id": f"{SOURCE_ID}_{year}_trt_{trt_code}",
+                "prediction_time": prediction_time.isoformat(),
                 "forecast_horizon_hours": 72,
                 "temperature_f": round(float(row["temperature_f"]), 3),
                 "humidity_pct": round(float(row["humidity_pct"]), 3),
@@ -322,6 +363,9 @@ def _build_rows(features: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
                 "season_month": int(prediction_time.month),
                 "openet_monthly_et_in": round(float(row["openet_monthly_et_in"]), 4),
                 "reference_et_in": round(float(row["reference_et_in"]), 4),
+                "target_source_24h": horizon_targets[24][1],
+                "target_source_48h": horizon_targets[48][1],
+                "target_source_72h": horizon_targets[72][1],
                 "target_moisture_24h": round(horizon_targets[24][0], 4),
                 "target_moisture_48h": round(horizon_targets[48][0], 4),
                 "target_moisture_72h": round(horizon_targets[72][0], 4),
@@ -347,6 +391,37 @@ def parse_usda_lirf(
     weather = _daily_weather(_sheet(excel, "Weather data", header=0))
     features = _build_base_features(water, weather)
     training, normalized = _build_rows(features)
+    measured = normalized[normalized["target_source"] == "root_zone_weighted_swc"] if not normalized.empty else normalized
+    vwc_min = float(water["observed_vwc"].min()) if not water.empty else None
+    vwc_max = float(water["observed_vwc"].max()) if not water.empty else None
+    vwc_in_range = vwc_min is not None and vwc_max is not None and 0.05 <= vwc_min <= vwc_max <= 0.45
+    measured_label_count = int(len(measured))
+    training_counts = (
+        training.assign(
+            _group=training["field_id"].str.replace(f"{SOURCE_ID}_", "", regex=False)
+            if "field_id" in training
+            else pd.Series(dtype=str)
+        )
+        .groupby("_group")
+        .size()
+        .to_dict()
+        if not training.empty
+        else {}
+    )
+    measured_counts = (
+        measured.assign(
+            _group=measured["field_id"].str.replace(f"{SOURCE_ID}_", "", regex=False)
+            if "field_id" in measured
+            else pd.Series(dtype=str)
+        )
+        .groupby("_group")
+        .size()
+        .to_dict()
+        if not measured.empty
+        else {}
+    )
+    has_year_treatment_counts = bool(training_counts) and all(count > 0 for count in training_counts.values())
+    has_measured_year_treatment_counts = bool(measured_counts) and all(count > 0 for count in measured_counts.values())
 
     output = Path(output_path)
     normalized_output = Path(normalized_output_path)
@@ -367,7 +442,20 @@ def parse_usda_lirf(
         "target_columns": ["target_moisture_24h", "target_moisture_48h", "target_moisture_72h"],
         "target_source": "root_zone_weighted_swc_or_daily_interpolated",
         "temporal_resolution": "daily",
-        "usable_for_training": bool(len(training) > 0),
+        "measured_label_count": measured_label_count,
+        "vwc_range": {
+            "min": round(vwc_min, 4) if vwc_min is not None else None,
+            "max": round(vwc_max, 4) if vwc_max is not None else None,
+        },
+        "year_treatment_training_counts": {str(key): int(value) for key, value in training_counts.items()},
+        "year_treatment_measured_counts": {str(key): int(value) for key, value in measured_counts.items()},
+        "usable_for_training": bool(
+            len(training) > 0
+            and measured_label_count > 0
+            and vwc_in_range
+            and has_year_treatment_counts
+            and has_measured_year_treatment_counts
+        ),
     }
     if report_output_path is not None:
         report_output = Path(report_output_path)

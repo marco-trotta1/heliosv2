@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from helios.data.feature_engineering import TARGET_COLUMNS, build_training_features
 from helios.scripts.download_public_datasets import find_dataset, load_registry
 from helios.scripts.parse_usda_lirf_data import parse_usda_lirf
+from helios.scripts.parse_usda_lirf_2008_2011 import parse_usda_lirf_2008_2011
 
 
 def _write_usda_fixture(path: Path) -> None:
@@ -84,6 +87,76 @@ def _write_usda_fixture(path: Path) -> None:
         pd.DataFrame([{"ignored": "title"}]).to_excel(writer, sheet_name="Water Balance ET", index=False, header=False)
         pd.DataFrame(water_rows).to_excel(writer, sheet_name="Water Balance ET", index=False, startrow=1)
         pd.DataFrame(weather_rows).to_excel(writer, sheet_name="Weather data", index=False)
+
+
+def _write_historical_lirf_fixture(root: Path) -> None:
+    dates = pd.date_range("2008-06-01", periods=6, freq="D")
+    water_header = [
+        "DOY", "Precip", "Irrig", "unused", "0 - 15", "15 - 45", "45 - 75", "75 - 105",
+        "105 - 135", "135 - 165", "165 - 200", "unused", "Growth Stage", "Root Depth",
+        "Canopy Cover", "LAI", "Height", "N Applied", "unused", "ETr", "Kcb", "Ks", "ETcb",
+        "Evap", "Deep Perc", "ETc", "BREB ETc", "unused", "Predicted 0 - 1050", "Measured 0 - 1050",
+        "Predicted Active Root Zone", "Measured Active Root Zone",
+    ]
+    water_rows = [
+        [
+            int(date.dayofyear), 2.54 if index == 0 else 0.0, 5.08 if index == 1 else 0.0, None,
+            25.0 - index, 24.0 - index, 23.0 - index, 22.0 - index, 21.0 - index, 20.0 - index,
+            19.0 - index, None, "V6" if index < 3 else "R1", 105.0, 10.0 + index, 1.0 + index,
+            35.0 + index, 148.0, None, 3.0 + index, 0.8, 1.0, 2.4, 0.5, 0.0, 2.9, 3.0, None,
+            60.0, 59.0, 6.0, 5.0,
+        ]
+        for index, date in enumerate(dates)
+    ]
+    weather_header = [
+        "Date/Time", "DOY", "AirTemp_Avg", "RH_Avg", "Vap_Press_Avg", "HrlySolRad_Avg", "WindSpeed",
+        "WindDir", "WindDir_STDD", "Rain_Tot", "SoilTemp_5cm", "SoilTemp_15cm", "HWG_speed", "HWG_time",
+        "HWG_dir", "BaPress_Avg", "AVPT_Avg", "SVPT_Avg", "ETr", "ETo", "FLAG", "Daily ETr", "Daily ETo",
+    ]
+    weather_rows = [
+        [date + pd.Timedelta(hours=12), int(date.dayofyear), 25.0, 0.45, 1.2, 10.0, 3.0, 180.0, 5.0, 0.0,
+         20.0, 18.0, 4.0, 1200, 180.0, 86.0, 1.0, 2.0, 3.0, 2.0, "GLY04", 3.0, 2.0]
+        for date in dates
+    ]
+    with pd.ExcelWriter(root / "LIRF Maize 2008 r1.xlsx") as writer:
+        for treatment in range(1, 7):
+            rows = [[f"LIRF 2008 Water Balance Data"], ["Water Inputs"], water_header, ["units"]] + water_rows
+            pd.DataFrame(rows).to_excel(writer, sheet_name=f"Tmnt{treatment}", index=False, header=False)
+    with pd.ExcelWriter(root / "LIRF Weather 2008.xlsx") as writer:
+        rows = [["LIRF 2008 Hourly Weather Data"], weather_header, ["units"]] + weather_rows
+        pd.DataFrame(rows).to_excel(writer, sheet_name="Hourly", index=False, header=False)
+
+
+def test_parse_historical_lirf_builds_three_horizons(tmp_path: Path) -> None:
+    _write_historical_lirf_fixture(tmp_path)
+
+    report = parse_usda_lirf_2008_2011(
+        input_dir=str(tmp_path),
+        output_path=str(tmp_path / "training.csv"),
+        normalized_output_path=str(tmp_path / "normalized.csv"),
+        report_output_path=str(tmp_path / "report.json"),
+    )
+
+    training = pd.read_csv(tmp_path / "training.csv")
+    normalized = pd.read_csv(tmp_path / "normalized.csv")
+
+    assert report["usable_for_training"] is True
+    assert report["source_id"] == "usda_lirf_2008_2011"
+    assert set(training["source_id"]) == {"usda_lirf_2008_2011"}
+    assert set(normalized["horizon_hours"]) == {24, 48, 72}
+
+
+def test_parse_historical_lirf_rejects_missing_year_weather(tmp_path: Path) -> None:
+    _write_historical_lirf_fixture(tmp_path)
+    shutil.copy(tmp_path / "LIRF Maize 2008 r1.xlsx", tmp_path / "LIRF Maize 2009 r1.xlsx")
+
+    with pytest.raises(ValueError, match="weather for years"):
+        parse_usda_lirf_2008_2011(
+            input_dir=str(tmp_path),
+            output_path=str(tmp_path / "training.csv"),
+            normalized_output_path=str(tmp_path / "normalized.csv"),
+            report_output_path=str(tmp_path / "report.json"),
+        )
 
 
 def test_public_dataset_registry_has_usda_provenance() -> None:

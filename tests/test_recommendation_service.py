@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from helios.schemas.inputs import PredictionRequest
@@ -308,6 +309,57 @@ def test_recommendation_service_adds_conservative_validation_evidence(
     assert response.validation_evidence.confidence_caveat == "Heuristic confidence; not a calibrated uncertainty estimate."
     assert "Field-test evidence" in response.validation_evidence.field_test_caveat
     assert "scientifically validated" not in response.validation_evidence.field_test_caveat.lower()
+
+
+def test_recommendation_service_reads_explicit_evaluation_artifact_path(
+    prediction_payload: dict,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    request = PredictionRequest(**prediction_payload)
+    _stub_feedback(monkeypatch)
+    evaluation_path = tmp_path / "configured-eval.json"
+    evaluation_path.write_text(json.dumps({"verdict": "CANDIDATE_FAIL"}))
+
+    service = RecommendationService(
+        model=StubForecastModel(),
+        model_path=Path("unused-model.pkl"),
+        metadata_path=Path("unused-metadata.json"),
+        evaluation_artifact_path=evaluation_path,
+    )
+    response = service.predict_recommendation(request)
+
+    assert response.validation_evidence is not None
+    assert response.validation_evidence.evaluation_verdict == "CANDIDATE_FAIL"
+    assert response.validation_evidence.evaluation_artifact == str(evaluation_path)
+    assert response.validation_evidence.promotion_allowed is False
+
+
+def test_recommendation_service_evaluation_artifact_is_independent_of_cwd(
+    prediction_payload: dict,
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    request = PredictionRequest(**prediction_payload)
+    _stub_feedback(monkeypatch)
+    evaluation_path = tmp_path / "artifacts" / "maize_baseline_eval.json"
+    evaluation_path.parent.mkdir()
+    evaluation_path.write_text(json.dumps({"verdict": "CANDIDATE_FAIL"}))
+    other_cwd = tmp_path / "other-cwd"
+    other_cwd.mkdir()
+    monkeypatch.chdir(other_cwd)
+
+    service = RecommendationService(
+        model=StubForecastModel(),
+        model_path=Path("unused-model.pkl"),
+        metadata_path=Path("unused-metadata.json"),
+        evaluation_artifact_path=evaluation_path,
+    )
+    response = service.predict_recommendation(request)
+
+    assert response.validation_evidence is not None
+    assert response.validation_evidence.evaluation_verdict == "CANDIDATE_FAIL"
+    assert response.validation_evidence.evaluation_artifact == str(evaluation_path)
 
 
 def test_recommendation_service_validation_mode_evidence_says_feedback_disabled(

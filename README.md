@@ -107,6 +107,7 @@ Key runtime settings:
 - `HELIOS_DATABASE_PATH`
 - `HELIOS_MODEL_PATH`
 - `HELIOS_METADATA_PATH`
+- `HELIOS_EVALUATION_ARTIFACT_PATH`
 - `HELIOS_CORS_ALLOW_ORIGINS`
 - `HELIOS_RATE_LIMIT_WINDOW_SECONDS`
 - `HELIOS_RATE_LIMIT_MAX_REQUESTS`
@@ -119,6 +120,7 @@ Key runtime settings:
 Notes:
 
 - `HELIOS_API_KEY` protects `POST /predict`, `POST /api/acknowledgements`, and `POST /api/feedback` when set.
+- `HELIOS_EVALUATION_ARTIFACT_PATH` points evidence packets at the latest local candidate-evaluation JSON.
 - `OPENET_API_KEY` enables live monthly OpenET enrichment during `/predict`.
 - When `OPENET_API_KEY` is missing or OpenET fails, runtime inference falls back to the baked-in monthly ET lookup so predictions still succeed.
 - `HELIOS_VALIDATION_MODE=1` disables nearby-feedback recommendation adjustments for clean field-test runs.

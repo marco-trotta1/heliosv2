@@ -86,4 +86,3 @@ Run: `python3 -m helios.scripts.evaluate_maize_baseline --base-csv data/combined
 - [ ] **Step 3: Verify the conclusion**
 
 Check: `verdict` and every LOYO measured-only persistence result in the JSON. A result is not a ship candidate unless every gate passes.
-

@@ -41,7 +41,6 @@ VALIDATION_ADJUSTMENT_REASON = (
 )
 CONFIDENCE_CAVEAT = "Heuristic confidence; not a calibrated uncertainty estimate."
 FIELD_TEST_CAVEAT = "Field-test evidence only; no validation-score evidence is attached to this recommendation."
-DEFAULT_EVALUATION_ARTIFACT = Path("artifacts/maize_baseline_eval.json")
 
 
 class RecommendationService:
@@ -51,11 +50,13 @@ class RecommendationService:
         model: MoistureForecastModel,
         model_path: Path,
         metadata_path: Path,
+        evaluation_artifact_path: Path = Path("artifacts/maize_baseline_eval.json"),
         validation_mode: bool = False,
     ) -> None:
         self.model = model
         self.model_path = model_path
         self.metadata_path = metadata_path
+        self.evaluation_artifact_path = evaluation_artifact_path
         self.validation_mode = validation_mode
 
     @classmethod
@@ -63,6 +64,7 @@ class RecommendationService:
         cls,
         model_path: Path = Path("artifacts/moisture_model.pkl"),
         metadata_path: Path = Path("artifacts/model_metadata.json"),
+        evaluation_artifact_path: Path = Path("artifacts/maize_baseline_eval.json"),
         validation_mode: bool = False,
     ) -> "RecommendationService":
         model = MoistureForecastModel.load(model_path, metadata_path)
@@ -70,6 +72,7 @@ class RecommendationService:
             model=model,
             model_path=model_path,
             metadata_path=metadata_path,
+            evaluation_artifact_path=evaluation_artifact_path,
             validation_mode=validation_mode,
         )
 
@@ -260,25 +263,25 @@ class RecommendationService:
         )
 
     def _latest_evaluation_summary(self) -> dict[str, str | bool | None]:
-        if not DEFAULT_EVALUATION_ARTIFACT.exists():
+        if not self.evaluation_artifact_path.exists():
             return {
                 "verdict": None,
                 "artifact": None,
                 "promotion_allowed": None,
             }
         try:
-            evaluation = json.loads(DEFAULT_EVALUATION_ARTIFACT.read_text())
+            evaluation = json.loads(self.evaluation_artifact_path.read_text())
         except Exception:
-            logger.exception("Failed to read evaluation artifact", extra={"artifact": str(DEFAULT_EVALUATION_ARTIFACT)})
+            logger.exception("Failed to read evaluation artifact", extra={"artifact": str(self.evaluation_artifact_path)})
             return {
                 "verdict": None,
-                "artifact": str(DEFAULT_EVALUATION_ARTIFACT),
+                "artifact": str(self.evaluation_artifact_path),
                 "promotion_allowed": None,
             }
 
         verdict = evaluation.get("verdict")
         return {
             "verdict": verdict if isinstance(verdict, str) else None,
-            "artifact": str(DEFAULT_EVALUATION_ARTIFACT),
+            "artifact": str(self.evaluation_artifact_path),
             "promotion_allowed": verdict == "CANDIDATE_PASS",
         }

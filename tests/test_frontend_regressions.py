@@ -224,6 +224,28 @@ console.log(`${out.state}|${out.headline}|${out.stressQualifier.level}`);
     assert output == "urgent|Stress is high — irrigate 0.85 inches as soon as you can.|high"
 
 
+def test_decision_card_requires_review_when_operator_review_required() -> None:
+    output = _run_node(
+        _browser_stubs()
+        + """
+const { buildDecisionCardData } = await import('./src/domain/output.js');
+const out = buildDecisionCardData({
+  confidenceScore: 0.7,
+  stressProbability: 0.92,
+  recommendedAmountIn: 0.85,
+  decision: 'water',
+  timingWindow: 'tonight',
+  operatorReviewRequired: true,
+  predicted: { moisture24h: 0.14, moisture48h: 0.12, moisture72h: 0.10 },
+  inputSnapshot: { currentMoisture: 0.16 },
+});
+console.log(`${out.state}|${out.headline}|${out.confidenceQualifier.text}`);
+"""
+    )
+
+    assert output == "review|Review required before action.|review required"
+
+
 def test_decision_card_insufficient_branch() -> None:
     """confidenceScore<0.4 OR predicted.moisture24h===0 -> insufficient state, stressQualifier omitted."""
     output = _run_node(
@@ -405,6 +427,65 @@ console.log([
     )
 
     assert output == "true|true|true|true|true|true|true|true|true|false"
+
+
+def test_result_card_uses_plain_language_confidence_and_source_label() -> None:
+    output = _run_node(
+        _browser_stubs()
+        + """
+const { ResultCard } = await import('./src/ui/results.js');
+const run = {
+  id: 'run-1',
+  inputSnapshot: { fieldName: 'North Pivot' },
+  timestamp: '2026-04-17T23:00:00+00:00',
+  decision: 'water',
+  recommendedAmountIn: 0.49,
+  timingWindow: 'tonight',
+  confidenceScore: 0.74,
+  confidenceLevel: 'Medium',
+  sourceLabel: 'Static demo estimate',
+  validationEvidence: null,
+  backendSnapshot: null,
+  etSource: null,
+  copyText: 'Technical export only: Heuristic confidence 74%. Forecast 24h: 0.20',
+};
+const html = ResultCard(run);
+console.log([
+  html.includes('MEDIUM CONFIDENCE'),
+  html.includes('STATIC DEMO ESTIMATE'),
+  html.includes('74% CONF'),
+  html.includes('Forecast 24h: 0.20'),
+].join('|'));
+"""
+    )
+
+    assert output == "true|true|false|true"
+
+
+def test_acknowledgement_gate_hides_raw_forecast_value() -> None:
+    output = _run_node(
+        _browser_stubs()
+        + """
+const { state } = await import('./src/state.js');
+const { RecommendationSpotlight } = await import('./src/ui/analysis-spotlight.js');
+state.acknowledgement.pendingRun = {
+  inputSnapshot: { fieldName: 'North Pivot', cropType: 'corn' },
+  decision: 'water',
+  predicted: { moisture48h: 0.163 },
+  timingWindow: 'tonight',
+  operatorReviewRequired: true,
+};
+const html = RecommendationSpotlight();
+console.log([
+  html.includes('Review Required'),
+  html.includes('OPERATOR REVIEW'),
+  html.includes('48H FORECAST'),
+  html.includes('16.3% VWC'),
+].join('|'));
+"""
+    )
+
+    assert output == "true|true|false|false"
 
 
 def test_light_theme_uses_subtle_off_white_surfaces() -> None:

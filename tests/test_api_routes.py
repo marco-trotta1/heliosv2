@@ -231,6 +231,50 @@ def test_predict_returns_200_when_api_key_set_and_header_correct(
     assert response.status_code == 200
 
 
+def test_acknowledgements_return_401_when_api_key_set_and_header_missing(
+    temp_settings_env, monkeypatch, feedback_payload, prediction_response
+) -> None:
+    import helios.api.main as main_module
+
+    service = DummyRecommendationService(prediction_response)
+    app = _build_keyed_app(monkeypatch, main_module, service, "secret-test-key")
+    payload = {
+        "field_id": "field-001",
+        "farm_id": "farm-001",
+        "timestamp": feedback_payload["timestamp"],
+        "recommendation_summary": "Operator reviewed the recommendation.",
+    }
+    with TestClient(app) as client:
+        response = client.post("/api/acknowledgements", json=payload)
+
+    assert response.status_code == 401
+    assert response.json()["error_code"] == "unauthorized"
+
+
+def test_acknowledgements_return_200_when_api_key_set_and_header_correct(
+    temp_settings_env, monkeypatch, feedback_payload, prediction_response
+) -> None:
+    import helios.api.main as main_module
+
+    service = DummyRecommendationService(prediction_response)
+    app = _build_keyed_app(monkeypatch, main_module, service, "secret-test-key")
+    payload = {
+        "field_id": "field-001",
+        "farm_id": "farm-001",
+        "timestamp": feedback_payload["timestamp"],
+        "recommendation_summary": "Operator reviewed the recommendation.",
+    }
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/acknowledgements",
+            json=payload,
+            headers={"Authorization": "Bearer secret-test-key"},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
 def test_predict_works_without_header_when_api_key_unset(
     app_factory, prediction_payload, prediction_response
 ) -> None:
@@ -240,6 +284,19 @@ def test_predict_works_without_header_when_api_key_unset(
         response = client.post("/predict", json=prediction_payload)
 
     assert response.status_code == 200
+
+
+def test_predict_logging_omits_raw_farm_and_field_identifiers(
+    app_factory, caplog, prediction_payload, prediction_response
+) -> None:
+    service = DummyRecommendationService(prediction_response)
+
+    with app_factory(recommendation_service=service, database_ready=True) as client:
+        response = client.post("/predict", json=prediction_payload)
+
+    assert response.status_code == 200
+    assert not any("field_id" in record.__dict__ for record in caplog.records)
+    assert not any("farm_id" in record.__dict__ for record in caplog.records)
 
 
 def test_predict_uses_caller_supplied_weather_without_noaa(

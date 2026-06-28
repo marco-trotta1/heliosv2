@@ -21,6 +21,7 @@ export {
   recommendationTone,
   serializeRunForCopy,
   buildDecisionCardData,
+  confidenceLevelLabel,
   formatWindowSentence,
   normalizeValidationEvidence,
 } from "./domain/output.js";

@@ -101,6 +101,8 @@ For a water decision, the optimizer:
 
 If the capped amount is below the minimum actionable amount, Helios returns `wait` and `0.0` inches. The response confidence is heuristic: it combines model CV RMSE, distance from the dry threshold, physical sensor count, timing limitations, and whether ET was a fallback. It must not be interpreted as a calibrated probability that the advice is correct.
 
+When sensor zones have high spread, the response keeps the base recommendation but sets `operator_review_required=true` in both the explanation and validation evidence. Farmer-facing UI should treat that as a review gate rather than urgent autonomous action.
+
 ## Feedback adjustment and validation mode
 
 In standard mode, Helios can query comparable nearby feedback after calculating the rule-based recommendation. The feedback query filters by crop, recommendation type, soil texture, and irrigation type; aggregation also considers distance, growth stage, and month.
@@ -111,7 +113,9 @@ Set `HELIOS_VALIDATION_MODE=1` for a clean field-test run. In this mode the feed
 
 ## Response and persistence
 
-`/predict` returns the water-or-wait decision, amount, timing window, three moisture forecasts, stress explanation, selected driving zone, zone summary, ET provenance, confidence caveat, feedback-adjustment details, and a validation-evidence packet. The API stores a prediction record and sensor snapshots in SQLite after constructing the response. Persistence is best effort: a database write failure is logged but does not suppress a valid recommendation response.
+`/predict` returns the water-or-wait decision, amount, timing window, three moisture forecasts, stress explanation, selected driving zone, zone summary, ET provenance, confidence caveat, feedback-adjustment details, and a validation-evidence packet. The evidence packet includes the model hash, training date, latest candidate-evaluation verdict, evaluation artifact path, promotion status, and operator-review flag. The API stores a prediction record and sensor snapshots in SQLite after constructing the response. Persistence is best effort: a database write failure is logged but does not suppress a valid recommendation response.
+
+Prediction logs intentionally avoid raw farm and field identifiers. They record request id, decision, ET source, model hash, validation-mode state, and latency so pilot troubleshooting has operational context without leaking field identifiers.
 
 ## Important limits
 

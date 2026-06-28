@@ -155,6 +155,9 @@ def test_recommendation_service_reports_multi_sensor_summary_and_variability(
     assert response.explanation.driving_zone == "sensor-a"
     assert response.explanation.zone_moisture_summary == {"sensor-a": 0.2, "sensor-b": 0.38}
     assert response.explanation.high_variability_flag is True
+    assert response.explanation.operator_review_required is True
+    assert response.validation_evidence is not None
+    assert response.validation_evidence.operator_review_required is True
 
 
 def test_recommendation_service_passes_physical_sensor_count_to_optimizer(
@@ -299,6 +302,9 @@ def test_recommendation_service_adds_conservative_validation_evidence(
     assert response.validation_evidence.feedback_adjustment_status == "Nearby feedback adjustment available"
     assert response.validation_evidence.driving_zone == response.explanation.driving_zone
     assert response.validation_evidence.high_variability_flag is response.explanation.high_variability_flag
+    assert response.validation_evidence.evaluation_verdict == "CANDIDATE_FAIL"
+    assert response.validation_evidence.evaluation_artifact == "artifacts/maize_baseline_eval.json"
+    assert response.validation_evidence.promotion_allowed is False
     assert response.validation_evidence.confidence_caveat == "Heuristic confidence; not a calibrated uncertainty estimate."
     assert "Field-test evidence" in response.validation_evidence.field_test_caveat
     assert "scientifically validated" not in response.validation_evidence.field_test_caveat.lower()

@@ -94,6 +94,8 @@ export function normalizeRun(run) {
     drivingZone: typeof run.drivingZone === "string" ? run.drivingZone : "",
     zoneMoistureSummary,
     highVariabilityFlag: run.highVariabilityFlag === true,
+    operatorReviewRequired: run.operatorReviewRequired === true
+      || validationEvidence?.operatorReviewRequired === true,
     validationEvidence,
     sourceLabel: run.sourceLabel || "",
   };

@@ -29,6 +29,13 @@ function classifyConfidence(score) {
   return { level: "limited", text: "limited data — gather more", italic: true };
 }
 
+export function confidenceLevelLabel(score, operatorReviewRequired = false) {
+  if (operatorReviewRequired) return "Review required";
+  if (Number(score) >= 0.75) return "High";
+  if (Number(score) >= 0.5) return "Medium";
+  return "Low";
+}
+
 function classifyStressQualifier(prob) {
   if (prob >= 0.6) return { level: "high", icon: "⬤", text: "high stress in 24–72h" };
   if (prob >= 0.3) return { level: "moderate", icon: "◐", text: "moderate stress in window" };
@@ -43,13 +50,19 @@ export function buildDecisionCardData(run) {
   const timingWindow = run?.timingWindow || "";
   const predicted = run?.predicted || { moisture24h: 0, moisture48h: 0, moisture72h: 0 };
   const currentMoisture = Number(run?.inputSnapshot?.currentMoisture ?? 0);
+  const operatorReviewRequired = run?.operatorReviewRequired === true
+    || run?.validationEvidence?.operatorReviewRequired === true
+    || run?.highVariabilityFlag === true;
 
   const timingSentence = formatWindowSentence(timingWindow);
   const amount = recommendedAmountIn.toFixed(2);
 
   let state;
   let headline;
-  if (confidenceScore < 0.4 || predicted.moisture24h === 0) {
+  if (operatorReviewRequired) {
+    state = "review";
+    headline = "Review required before action.";
+  } else if (confidenceScore < 0.4 || predicted.moisture24h === 0) {
     state = "insufficient";
     headline = "Not enough confident signal yet — gather another moisture reading before acting.";
   } else if (stressProbability >= 0.85) {
@@ -72,7 +85,9 @@ export function buildDecisionCardData(run) {
   ];
 
   const stressQualifier = state === "insufficient" ? null : classifyStressQualifier(stressProbability);
-  const confidenceQualifier = classifyConfidence(confidenceScore);
+  const confidenceQualifier = operatorReviewRequired
+    ? { level: "review", text: "review required", italic: true }
+    : classifyConfidence(confidenceScore);
 
   return {
     headline,
@@ -122,6 +137,20 @@ export function normalizeValidationEvidence(rawEvidence, fallback = {}) {
   );
   const fieldTestCaveat = firstString(raw.fieldTestCaveat, raw.field_test_caveat, fallback.fieldTestCaveat);
   const preservationNote = firstString(raw.preservationNote, raw.preservation_note, fallback.preservationNote);
+  const evaluationVerdict = firstString(raw.evaluationVerdict, raw.evaluation_verdict, fallback.evaluationVerdict);
+  const evaluationArtifact = firstString(raw.evaluationArtifact, raw.evaluation_artifact, fallback.evaluationArtifact);
+  const promotionAllowed = typeof raw.promotionAllowed === "boolean"
+    ? raw.promotionAllowed
+    : typeof raw.promotion_allowed === "boolean"
+      ? raw.promotion_allowed
+      : typeof fallback.promotionAllowed === "boolean"
+        ? fallback.promotionAllowed
+        : null;
+  const operatorReviewRequired = firstBoolean(
+    raw.operatorReviewRequired,
+    raw.operator_review_required,
+    fallback.operatorReviewRequired,
+  );
 
   if (
     !validationMode &&
@@ -132,7 +161,11 @@ export function normalizeValidationEvidence(rawEvidence, fallback = {}) {
     !drivingZone &&
     !confidenceCaveat &&
     !fieldTestCaveat &&
-    !preservationNote
+    !preservationNote &&
+    !evaluationVerdict &&
+    !evaluationArtifact &&
+    promotionAllowed == null &&
+    !operatorReviewRequired
   ) {
     return null;
   }
@@ -141,10 +174,14 @@ export function normalizeValidationEvidence(rawEvidence, fallback = {}) {
     validationMode: validationMode || "unknown",
     modelArtifactHash: modelArtifactHash || null,
     modelTrainingDate: modelTrainingDate || null,
+    evaluationVerdict: evaluationVerdict || null,
+    evaluationArtifact: evaluationArtifact || null,
+    promotionAllowed,
     etSource: etSource || null,
     feedbackAdjustmentStatus,
     drivingZone,
     highVariabilityFlag: firstBoolean(raw.highVariabilityFlag, raw.high_variability_flag, fallback.highVariabilityFlag),
+    operatorReviewRequired,
     confidenceCaveat,
     fieldTestCaveat,
     preservationNote,
@@ -222,6 +259,15 @@ export function serializeRunForCopy(run) {
     if (run.validationEvidence.modelTrainingDate) {
       lines.push(`Training date: ${run.validationEvidence.modelTrainingDate}`);
     }
+    if (run.validationEvidence.evaluationVerdict) {
+      lines.push(`Evaluation verdict: ${run.validationEvidence.evaluationVerdict}`);
+    }
+    if (run.validationEvidence.evaluationArtifact) {
+      lines.push(`Evaluation artifact: ${run.validationEvidence.evaluationArtifact}`);
+    }
+    if (run.validationEvidence.promotionAllowed != null) {
+      lines.push(`Promotion allowed: ${run.validationEvidence.promotionAllowed ? "Yes" : "No"}`);
+    }
     if (run.validationEvidence.etSource) {
       lines.push(`Reference ET source: ${run.validationEvidence.etSource}`);
     }
@@ -232,6 +278,7 @@ export function serializeRunForCopy(run) {
       lines.push(`Driving zone evidence: ${run.validationEvidence.drivingZone}`);
     }
     lines.push(`High variability flag: ${run.validationEvidence.highVariabilityFlag ? "Yes" : "No"}`);
+    lines.push(`Operator review required: ${run.validationEvidence.operatorReviewRequired ? "Yes" : "No"}`);
     if (run.validationEvidence.confidenceCaveat) {
       lines.push(run.validationEvidence.confidenceCaveat);
     }

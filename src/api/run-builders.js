@@ -120,6 +120,7 @@ export function mapApiRun(inputs, response) {
     feedbackAdjustmentStatus: response.recommendation_adjustment?.reason || "",
     drivingZone: response.explanation?.driving_zone || "",
     highVariabilityFlag: response.explanation?.high_variability_flag === true,
+    operatorReviewRequired: response.explanation?.operator_review_required === true,
     confidenceCaveat: "Heuristic confidence; not a calibrated uncertainty estimate.",
     fieldTestCaveat: "Field-test evidence only; no validation-score evidence is attached to this recommendation.",
     preservationNote: "Copy this evidence packet with the recommendation to preserve the exact recommendation context.",
@@ -170,6 +171,8 @@ export function mapApiRun(inputs, response) {
     drivingZone: response.explanation?.driving_zone || "",
     zoneMoistureSummary: response.explanation?.zone_moisture_summary || null,
     highVariabilityFlag: response.explanation?.high_variability_flag === true,
+    operatorReviewRequired: response.explanation?.operator_review_required === true
+      || validationEvidence?.operatorReviewRequired === true,
     validationEvidence,
     sourceLabel: state.backend.validationMode === true
       ? "Live API validation build with nearby feedback adjustments disabled"
@@ -225,6 +228,7 @@ export function buildLocalRun(inputs) {
     drivingZone: "",
     zoneMoistureSummary: null,
     highVariabilityFlag: false,
+    operatorReviewRequired: false,
     validationEvidence: normalizeValidationEvidence(null, {
       validationMode: "not applicable",
       etSource: "local estimate",

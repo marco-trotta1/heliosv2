@@ -51,13 +51,16 @@ The external API remains:
 
 - `GET /livez`
 - `GET /health`
+- `GET /version`
 - `POST /predict`
+- `POST /api/acknowledgements`
 - `POST /api/feedback`
 - `GET /api/feedback/nearby`
 
 ## Quick Start
 
 ```bash
+rm -rf .venv  # optional cleanup if this checkout has an old Python 3.9 environment
 python3 -m venv .venv
 source .venv/bin/activate
 python3 -m pip install --upgrade pip
@@ -66,7 +69,7 @@ python3 -m pytest
 uvicorn helios.api.main:app --reload
 ```
 
-Open `index.html` directly for the static frontend, or point `config.js` at a deployed backend for live API mode.
+Open `index.html` directly for the static frontend. The tracked `config.js` uses demo/same-origin defaults; copy the shape from `config.live.example.js` when pointing a local checkout at a deployed backend.
 
 ## Repository Layout
 
@@ -104,6 +107,7 @@ Key runtime settings:
 - `HELIOS_DATABASE_PATH`
 - `HELIOS_MODEL_PATH`
 - `HELIOS_METADATA_PATH`
+- `HELIOS_EVALUATION_ARTIFACT_PATH`
 - `HELIOS_CORS_ALLOW_ORIGINS`
 - `HELIOS_RATE_LIMIT_WINDOW_SECONDS`
 - `HELIOS_RATE_LIMIT_MAX_REQUESTS`
@@ -115,7 +119,8 @@ Key runtime settings:
 
 Notes:
 
-- `HELIOS_API_KEY` protects `POST /predict` and `POST /api/feedback` when set.
+- `HELIOS_API_KEY` protects `POST /predict`, `POST /api/acknowledgements`, and `POST /api/feedback` when set.
+- `HELIOS_EVALUATION_ARTIFACT_PATH` points evidence packets at the latest local candidate-evaluation JSON.
 - `OPENET_API_KEY` enables live monthly OpenET enrichment during `/predict`.
 - When `OPENET_API_KEY` is missing or OpenET fails, runtime inference falls back to the baked-in monthly ET lookup so predictions still succeed.
 - `HELIOS_VALIDATION_MODE=1` disables nearby-feedback recommendation adjustments for clean field-test runs.
@@ -175,6 +180,12 @@ python3 -m helios.scripts.evaluate_maize_baseline \
 
 The current USDA LIRF 2012-2013 evaluation verdict is `CANDIDATE_FAIL`: GroupKFold corn holdouts improved and base no-regression passed, but cross-season LOYO failed the persistence gate. The shipped model artifacts were therefore not replaced.
 
+Validate the committed model metadata contract before promoting or publishing artifacts:
+
+```bash
+python3 -m helios.scripts.check_model_artifact_contract
+```
+
 ### Mickelson parsing details
 
 The Mickelson parser uses the local workbook to extract:
@@ -229,6 +240,8 @@ HELIOS_VALIDATION_MODE=1 python3 -m helios.scripts.validation_preflight \
   --output artifacts/validation-manifest.json
 ```
 
+For supervised pilot runs, set `HELIOS_VALIDATION_MODE=1`, log observed VWC outcomes after each recommendation, and treat recommendations as experimental decision support only. High sensor variability requires operator review before action.
+
 The test suite covers:
 
 - schemas and API routes
@@ -239,6 +252,7 @@ The test suite covers:
 - model range regression guards
 - Mickelson parsing helpers
 - rebuild-pipeline smoke coverage
+- model artifact contract checks
 
 ## Frontend Modes
 
@@ -260,9 +274,11 @@ Point the frontend at a deployed FastAPI backend. In this mode:
 ## Limitations
 
 - No true field-validated soil-moisture ground-truth training labels yet
+- No measured Idaho held-out validation that supports broad farmer release yet
+- No calibrated uncertainty or calibrated confidence claim yet
 - No field-polygon OpenET or higher-frequency remote-sensing integration yet
-- No production auth, tenant isolation, or external rate-limit store
-- No production deployment template or managed observability stack
+- No production tenant isolation or external rate-limit store
+- No production deployment template, managed observability stack, or retention/backup policy
 - The browser demo path is still an approximation of the backend path
 
 ## License

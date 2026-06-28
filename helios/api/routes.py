@@ -80,7 +80,6 @@ def _build_prediction_request(payload: PredictionRequestPayload, request_id: str
             _request_log_message(request_id, "prediction weather source selected") if request_id else "prediction weather source selected",
             extra={
                 "request_id": request_id,
-                "field_id": payload.field_id,
                 "weather_source": "caller-supplied",
             },
         )
@@ -98,7 +97,6 @@ def _build_prediction_request(payload: PredictionRequestPayload, request_id: str
             _request_log_message(request_id, "prediction weather source selected") if request_id else "prediction weather source selected",
             extra={
                 "request_id": request_id,
-                "field_id": payload.field_id,
                 "weather_source": "noaa-fetched",
             },
         )
@@ -192,11 +190,10 @@ def predict(
         _request_log_message(request_id, "prediction completed"),
         extra={
             "request_id": request_id,
-            "field_id": hydrated_request.field_id,
-            "farm_id": hydrated_request.farm_id,
             "decision": response.decision,
-            "recommended_amount_in": response.recommended_amount_in,
-            "confidence_score": response.confidence_score,
+            "et_source": response.et_source,
+            "model_hash": response.validation_evidence.model_artifact_hash if response.validation_evidence else None,
+            "validation_mode": "enabled" if getattr(service, "validation_mode", False) else "disabled",
             "latency_ms": latency_ms,
         },
     )
@@ -213,6 +210,7 @@ def predict(
 def log_acknowledgement(
     request: AcknowledgementRequest,
     _: None = Depends(enforce_rate_limit),
+    __: None = Depends(verify_api_key),
 ) -> dict:
     try:
         save_acknowledgement(

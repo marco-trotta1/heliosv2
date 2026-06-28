@@ -88,9 +88,7 @@ function AcknowledgementGate(run) {
   const fieldId = escapeHtml(run.inputSnapshot?.farmId || run.inputSnapshot?.fieldName || "Unknown field");
   const cropType = escapeHtml(run.inputSnapshot?.cropType || "Unknown crop");
   const decision = run.decision === "water" ? "IRRIGATE NOW" : "HOLD IRRIGATION";
-  const moisture48h = typeof run.predicted?.moisture48h === "number"
-    ? `${(run.predicted.moisture48h * 100).toFixed(1)}% VWC`
-    : "—";
+  const reviewStatus = run.operatorReviewRequired ? "OPERATOR REVIEW" : "STANDARD REVIEW";
 
   return `
     <section class="fade-in validation-banner flex flex-col items-stretch gap-5 p-5 sm:p-6">
@@ -104,7 +102,7 @@ function AcknowledgementGate(run) {
         ${contextRow("FIELD", fieldId)}
         ${contextRow("CROP", cropType.toUpperCase())}
         ${contextRow("DECISION", decision)}
-        ${contextRow("48H FORECAST", moisture48h)}
+        ${contextRow("REVIEW", reviewStatus)}
         ${contextRow("WINDOW", escapeHtml(formatWindow(run.timingWindow)).toUpperCase())}
       </div>
       <button
@@ -129,7 +127,7 @@ function ContextPanel(run) {
   const zoneLabel = run.drivingZone ? escapeHtml(String(run.drivingZone).toUpperCase()) : "UNAVAILABLE";
   const spreadLabel = spread == null ? "SINGLE PROBE" : `${(spread * 100).toFixed(1)} PTS`;
   const variabilityHtml = run.highVariabilityFlag
-    ? `<p class="mt-2 text-[12px] leading-5 text-[var(--accent-warm)]">High spatial variability detected across probe readings.</p>`
+    ? `<p class="mt-2 text-[12px] leading-5 text-[var(--accent-warm)]">High spatial variability detected across probe readings. Operator review is required before action.</p>`
     : "";
 
   return `

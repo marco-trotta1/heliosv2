@@ -78,6 +78,7 @@ def build_runtime(settings: Settings) -> AppRuntime:
         runtime.recommendation_service = RecommendationService.from_artifacts(
             model_path=settings.model_path,
             metadata_path=settings.metadata_path,
+            evaluation_artifact_path=settings.evaluation_artifact_path,
             validation_mode=settings.validation_mode,
         )
     except FileNotFoundError:

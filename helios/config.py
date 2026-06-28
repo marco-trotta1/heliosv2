@@ -34,6 +34,7 @@ class Settings:
     database_path: Path
     model_path: Path
     metadata_path: Path
+    evaluation_artifact_path: Path
     cors_allowed_origins: tuple[str, ...]
     rate_limit_window_seconds: int
     rate_limit_max_requests: int
@@ -51,6 +52,9 @@ def get_settings() -> Settings:
         database_path=Path(os.getenv("HELIOS_DATABASE_PATH", "data/helios.db")),
         model_path=Path(os.getenv("HELIOS_MODEL_PATH", "artifacts/moisture_model.pkl")),
         metadata_path=Path(os.getenv("HELIOS_METADATA_PATH", "artifacts/model_metadata.json")),
+        evaluation_artifact_path=Path(
+            os.getenv("HELIOS_EVALUATION_ARTIFACT_PATH", "artifacts/maize_baseline_eval.json")
+        ),
         cors_allowed_origins=_env_csv("HELIOS_CORS_ALLOW_ORIGINS", ("http://localhost", "http://localhost:5173")),
         rate_limit_window_seconds=_env_int("HELIOS_RATE_LIMIT_WINDOW_SECONDS", 60),
         rate_limit_max_requests=_env_int("HELIOS_RATE_LIMIT_MAX_REQUESTS", 60),

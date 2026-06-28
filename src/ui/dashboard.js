@@ -1,5 +1,5 @@
 import { PRESETS } from "../constants.js";
-import { buildDecisionCardData, formatPercent, formatTimestamp, formatWindow, recommendationTone } from "../domain.js";
+import { buildDecisionCardData, confidenceLevelLabel, formatTimestamp, formatWindow, recommendationTone } from "../domain.js";
 import { state } from "../state.js";
 import {
   DecisionCard,
@@ -13,7 +13,7 @@ function dashboardRunItem(run, isLast = false) {
   const isValidation = run.backendSnapshot?.validationMode === true;
   const meta = run.summary
     ? escapeHtml(run.summary).split(".")[0]
-    : `${formatPercent(run.confidenceScore)} conf · ${(run.recommendedAmountIn ?? 0).toFixed(2)} in`;
+    : `${confidenceLevelLabel(run.confidenceScore, run.operatorReviewRequired)} confidence · ${(run.recommendedAmountIn ?? 0).toFixed(2)} in`;
 
   return `
     <div class="fade-in flex items-center justify-between gap-4 px-4 py-3 ${isLast ? "" : "border-b border-dashed border-[var(--hairline)]"}">

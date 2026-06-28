@@ -28,6 +28,25 @@ def test_build_runtime_is_ready_with_fake_model_artifacts(temp_settings_env) -> 
     assert runtime.recommendation_service is not None
 
 
+def test_build_runtime_passes_configured_evaluation_artifact_path(
+    temp_settings_env,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    evaluation_path = temp_settings_env["metadata_path"].parent / "configured-eval.json"
+    monkeypatch.setenv("HELIOS_EVALUATION_ARTIFACT_PATH", str(evaluation_path))
+    get_settings.cache_clear()
+    write_fake_model_artifacts(
+        temp_settings_env["model_path"],
+        temp_settings_env["metadata_path"],
+    )
+
+    runtime = build_runtime(get_settings())
+
+    assert runtime.ready is True
+    assert runtime.recommendation_service is not None
+    assert runtime.recommendation_service.evaluation_artifact_path == evaluation_path
+
+
 def test_build_runtime_fails_when_model_feature_columns_are_missing(temp_settings_env) -> None:
     expected_columns = build_expected_feature_columns()
     write_fake_model_artifacts(

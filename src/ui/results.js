@@ -1,5 +1,5 @@
 import { PAGE_TITLES } from "../constants.js";
-import { formatPercent, formatTimestamp, formatWindow } from "../domain.js";
+import { confidenceLevelLabel, formatTimestamp, formatWindow } from "../domain.js";
 import { state, runtimeConfig } from "../state.js";
 import {
   PrimaryButton,
@@ -11,7 +11,8 @@ import {
 } from "./shared.js";
 
 function runMetaLine(run) {
-  const parts = [`${formatPercent(run.confidenceScore)} CONF`];
+  const confidenceLabel = confidenceLevelLabel(run.confidenceScore, run.operatorReviewRequired).toUpperCase();
+  const parts = [`${confidenceLabel} CONFIDENCE`];
   if (run.decision === "water") {
     parts.push(`${(run.recommendedAmountIn ?? 0).toFixed(2)} IN`);
   } else {
@@ -34,6 +35,9 @@ function evidencePacketSummary(run) {
         <p><span class="font-bold text-[var(--text)]">ET:</span> ${escapeHtml(evidence.etSource || run.etSource || "not recorded")}</p>
         <p><span class="font-bold text-[var(--text)]">Driving zone:</span> ${escapeHtml(evidence.drivingZone || run.drivingZone || "not recorded")}</p>
         <p><span class="font-bold text-[var(--text)]">Variability:</span> ${evidence.highVariabilityFlag ? "high" : "normal"}</p>
+        <p><span class="font-bold text-[var(--text)]">Evaluation:</span> ${escapeHtml(evidence.evaluationVerdict || "unknown")}</p>
+        <p><span class="font-bold text-[var(--text)]">Promotion:</span> ${evidence.promotionAllowed === true ? "allowed" : evidence.promotionAllowed === false ? "blocked" : "unknown"}</p>
+        <p><span class="font-bold text-[var(--text)]">Operator review:</span> ${evidence.operatorReviewRequired ? "required" : "not required"}</p>
       </div>
       ${evidence.confidenceCaveat ? `<p class="mx-auto mt-2 max-w-[620px] text-xs leading-5 text-[var(--text-muted)]">${escapeHtml(evidence.confidenceCaveat)}</p>` : ""}
       ${evidence.fieldTestCaveat ? `<p class="mx-auto mt-1 max-w-[620px] text-xs leading-5 text-[var(--text-muted)]">${escapeHtml(evidence.fieldTestCaveat)}</p>` : ""}
@@ -50,6 +54,9 @@ export function ResultCard(run) {
     : run.etSource === "openet-fallback"
       ? `<span class="num text-[9px] font-extrabold tracking-[0.14em] rounded px-1.5 py-0.5 bg-[var(--panel-muted)] text-[var(--text-muted)] border border-[var(--border)]">OpenET FALLBACK</span>`
       : "";
+  const sourceTag = run.sourceLabel
+    ? `<span class="num text-[9px] font-extrabold tracking-[0.14em] rounded px-1.5 py-0.5 bg-[var(--panel-muted)] text-[var(--text-muted)] border border-[var(--border)]">${escapeHtml(run.sourceLabel).toUpperCase()}</span>`
+    : "";
 
   return `
     <article class="metric-card fade-in rounded-[10px] border border-[var(--metric-border)] ${toneClass} transition-all duration-200 hover:border-[var(--border-strong)]">
@@ -61,6 +68,7 @@ export function ResultCard(run) {
             <span class="num text-[10px] font-bold tracking-[0.1em] text-[var(--text-muted)]">${formatTimestamp(run.timestamp)}</span>
             ${isValidation ? `<span class="num text-[9px] font-extrabold tracking-[0.18em] px-1.5 py-0.5 rounded bg-[var(--accent-warm-soft)] text-[var(--accent-warm)]">VALIDATION</span>` : ""}
             ${etTag}
+            ${sourceTag}
           </div>
           <p class="num mt-1 text-[11px] font-bold tracking-[0.06em] text-[var(--text-muted)]">${runMetaLine(run)}</p>
         </div>

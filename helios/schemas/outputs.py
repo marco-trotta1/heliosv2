@@ -19,6 +19,7 @@ class RecommendationExplanation(BaseModel):
     driving_zone: str
     zone_moisture_summary: dict[str, float]
     high_variability_flag: bool
+    operator_review_required: bool = False
 
 
 class RegionalInsights(BaseModel):
@@ -41,10 +42,14 @@ class ValidationEvidencePacket(BaseModel):
     validation_mode: Literal["enabled", "disabled"]
     model_artifact_hash: str | None = None
     model_training_date: str | None = None
+    evaluation_verdict: str | None = None
+    evaluation_artifact: str | None = None
+    promotion_allowed: bool | None = None
     et_source: str | None = None
     feedback_adjustment_status: str
     driving_zone: str
     high_variability_flag: bool
+    operator_review_required: bool = False
     confidence_caveat: str
     field_test_caveat: str
     preservation_note: str

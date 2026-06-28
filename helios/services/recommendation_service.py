@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import math
 from pathlib import Path
@@ -49,11 +50,13 @@ class RecommendationService:
         model: MoistureForecastModel,
         model_path: Path,
         metadata_path: Path,
+        evaluation_artifact_path: Path = Path("artifacts/maize_baseline_eval.json"),
         validation_mode: bool = False,
     ) -> None:
         self.model = model
         self.model_path = model_path
         self.metadata_path = metadata_path
+        self.evaluation_artifact_path = evaluation_artifact_path
         self.validation_mode = validation_mode
 
     @classmethod
@@ -61,6 +64,7 @@ class RecommendationService:
         cls,
         model_path: Path = Path("artifacts/moisture_model.pkl"),
         metadata_path: Path = Path("artifacts/model_metadata.json"),
+        evaluation_artifact_path: Path = Path("artifacts/maize_baseline_eval.json"),
         validation_mode: bool = False,
     ) -> "RecommendationService":
         model = MoistureForecastModel.load(model_path, metadata_path)
@@ -68,6 +72,7 @@ class RecommendationService:
             model=model,
             model_path=model_path,
             metadata_path=metadata_path,
+            evaluation_artifact_path=evaluation_artifact_path,
             validation_mode=validation_mode,
         )
 
@@ -81,7 +86,6 @@ class RecommendationService:
         logger.info(
             "prediction openet source selected",
             extra={
-                "field_id": request.field_id,
                 "openet_source": openet_source,
             },
         )
@@ -92,6 +96,7 @@ class RecommendationService:
         zone_moisture_summary = self._latest_zone_moisture_summary(request)
         moisture_spread = max(zone_moisture_summary.values()) - min(zone_moisture_summary.values())
         high_variability_flag = moisture_spread > 0.12
+        operator_review_required = high_variability_flag
         features = build_inference_features(raw_frame)
         predicted = self.model.predict(features)
 
@@ -179,6 +184,7 @@ class RecommendationService:
                 driving_zone=primary_sensor_id,
                 zone_moisture_summary=zone_moisture_summary,
                 high_variability_flag=high_variability_flag,
+                operator_review_required=operator_review_required,
             ),
             predicted_moisture=MoistureForecast(**predicted),
             regional_insights=RegionalInsights(**insights_data),
@@ -192,6 +198,7 @@ class RecommendationService:
                 et_source=openet_source,
                 driving_zone=primary_sensor_id,
                 high_variability_flag=high_variability_flag,
+                operator_review_required=operator_review_required,
                 adjustment_factor=adjustment_data["adjustment_factor"],
             ),
         )
@@ -217,9 +224,11 @@ class RecommendationService:
         et_source: str | None,
         driving_zone: str,
         high_variability_flag: bool,
+        operator_review_required: bool,
         adjustment_factor: float,
     ) -> ValidationEvidencePacket:
         metadata = self.model.metadata
+        evaluation = self._latest_evaluation_summary()
         if self.validation_mode:
             feedback_status = "Validation mode: feedback adjustments disabled"
             preservation_note = (
@@ -240,11 +249,39 @@ class RecommendationService:
             validation_mode="enabled" if self.validation_mode else "disabled",
             model_artifact_hash=metadata.get("model_hash") or metadata.get("model_artifact_hash"),
             model_training_date=metadata.get("training_date") or metadata.get("trained_at"),
+            evaluation_verdict=evaluation["verdict"],
+            evaluation_artifact=evaluation["artifact"],
+            promotion_allowed=evaluation["promotion_allowed"],
             et_source=et_source,
             feedback_adjustment_status=feedback_status,
             driving_zone=driving_zone,
             high_variability_flag=high_variability_flag,
+            operator_review_required=operator_review_required,
             confidence_caveat=CONFIDENCE_CAVEAT,
             field_test_caveat=FIELD_TEST_CAVEAT,
             preservation_note=preservation_note,
         )
+
+    def _latest_evaluation_summary(self) -> dict[str, str | bool | None]:
+        if not self.evaluation_artifact_path.exists():
+            return {
+                "verdict": None,
+                "artifact": None,
+                "promotion_allowed": None,
+            }
+        try:
+            evaluation = json.loads(self.evaluation_artifact_path.read_text())
+        except Exception:
+            logger.exception("Failed to read evaluation artifact", extra={"artifact": str(self.evaluation_artifact_path)})
+            return {
+                "verdict": None,
+                "artifact": str(self.evaluation_artifact_path),
+                "promotion_allowed": None,
+            }
+
+        verdict = evaluation.get("verdict")
+        return {
+            "verdict": verdict if isinstance(verdict, str) else None,
+            "artifact": str(self.evaluation_artifact_path),
+            "promotion_allowed": verdict == "CANDIDATE_PASS",
+        }
